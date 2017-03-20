@@ -26,5 +26,7 @@ producer_free(Producer *p)
 void
 producer_produce(Producer p, Message msg)
 {
+    if (p == NULL)
+        return;
     p->produce(p, msg);
 }

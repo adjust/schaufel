@@ -16,6 +16,8 @@ message_init(void)
 void *
 message_get_data(Message message)
 {
+    if (message == NULL)
+        return NULL;
     return message->data;
 }
 
