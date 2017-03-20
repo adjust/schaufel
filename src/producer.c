@@ -1,13 +1,16 @@
 #include <producer.h>
 
 Producer
-producer_init(char kind)
+producer_init(char kind, void *opt)
 {
     Producer p;
     switch (kind)
     {
         case 'd':
             p = dummy_producer_init();
+            break;
+        case 'f':
+            p = file_producer_init((char *)opt);
             break;
         default:
             return NULL;

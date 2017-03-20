@@ -12,7 +12,7 @@ typedef struct Producer {
     void *meta;
 } *Producer;
 
-Producer producer_init(char kind);
+Producer producer_init(char kind, void *opt);
 
 void producer_free(Producer *p);
 
