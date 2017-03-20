@@ -14,9 +14,15 @@ message_init(void)
 }
 
 void *
-message_data(Message message)
+message_get_data(Message message)
 {
     return message->data;
+}
+
+void
+message_set_data(Message message, void *data)
+{
+    message->data = data;
 }
 
 void
