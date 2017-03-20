@@ -10,15 +10,16 @@
 typedef struct Message *Message;
 
 Message message_init();
-void * message_data(Message msg);
-void message_free(Message *msg);
+void   *message_get_data(Message msg);
+void    message_set_data(Message msg, void *data);
+void    message_free(Message *msg);
 
 typedef struct Queue *Queue;
 
 Queue queue_init();
-int queue_add(Queue queue, void *data, long msgtype);
-int queue_get(Queue queue, Message msg);
+int  queue_add(Queue queue, void *data, long msgtype);
+int  queue_get(Queue queue, Message msg);
 long queue_length(Queue queue);
-int queue_free(Queue *queue);
+int  queue_free(Queue *queue);
 
 #endif
