@@ -21,3 +21,27 @@ dummy_producer_free(Producer *p)
     free(*p);
     *p = NULL;
 }
+
+Consumer
+dummy_consumer_init()
+{
+    Consumer dummy = calloc(1, sizeof(*dummy));
+    dummy->consumer_free = dummy_consumer_free;
+    dummy->consume       = dummy_consumer_consume;
+    return dummy;
+}
+
+void
+dummy_consumer_consume(Consumer c, Message msg)
+{
+    char *dummy_string = calloc(17, sizeof(*dummy_string));
+    snprintf(dummy_string, 17, "{\"type\":\"dummy\"}");
+    message_set_data(msg, dummy_string);
+}
+
+void
+dummy_consumer_free(Consumer *c)
+{
+    free(*c);
+    *c = NULL;
+}
