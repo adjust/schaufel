@@ -17,9 +17,9 @@ void    message_free(Message *msg);
 typedef struct Queue *Queue;
 
 Queue queue_init();
-int  queue_add(Queue queue, void *data, long msgtype);
-int  queue_get(Queue queue, Message msg);
-long queue_length(Queue queue);
-int  queue_free(Queue *queue);
+int  queue_add(Queue q, void *data, long msgtype);
+int  queue_get(Queue q, Message msg);
+long queue_length(Queue q);
+int  queue_free(Queue *q);
 
 #endif

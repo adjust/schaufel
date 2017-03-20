@@ -9,29 +9,29 @@ typedef struct Message
 Message
 message_init(void)
 {
-    Message message = calloc(1, sizeof(*message));
-    return message;
+    Message msg = calloc(1, sizeof(*msg));
+    return msg;
 }
 
 void *
-message_get_data(Message message)
+message_get_data(Message msg)
 {
-    if (message == NULL)
+    if (msg == NULL)
         return NULL;
-    return message->data;
+    return msg->data;
 }
 
 void
-message_set_data(Message message, void *data)
+message_set_data(Message msg, void *data)
 {
-    message->data = data;
+    msg->data = data;
 }
 
 void
-message_free(Message *message)
+message_free(Message *msg)
 {
-    free(*message);
-    *message = NULL;
+    free(*msg);
+    *msg = NULL;
 }
 
 typedef struct MessageList *MessageList;
@@ -70,29 +70,29 @@ typedef struct Queue
 Queue
 queue_init(void)
 {
-    Queue queue = calloc(1, sizeof(*queue));
+    Queue q = calloc(1, sizeof(*q));
 
-    if (pthread_cond_init(&queue->cond, NULL) != 0)
+    if (pthread_cond_init(&q->cond, NULL) != 0)
         return NULL;
 
-    if (pthread_mutex_init(&queue->mutex, NULL) != 0)
+    if (pthread_mutex_init(&q->mutex, NULL) != 0)
     {
-        pthread_cond_destroy(&queue->cond);
+        pthread_cond_destroy(&q->cond);
         return NULL;
     }
 
-    return queue;
+    return q;
 }
 
 int
-queue_add(Queue queue, void *data, int64_t msgtype)
+queue_add(Queue q, void *data, int64_t msgtype)
 {
     MessageList newmsg;
-    pthread_mutex_lock(&queue->mutex);
+    pthread_mutex_lock(&q->mutex);
     newmsg = message_list_init();
     if (newmsg == NULL)
     {
-        pthread_mutex_unlock(&queue->mutex);
+        pthread_mutex_unlock(&q->mutex);
         return ENOMEM;
     }
 
@@ -100,71 +100,71 @@ queue_add(Queue queue, void *data, int64_t msgtype)
     newmsg->msg->msgtype = msgtype;
 
     newmsg->next = NULL;
-    if (queue->last == NULL)
+    if (q->last == NULL)
     {
-        queue->last = newmsg;
-        queue->first = newmsg;
+        q->last = newmsg;
+        q->first = newmsg;
     }
     else
     {
-        queue->last->next = newmsg;
-        queue->last = newmsg;
+        q->last->next = newmsg;
+        q->last = newmsg;
     }
 
-    if(queue->length == 0)
-        pthread_cond_broadcast(&queue->cond);
+    if(q->length == 0)
+        pthread_cond_broadcast(&q->cond);
 
-    queue->length++;
-    pthread_mutex_unlock(&queue->mutex);
+    q->length++;
+    pthread_mutex_unlock(&q->mutex);
 
     return 0;
 }
 
 int
-queue_get(Queue queue, Message msg)
+queue_get(Queue q, Message msg)
 {
     MessageList firstrec;
 
-    if (queue == NULL || msg == NULL)
+    if (q == NULL || msg == NULL)
         return EINVAL;
 
-    pthread_mutex_lock(&queue->mutex);
+    pthread_mutex_lock(&q->mutex);
 
-    while (queue->first == NULL)
-        pthread_cond_wait(&queue->cond, &queue->mutex);
+    while (q->first == NULL)
+        pthread_cond_wait(&q->cond, &q->mutex);
 
-    firstrec = queue->first;
-    queue->first = queue->first->next;
-    queue->length--;
+    firstrec = q->first;
+    q->first = q->first->next;
+    q->length--;
 
-    if (queue->first == NULL)
+    if (q->first == NULL)
     {
-        queue->last = NULL;
-        queue->length = 0;
+        q->last = NULL;
+        q->length = 0;
     }
 
     msg->data = firstrec->msg->data;
     msg->msgtype = firstrec->msg->msgtype;
 
     message_list_free(&firstrec);
-    pthread_mutex_unlock(&queue->mutex);
+    pthread_mutex_unlock(&q->mutex);
 
     return 0;
 }
 
 int
-queue_free(Queue *queue)
+queue_free(Queue *q)
 {
     MessageList rec;
     MessageList next;
     int ret;
-    if (*queue == NULL)
+    if (*q == NULL)
     {
         return EINVAL;
     }
 
-    pthread_mutex_lock(&(*queue)->mutex);
-    rec =  (*queue)->first;
+    pthread_mutex_lock(&(*q)->mutex);
+    rec =  (*q)->first;
     while (rec)
     {
         next = rec->next;
@@ -173,20 +173,20 @@ queue_free(Queue *queue)
         rec = next;
     }
 
-    pthread_mutex_unlock(&(*queue)->mutex);
-    ret = pthread_mutex_destroy(&(*queue)->mutex);
-    pthread_cond_destroy(&(*queue)->cond);
-    free(*queue);
-    *queue = NULL;
+    pthread_mutex_unlock(&(*q)->mutex);
+    ret = pthread_mutex_destroy(&(*q)->mutex);
+    pthread_cond_destroy(&(*q)->cond);
+    free(*q);
+    *q = NULL;
     return ret;
 }
 
 long
-queue_length(Queue queue)
+queue_length(Queue q)
 {
     int64_t counter;
-    pthread_mutex_lock(&queue->mutex);
-    counter = queue->length;
-    pthread_mutex_unlock(&queue->mutex);
+    pthread_mutex_lock(&q->mutex);
+    counter = q->length;
+    pthread_mutex_unlock(&q->mutex);
     return counter;
 }
