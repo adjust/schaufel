@@ -4,10 +4,10 @@ Producer
 producer_init(char kind)
 {
     Producer p;
-    switch(kind)
+    switch (kind)
     {
         case 'd':
-            p = dummy_init();
+            p = dummy_producer_init();
             break;
         default:
             return NULL;
@@ -26,5 +26,7 @@ producer_free(Producer *p)
 void
 producer_produce(Producer p, Message msg)
 {
+    if (p == NULL)
+        return;
     p->produce(p, msg);
 }

@@ -1,0 +1,21 @@
+#ifndef _SCHAUFEL_CONSUMER_H_
+#define _SCHAUFEL_CONSUMER_H_
+
+#include <dummy.h>
+#include <queue.h>
+
+typedef struct Consumer *Consumer;
+
+typedef struct Consumer{
+    void (*consume) (Consumer c, Message msg);
+    void (*consumer_free) (Consumer *c);
+    void *meta;
+}*Consumer;
+
+Consumer consumer_init(char kind);
+
+void consumer_free(Consumer *c);
+
+void consumer_consume(Consumer c, Message msg);
+
+#endif
