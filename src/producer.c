@@ -4,10 +4,10 @@ Producer
 producer_init(char kind)
 {
     Producer p;
-    switch(kind)
+    switch (kind)
     {
         case 'd':
-            p = dummy_init();
+            p = dummy_producer_init();
             break;
         default:
             return NULL;
