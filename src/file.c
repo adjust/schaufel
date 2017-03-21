@@ -10,28 +10,28 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-meta_init(char *fname, char *options)
+file_meta_init(char *fname, char *options)
 {
     Meta m = calloc(1, sizeof(*m));
     if (m == NULL)
     {
-        logger_log("%s %s: allocate failed", __FILE__, __LINE__);
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
         abort();
     }
     m->fp = fopen(fname, options);
     if (m->fp == NULL)
     {
-        logger_log("%s %s: %s", __FILE__, __LINE__, strerror(errno));
+        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
         abort();
     }
     return m;
 }
 
 void
-meta_free(Meta *m)
+file_meta_free(Meta *m)
 {
     if ( fclose((*m)->fp) != 0)
-        logger_log("%s %s: %s", __FILE__, __LINE__, strerror(errno));
+        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
     free(*m);
     *m = NULL;
 }
@@ -41,9 +41,9 @@ file_producer_init(char *fname)
 {
     Producer file = calloc(1, sizeof(*file));
     if (file == NULL)
-        logger_log("%s %s: allocate failed", __FILE__, __LINE__);
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
-    file->meta          = meta_init(fname, "a");
+    file->meta          = file_meta_init(fname, "a");
     file->producer_free = file_producer_free;
     file->produce       = file_producer_produce;
 
@@ -63,7 +63,7 @@ void
 file_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
-    meta_free(&m);
+    file_meta_free(&m);
     free(*p);
     *p = NULL;
 }
@@ -73,9 +73,9 @@ file_consumer_init(char *fname)
 {
     Consumer file = calloc(1, sizeof(*file));
     if (file == NULL)
-        logger_log("%s %s: allocate failed", __FILE__, __LINE__);
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
-    file->meta          = meta_init(fname, "r");
+    file->meta          = file_meta_init(fname, "r");
     file->consumer_free = file_consumer_free;
     file->consume       = file_consumer_consume;
 
@@ -88,7 +88,7 @@ file_consumer_consume(Consumer c, Message msg)
     char *line = NULL;
     size_t read = 0;
     if (getline(&line, &read, ((Meta) c->meta)->fp) == -1)
-        logger_log("%s %s: %s", __FILE__, __LINE__, strerror(errno));
+        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
     message_set_data(msg, line);
 }
 
@@ -96,7 +96,7 @@ void
 file_consumer_free(Consumer *c)
 {
     Meta m = (Meta) ((*c)->meta);
-    meta_free(&m);
+    file_meta_free(&m);
     free(*c);
     *c = NULL;
 }
