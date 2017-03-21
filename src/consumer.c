@@ -1,13 +1,16 @@
 #include <consumer.h>
 
 Consumer
-consumer_init(char kind)
+consumer_init(char kind, void *opt)
 {
     Consumer c;
     switch (kind)
     {
         case 'd':
             c = dummy_consumer_init();
+            break;
+        case 'f':
+            c = file_consumer_init((char *)opt);
             break;
         default:
             return NULL;

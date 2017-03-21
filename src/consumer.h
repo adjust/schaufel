@@ -2,6 +2,7 @@
 #define _SCHAUFEL_CONSUMER_H_
 
 #include <dummy.h>
+#include <file.h>
 #include <queue.h>
 
 typedef struct Consumer *Consumer;
@@ -12,7 +13,7 @@ typedef struct Consumer{
     void *meta;
 }*Consumer;
 
-Consumer consumer_init(char kind);
+Consumer consumer_init(char kind, void *opt);
 
 void consumer_free(Consumer *c);
 

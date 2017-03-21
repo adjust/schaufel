@@ -15,8 +15,6 @@ void dummy_producer_free(Producer *p);
 
 void dummy_producer_produce(Producer p, Message msg);
 
-void dummy_producer_free(Producer *p);
-
 typedef struct Consumer *Consumer;
 
 Consumer dummy_consumer_init();
@@ -24,7 +22,5 @@ Consumer dummy_consumer_init();
 void dummy_consumer_free(Consumer *c);
 
 void dummy_consumer_consume(Consumer c, Message msg);
-
-void dummy_consumer_free(Consumer *c);
 
 #endif
