@@ -1,7 +1,7 @@
 CC = gcc
 LD = gcc
 CFLAGS = -Wall -std=gnu11
-LIB = -lpthread -lhiredis
+LIB = -lpthread -lhiredis -lrdkafka
 INC = -Isrc/
 
 CFLAGS_DEBUG = $(CFLAGS) -g

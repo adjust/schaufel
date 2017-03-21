@@ -3,6 +3,7 @@
 
 #include <dummy.h>
 #include <file.h>
+#include <kafka.h>
 #include <queue.h>
 #include <redis.h>
 

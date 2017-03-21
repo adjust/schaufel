@@ -15,6 +15,9 @@ producer_init(char kind, void *opt)
         case 'r':
             p = redis_producer_init("127.0.0.1", 6379);
             break;
+        case 'k':
+            p = kafka_producer_init("127.0.0.1:9092");
+            break;
         default:
             return NULL;
     }
