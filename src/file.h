@@ -2,13 +2,14 @@
 #define _SCHAUFEL_FILE_H_
 
 #include <consumer.h>
+#include <producer.h>
 #include <queue.h>
 #include <stdlib.h>
 #include <utils/logger.h>
 
 typedef struct Producer *Producer;
 
-Producer file_producer_init();
+Producer file_producer_init(char *fname);
 
 void file_producer_free(Producer *p);
 

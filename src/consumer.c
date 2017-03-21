@@ -12,6 +12,9 @@ consumer_init(char kind, void *opt)
         case 'f':
             c = file_consumer_init((char *)opt);
             break;
+        case 'r':
+            c = redis_consumer_init("127.0.0.1", 6379);
+            break;
         default:
             return NULL;
     }
