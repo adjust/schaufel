@@ -1,7 +1,7 @@
 CC = gcc
 LD = gcc
 CFLAGS = -Wall -std=gnu11
-LIB = -lpthread
+LIB = -lpthread -lhiredis
 INC = -Isrc/
 
 CFLAGS_DEBUG = $(CFLAGS) -g

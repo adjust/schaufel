@@ -12,6 +12,9 @@ producer_init(char kind, void *opt)
         case 'f':
             p = file_producer_init((char *)opt);
             break;
+        case 'r':
+            p = redis_producer_init("127.0.0.1", 6379);
+            break;
         default:
             return NULL;
     }
