@@ -15,6 +15,9 @@ consumer_init(char kind, void *opt)
         case 'r':
             c = redis_consumer_init("127.0.0.1", 6379);
             break;
+        case 'k':
+            c = kafka_consumer_init("127.0.0.1:9092");
+            break;
         default:
             return NULL;
     }
