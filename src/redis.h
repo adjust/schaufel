@@ -9,7 +9,7 @@
 
 typedef struct Producer *Producer;
 
-Producer redis_producer_init(char *hostname, int port);
+Producer redis_producer_init(char *hostname, int port, char *topic);
 
 void redis_producer_free(Producer *p);
 
@@ -17,7 +17,7 @@ void redis_producer_produce(Producer p, Message msg);
 
 typedef struct Consumer *Consumer;
 
-Consumer redis_consumer_init(char *hostname, int port);
+Consumer redis_consumer_init(char *hostname, int port, char *topic);
 
 void redis_consumer_free(Consumer *c);
 

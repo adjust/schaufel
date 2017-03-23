@@ -10,7 +10,7 @@
 
 typedef struct Producer *Producer;
 
-Producer kafka_producer_init(char *broker);
+Producer kafka_producer_init(char *broker, char *topic);
 
 void kafka_producer_free(Producer *p);
 
@@ -18,7 +18,7 @@ void kafka_producer_produce(Producer p, Message msg);
 
 typedef struct Consumer *Consumer;
 
-Consumer kafka_consumer_init(char *broker);
+Consumer kafka_consumer_init(char *broker, char *topic, char *groupid);
 
 void kafka_consumer_free(Consumer *c);
 

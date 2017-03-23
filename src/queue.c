@@ -60,6 +60,7 @@ message_list_free(MessageList *msglist)
 
 typedef struct Queue
 {
+    struct timespec timeout;
     int64_t length;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
@@ -80,6 +81,9 @@ queue_init(void)
         pthread_cond_destroy(&q->cond);
         return NULL;
     }
+
+    q->timeout.tv_sec = 10;
+    q->timeout.tv_nsec = 0;
 
     return q;
 }
@@ -124,14 +128,34 @@ int
 queue_get(Queue q, Message msg)
 {
     MessageList firstrec;
-
+    int ret = 0;
     if (q == NULL || msg == NULL)
         return EINVAL;
 
     pthread_mutex_lock(&q->mutex);
 
-    while (q->first == NULL)
-        pthread_cond_wait(&q->cond, &q->mutex);
+    struct timeval now;
+    gettimeofday(&now, NULL);
+
+    struct timespec abstimeout;
+    abstimeout.tv_sec  = now.tv_sec + q->timeout.tv_sec;
+    abstimeout.tv_nsec = (now.tv_usec*1000) + q->timeout.tv_nsec;
+    if (abstimeout.tv_nsec >= 1000000000)
+    {
+        abstimeout.tv_sec++;
+        abstimeout.tv_nsec -= 1000000000;
+    }
+
+    while (q->first == NULL && ret != ETIMEDOUT)
+    {
+        ret = pthread_cond_timedwait(&q->cond, &q->mutex, &abstimeout);
+    }
+
+    if (ret == ETIMEDOUT)
+    {
+        pthread_mutex_unlock(&q->mutex);
+        return ret;
+    }
 
     firstrec = q->first;
     q->first = q->first->next;

@@ -3,10 +3,11 @@
 typedef struct Meta {
     redisContext *c;
     redisReply   *reply;
+    char         *topic;
 } *Meta;
 
 Meta
-redis_meta_init(char *hostname, int port)
+redis_meta_init(char *hostname, int port, char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
     if (m == NULL)
@@ -32,6 +33,7 @@ redis_meta_init(char *hostname, int port)
         }
     }
 
+    m->topic = topic;
     return m;
 }
 
@@ -44,11 +46,11 @@ redis_meta_free(Meta *m)
 }
 
 Producer
-redis_producer_init(char *hostname, int port)
+redis_producer_init(char *hostname, int port, char *topic)
 {
     Producer redis = calloc(1, sizeof(*redis));
 
-    redis->meta          = redis_meta_init(hostname, port);
+    redis->meta          = redis_meta_init(hostname, port, topic);
     redis->producer_free = redis_producer_free;
     redis->produce       = redis_producer_produce;
 
@@ -58,8 +60,9 @@ redis_producer_init(char *hostname, int port)
 void
 redis_producer_produce(Producer p, Message msg)
 {
-    ((Meta)p->meta)->reply = redisCommand(((Meta)p->meta)->c, "LPUSH testlist %s",(char *) message_get_data(msg));
-    freeReplyObject(((Meta)p->meta)->reply);
+    Meta m = (Meta)p->meta;
+    m->reply = redisCommand(m->c, "LPUSH %s %s",m->topic, (char *) message_get_data(msg));
+    freeReplyObject(m->reply);
 }
 
 void
@@ -72,11 +75,11 @@ redis_producer_free(Producer *p)
 }
 
 Consumer
-redis_consumer_init(char *hostname, int port)
+redis_consumer_init(char *hostname, int port, char *topic)
 {
     Consumer redis = calloc(1, sizeof(*redis));
 
-    redis->meta          = redis_meta_init(hostname, port);
+    redis->meta          = redis_meta_init(hostname, port, topic);
     redis->consumer_free = redis_consumer_free;
     redis->consume       = redis_consumer_consume;
 
@@ -86,12 +89,12 @@ redis_consumer_init(char *hostname, int port)
 void
 redis_consumer_consume(Consumer c, Message msg)
 {
-    ((Meta)c->meta)->reply = redisCommand(((Meta)c->meta)->c, "LPOP testlist");
-    int len = strlen(((Meta)c->meta)->reply->str);
-    char *result = calloc(len + 1, sizeof(*result));
-    strncpy(result, ((Meta)c->meta)->reply->str, len);
+    Meta m = (Meta)c->meta;
+    m->reply = redisCommand(m->c, "BLPOP %s", m->topic);
+    char *result = calloc(m->reply->len + 1, sizeof(*result));
+    strncpy(result, m->reply->str, m->reply->len);
     message_set_data(msg, result);
-    freeReplyObject(((Meta)c->meta)->reply);
+    freeReplyObject(m->reply);
 }
 
 void

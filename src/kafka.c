@@ -53,7 +53,7 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-kafka_producer_meta_init(char *broker)
+kafka_producer_meta_init(char *broker, char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
     char errstr[512];
@@ -77,7 +77,7 @@ kafka_producer_meta_init(char *broker)
         abort();
     }
 
-    rkt = rd_kafka_topic_new(rk, "test", NULL);
+    rkt = rd_kafka_topic_new(rk, topic, NULL);
 
     if (!rkt)
     {
@@ -95,7 +95,7 @@ kafka_producer_meta_init(char *broker)
 }
 
 Meta
-kafka_consumer_meta_init(char *broker)
+kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
 {
     Meta m = calloc(1, sizeof(*m));
     rd_kafka_resp_err_t err;
@@ -107,7 +107,7 @@ kafka_consumer_meta_init(char *broker)
 
     conf = rd_kafka_conf_new();
 
-    if (rd_kafka_conf_set(conf, "group.id", "testinggroup2", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    if (rd_kafka_conf_set(conf, "group.id", groupid, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
         logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
         abort();
@@ -152,7 +152,7 @@ kafka_consumer_meta_init(char *broker)
     }
 
 
-    rkt = rd_kafka_topic_new(rk, "test", NULL);
+    rkt = rd_kafka_topic_new(rk, topic, NULL);
     if (!rkt)
     {
         logger_log("%s %d: Failed to create topic object: %s\n", __FILE__, __LINE__, rd_kafka_err2str(rd_kafka_last_error()));
@@ -203,11 +203,11 @@ kafka_consumer_meta_free(Meta *m)
 
 
 Producer
-kafka_producer_init(char *broker)
+kafka_producer_init(char *broker, char *topic)
 {
     Producer kafka = calloc(1, sizeof(*kafka));
 
-    kafka->meta          = kafka_producer_meta_init(broker);
+    kafka->meta          = kafka_producer_meta_init(broker, topic);
     kafka->producer_free = kafka_producer_free;
     kafka->produce       = kafka_producer_produce;
 
@@ -258,11 +258,11 @@ kafka_producer_free(Producer *p)
 }
 
 Consumer
-kafka_consumer_init(char *broker)
+kafka_consumer_init(char *broker, char *topic, char *groupid)
 {
     Consumer kafka = calloc(1, sizeof(*kafka));
 
-    kafka->meta          = kafka_consumer_meta_init(broker);
+    kafka->meta          = kafka_consumer_meta_init(broker, topic, groupid);
     kafka->consumer_free = kafka_consumer_free;
     kafka->consume       = kafka_consumer_consume;
 
@@ -308,13 +308,13 @@ kafka_consumer_consume(Consumer c, Message msg)
                     abort();
                 return;
             }
-
+            /*
             logger_log("Message (topic %s [%"PRId32"], "
                 "offset %"PRId64", %zd bytes):\n",
                 rd_kafka_topic_name(rkmessage->rkt),
                 rkmessage->partition,
                 rkmessage->offset, rkmessage->len);
-
+            */
             char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
             strncpy(cpy, (char *)rkmessage->payload, (int)rkmessage->len);
             message_set_data(msg, cpy);

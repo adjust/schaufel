@@ -10,13 +10,13 @@ producer_init(char kind, void *opt)
             p = dummy_producer_init();
             break;
         case 'f':
-            p = file_producer_init((char *)opt);
+            p = file_producer_init(((Options *)opt)->out_file);
             break;
         case 'r':
-            p = redis_producer_init("127.0.0.1", 6379);
+            p = redis_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_port, ((Options *)opt)->out_topic);
             break;
         case 'k':
-            p = kafka_producer_init("127.0.0.1:9092");
+            p = kafka_producer_init(((Options *)opt)->out_broker, ((Options *)opt)->out_topic);
             break;
         default:
             return NULL;

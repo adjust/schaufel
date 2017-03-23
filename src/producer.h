@@ -6,6 +6,7 @@
 #include <kafka.h>
 #include <queue.h>
 #include <redis.h>
+#include <schaufel.h>
 
 typedef struct Producer *Producer;
 

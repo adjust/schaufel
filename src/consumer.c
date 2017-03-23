@@ -10,13 +10,13 @@ consumer_init(char kind, void *opt)
             c = dummy_consumer_init();
             break;
         case 'f':
-            c = file_consumer_init((char *)opt);
+            c = file_consumer_init(((Options *)opt)->in_file);
             break;
         case 'r':
-            c = redis_consumer_init("127.0.0.1", 6379);
+            c = redis_consumer_init(((Options *)opt)->in_host, ((Options *)opt)->in_port, ((Options *)opt)->in_topic);
             break;
         case 'k':
-            c = kafka_consumer_init("127.0.0.1:9092");
+            c = kafka_consumer_init(((Options *)opt)->in_broker, ((Options *)opt)->in_topic, ((Options *)opt)->in_groupid);
             break;
         default:
             return NULL;
