@@ -88,7 +88,7 @@ file_consumer_consume(Consumer c, Message msg)
     char   *line = NULL;
     size_t  bufsize = 0;
     ssize_t read;
-    if ((read = getline(&line, &bufsize, ((Meta) c->meta)->fp) == -1))
+    if ((read = getline(&line, &bufsize, ((Meta) c->meta)->fp)) == -1)
         logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
     line[read] = '\0';
     message_set_data(msg, line);
