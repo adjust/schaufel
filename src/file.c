@@ -93,7 +93,7 @@ file_consumer_consume(Consumer c, Message msg)
         logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
         return -1;
     }
-    line[read] = '\0';
+    line[read-1] = '\0';
     message_set_data(msg, line);
     return 0;
 }
