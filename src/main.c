@@ -19,7 +19,24 @@ stop(int sig)
 void
 print_usage()
 {
-    printf("lala\n");
+    printf("usage\n"
+           "-i      : input  (consumer)\n"
+           "-o      : output (producer)\n"
+           "                k : kafka\n"
+           "                d : dummy\n"
+           "                r : redis\n"
+           "                f : file\n"
+           "-c      : consumer_threads\n"
+           "-p      : producer_threads\n"
+           "-b | -B : consumer / producer broker (only kafka)\n"
+           "-g | -G : consumer / producer groupid (only kafka)\n"
+           "-h | -H : consumer / producer host (only redis)\n"
+           "-q | -Q : consumer / producer port (only redis)\n"
+           "-t | -T : consumer / producer topic\n"
+           "                (used as list name for redis)\n"
+           "                (used as topic name for kafka)\n"
+           "-f | -F : consumer / producer filename (only file)\n"
+           "\n");
     exit(1);
 }
 
