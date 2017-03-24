@@ -63,7 +63,8 @@ typedef struct Queue
     struct timespec timeout;
     int64_t length;
     pthread_mutex_t mutex;
-    pthread_cond_t cond;
+    pthread_cond_t producer_cond;
+    pthread_cond_t consumer_cond;
     MessageList first;
     MessageList last;
 } *Queue;
@@ -73,12 +74,19 @@ queue_init(void)
 {
     Queue q = calloc(1, sizeof(*q));
 
-    if (pthread_cond_init(&q->cond, NULL) != 0)
+    if (pthread_cond_init(&q->producer_cond, NULL) != 0)
         return NULL;
+
+    if (pthread_cond_init(&q->consumer_cond, NULL) != 0)
+    {
+        pthread_cond_destroy(&q->producer_cond);
+        return NULL;
+    }
 
     if (pthread_mutex_init(&q->mutex, NULL) != 0)
     {
-        pthread_cond_destroy(&q->cond);
+        pthread_cond_destroy(&q->producer_cond);
+        pthread_cond_destroy(&q->consumer_cond);
         return NULL;
     }
 
@@ -93,6 +101,12 @@ queue_add(Queue q, void *data, int64_t msgtype)
 {
     MessageList newmsg;
     pthread_mutex_lock(&q->mutex);
+
+    while (q->length > MAX_QUEUE_SIZE)
+    {
+        pthread_cond_wait(&q->consumer_cond, &q->mutex);
+    }
+
     newmsg = message_list_init();
     if (newmsg == NULL)
     {
@@ -116,7 +130,7 @@ queue_add(Queue q, void *data, int64_t msgtype)
     }
 
     if(q->length == 0)
-        pthread_cond_broadcast(&q->cond);
+        pthread_cond_broadcast(&q->producer_cond);
 
     q->length++;
     pthread_mutex_unlock(&q->mutex);
@@ -148,7 +162,7 @@ queue_get(Queue q, Message msg)
 
     while (q->first == NULL && ret != ETIMEDOUT)
     {
-        ret = pthread_cond_timedwait(&q->cond, &q->mutex, &abstimeout);
+        ret = pthread_cond_timedwait(&q->producer_cond, &q->mutex, &abstimeout);
     }
 
     if (ret == ETIMEDOUT)
@@ -170,6 +184,7 @@ queue_get(Queue q, Message msg)
     msg->data = firstrec->msg->data;
     msg->msgtype = firstrec->msg->msgtype;
 
+    pthread_cond_broadcast(&q->consumer_cond);
     message_list_free(&firstrec);
     pthread_mutex_unlock(&q->mutex);
 
@@ -199,7 +214,8 @@ queue_free(Queue *q)
 
     pthread_mutex_unlock(&(*q)->mutex);
     ret = pthread_mutex_destroy(&(*q)->mutex);
-    pthread_cond_destroy(&(*q)->cond);
+    pthread_cond_destroy(&(*q)->producer_cond);
+    pthread_cond_destroy(&(*q)->consumer_cond);
     free(*q);
     *q = NULL;
     return ret;

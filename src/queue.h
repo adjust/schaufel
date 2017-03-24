@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#define MAX_QUEUE_SIZE 100000
+
 typedef struct Message *Message;
 
 Message message_init();
