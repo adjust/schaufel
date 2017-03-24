@@ -6,7 +6,8 @@
 #include <producer.h>
 #include <schaufel.h>
 
-int run = 1;
+int run   = 1;
+int ready = 0;
 Queue q;
 
 static void
@@ -50,6 +51,12 @@ consume(void *arg)
         logger_log("%s %d: could not init consumer", __FILE__, __LINE__);
         return NULL;
     }
+
+    logger_log("waiting for producer to come up");
+    while (!ready)
+        sleep(1);
+    logger_log("producer are up");
+
     while(run)
     {
         if ( consumer_consume(c, msg) == -1)
@@ -72,12 +79,17 @@ produce(void *arg)
         logger_log("%s %d: could not init producer", __FILE__, __LINE__);
         return NULL;
     }
+
+    // at least on producer ready
+    ready = 1;
+
     int ret = 0;
     while(42)
     {
         if (!run && ret == ETIMEDOUT)
             break;
         ret = queue_get(q, msg);
+
         if (ret == ETIMEDOUT)
             continue;
         producer_produce(p, msg);
