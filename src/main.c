@@ -62,10 +62,15 @@ consume(void *arg)
         if ( consumer_consume(c, msg) == -1)
             return NULL;
         if (message_get_data(msg) != NULL)
+        {
             queue_add(q, message_get_data(msg), 1);
+            //give up ownership
+            message_set_data(msg, NULL);
+        }
     }
     message_free(&msg);
     consumer_free(&c);
+    run = 0;
     return NULL;
 }
 
@@ -92,8 +97,15 @@ produce(void *arg)
 
         if (ret == ETIMEDOUT)
             continue;
-        producer_produce(p, msg);
-        free(message_get_data(msg));
+
+        if (message_get_data(msg) != NULL)
+        {
+            //TODO: check success
+            producer_produce(p, msg);
+            //message was handled: free it
+            free(message_get_data(msg));
+            message_set_data(msg, NULL);
+        }
     }
     message_free(&msg);
     producer_free(&p);
