@@ -21,6 +21,6 @@ Consumer dummy_consumer_init();
 
 void dummy_consumer_free(Consumer *c);
 
-void dummy_consumer_consume(Consumer c, Message msg);
+int dummy_consumer_consume(Consumer c, Message msg);
 
 #endif

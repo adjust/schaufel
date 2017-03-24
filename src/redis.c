@@ -86,15 +86,19 @@ redis_consumer_init(char *hostname, int port, char *topic)
     return redis;
 }
 
-void
+int
 redis_consumer_consume(Consumer c, Message msg)
 {
     Meta m = (Meta)c->meta;
-    m->reply = redisCommand(m->c, "BLPOP %s", m->topic);
-    char *result = calloc(m->reply->len + 1, sizeof(*result));
-    strncpy(result, m->reply->str, m->reply->len);
-    message_set_data(msg, result);
-    freeReplyObject(m->reply);
+    m->reply = redisCommand(m->c, "BLPOP %s 1", m->topic);
+    if (m->reply->type == REDIS_REPLY_ARRAY && m->reply->elements == 2)
+    {
+        char *result = calloc(m->reply->element[1]->len + 1, sizeof(*result));
+        strncpy(result, m->reply->element[1]->str, m->reply->element[1]->len);
+        message_set_data(msg, result);
+        freeReplyObject(m->reply);
+    }
+    return 0;
 }
 
 void

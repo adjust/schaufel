@@ -21,6 +21,6 @@ Consumer redis_consumer_init(char *hostname, int port, char *topic);
 
 void redis_consumer_free(Consumer *c);
 
-void redis_consumer_consume(Consumer c, Message msg);
+int redis_consumer_consume(Consumer c, Message msg);
 
 #endif

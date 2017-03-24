@@ -31,12 +31,13 @@ dummy_consumer_init()
     return dummy;
 }
 
-void
+int
 dummy_consumer_consume(Consumer c, Message msg)
 {
     char *dummy_string = calloc(17, sizeof(*dummy_string));
     snprintf(dummy_string, 17, "{\"type\":\"dummy\"}");
     message_set_data(msg, dummy_string);
+    return 0;
 }
 
 void

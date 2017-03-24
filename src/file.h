@@ -21,6 +21,6 @@ Consumer file_consumer_init(char *fname);
 
 void file_consumer_free(Consumer *c);
 
-void file_consumer_consume(Consumer c, Message msg);
+int file_consumer_consume(Consumer c, Message msg);
 
 #endif

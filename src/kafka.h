@@ -22,6 +22,6 @@ Consumer kafka_consumer_init(char *broker, char *topic, char *groupid);
 
 void kafka_consumer_free(Consumer *c);
 
-void kafka_consumer_consume(Consumer c, Message msg);
+int kafka_consumer_consume(Consumer c, Message msg);
 
 #endif

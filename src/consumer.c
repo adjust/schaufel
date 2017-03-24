@@ -32,10 +32,10 @@ consumer_free(Consumer *c)
     (*c)->consumer_free(c);
 }
 
-void
+int
 consumer_consume(Consumer c, Message msg)
 {
     if (c == NULL)
-        return;
-    c->consume(c, msg);
+        return -1;
+    return c->consume(c, msg);
 }

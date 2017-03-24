@@ -35,8 +35,10 @@ consume(void *arg)
     }
     while(run)
     {
-        consumer_consume(c, msg);
-        queue_add(q, message_get_data(msg), 1);
+        if ( consumer_consume(c, msg) == -1)
+            return NULL;
+        if (message_get_data(msg) != NULL)
+            queue_add(q, message_get_data(msg), 1);
     }
     message_free(&msg);
     consumer_free(&c);

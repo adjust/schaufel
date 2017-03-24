@@ -11,7 +11,7 @@
 typedef struct Consumer *Consumer;
 
 typedef struct Consumer{
-    void (*consume) (Consumer c, Message msg);
+    int  (*consume) (Consumer c, Message msg);
     void (*consumer_free) (Consumer *c);
     void *meta;
 }*Consumer;
@@ -20,6 +20,6 @@ Consumer consumer_init(char kind, void *opt);
 
 void consumer_free(Consumer *c);
 
-void consumer_consume(Consumer c, Message msg);
+int consumer_consume(Consumer c, Message msg);
 
 #endif

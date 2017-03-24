@@ -269,7 +269,7 @@ kafka_consumer_init(char *broker, char *topic, char *groupid)
     return kafka;
 }
 
-void
+int
 kafka_consumer_consume(Consumer c, Message msg)
 {
 
@@ -277,51 +277,41 @@ kafka_consumer_consume(Consumer c, Message msg)
     rd_kafka_message_t *rkmessage;
 
     rkmessage = rd_kafka_consumer_poll(rk, 10000);
-    while (42)
+    if (rkmessage)
     {
-        if (rkmessage)
+
+        if (rkmessage->err)
         {
+            if (rkmessage->err == RD_KAFKA_RESP_ERR__PARTITION_EOF)
+                logger_log("Consumer reached end of %s [%"PRId32"] "
+                    "message queue at offset %"PRId64"\n",
+                    rd_kafka_topic_name(rkmessage->rkt),
+                    rkmessage->partition, rkmessage->offset);
 
-            if (rkmessage->err)
-            {
-                if (rkmessage->err == RD_KAFKA_RESP_ERR__PARTITION_EOF)
-                    logger_log("Consumer reached end of %s [%"PRId32"] "
-                        "message queue at offset %"PRId64"\n",
-                        rd_kafka_topic_name(rkmessage->rkt),
-                        rkmessage->partition, rkmessage->offset);
+            if (rkmessage->rkt)
+                logger_log("%% Consume error for "
+                    "topic \"%s\" [%"PRId32"] "
+                    "offset %"PRId64": %s\n",
+                    rd_kafka_topic_name(rkmessage->rkt),
+                    rkmessage->partition,
+                    rkmessage->offset,
+                    rd_kafka_message_errstr(rkmessage));
+            else
+                logger_log("%% Consumer error: %s: %s\n",
+                    rd_kafka_err2str(rkmessage->err),
+                    rd_kafka_message_errstr(rkmessage));
 
-                if (rkmessage->rkt)
-                    logger_log("%% Consume error for "
-                        "topic \"%s\" [%"PRId32"] "
-                        "offset %"PRId64": %s\n",
-                        rd_kafka_topic_name(rkmessage->rkt),
-                        rkmessage->partition,
-                        rkmessage->offset,
-                        rd_kafka_message_errstr(rkmessage));
-                else
-                    logger_log("%% Consumer error: %s: %s\n",
-                        rd_kafka_err2str(rkmessage->err),
-                        rd_kafka_message_errstr(rkmessage));
-
-                if (rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION ||
-                    rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
-                    abort();
-                return;
-            }
-            /*
-            logger_log("Message (topic %s [%"PRId32"], "
-                "offset %"PRId64", %zd bytes):\n",
-                rd_kafka_topic_name(rkmessage->rkt),
-                rkmessage->partition,
-                rkmessage->offset, rkmessage->len);
-            */
-            char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
-            strncpy(cpy, (char *)rkmessage->payload, (int)rkmessage->len);
-            message_set_data(msg, cpy);
-            rd_kafka_message_destroy(rkmessage);
-            break;
+            if (rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION ||
+                rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
+                abort();
         }
+
+        char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
+        strncpy(cpy, (char *)rkmessage->payload, (int)rkmessage->len);
+        message_set_data(msg, cpy);
+        rd_kafka_message_destroy(rkmessage);
     }
+    return 0;
 }
 
 void
