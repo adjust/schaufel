@@ -289,6 +289,7 @@ kafka_consumer_consume(Consumer c, Message msg)
                     rkmessage->partition, rkmessage->offset);
 
             if (rkmessage->rkt)
+            {
                 logger_log("%% Consume error for "
                     "topic \"%s\" [%"PRId32"] "
                     "offset %"PRId64": %s\n",
@@ -296,6 +297,9 @@ kafka_consumer_consume(Consumer c, Message msg)
                     rkmessage->partition,
                     rkmessage->offset,
                     rd_kafka_message_errstr(rkmessage));
+                rd_kafka_message_destroy(rkmessage);
+                return 0;
+            }
             else
                 logger_log("%% Consumer error: %s: %s\n",
                     rd_kafka_err2str(rkmessage->err),
