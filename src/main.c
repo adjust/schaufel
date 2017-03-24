@@ -59,7 +59,7 @@ consume(void *arg)
 
     while(run)
     {
-        if ( consumer_consume(c, msg) == -1)
+        if (consumer_consume(c, msg) == -1)
             return NULL;
         if (message_get_data(msg) != NULL)
         {
