@@ -26,6 +26,9 @@ OBJ_RELEASE = $(patsubst src/%.c, $(OBJDIR_RELEASE)/%.o, $(SOURCES))
 OBJ_TEST = $(patsubst $(OBJDIR_DEBUG)/main.o, ,$(OBJ_DEBUG))
 OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR_DEBUG)/%.o, $(TEST_SOURCES))
 
+install: all
+	install -c bin/Debug/schaufel /usr/bin/schaufel
+
 all: debug release
 
 debug: before_debug $(OBJ_DEBUG) out_debug
