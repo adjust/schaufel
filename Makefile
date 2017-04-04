@@ -1,3 +1,6 @@
+PREFIX=/usr/local/bin
+INSTALL=install -c
+
 CC = gcc
 LD = gcc
 CFLAGS = -Wall -std=gnu11
@@ -25,9 +28,6 @@ OBJ_DEBUG = $(patsubst src/%.c, $(OBJDIR_DEBUG)/%.o, $(SOURCES))
 OBJ_RELEASE = $(patsubst src/%.c, $(OBJDIR_RELEASE)/%.o, $(SOURCES))
 OBJ_TEST = $(patsubst $(OBJDIR_DEBUG)/main.o, ,$(OBJ_DEBUG))
 OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR_DEBUG)/%.o, $(TEST_SOURCES))
-
-install: all
-	install -c bin/Debug/schaufel /usr/bin/schaufel
 
 all: debug release
 
@@ -75,3 +75,6 @@ $(OBJDIR_DEBUG)/%.o: t/%.c
 	$(CC) $(INC_DEBUG) $(CFLAGS_DEBUG) -c $< -o $@
 	$(LD) $(LIBDIR_DEBUG) $(OBJ_TEST) $@ $(LIB_DEBUG) -o bin/Debug/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/Debug/$(subst .o, ,$(notdir $@))
+
+install: all
+	${INSTALL} bin/Debug/schaufel ${PREFIX}/schaufel
