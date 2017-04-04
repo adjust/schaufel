@@ -2,10 +2,10 @@
 
 static Logger logger;
 
-void logger_init()
+void logger_init(const char *fname)
 {
     Logger *l = &logger;
-    l->fname  = "log/log";
+    l->fname  = strdup(fname);
     l->fd     = open(l->fname, O_CREAT | O_APPEND | O_WRONLY, 0777);
     if (l->fd < 0)
     {
@@ -20,6 +20,7 @@ void logger_free()
     Logger *l = &logger;
     if (l->fd < 0)
         return;
+    free(l->fname);
     close(l->fd);
     l->fd = -1;
 }

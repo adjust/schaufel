@@ -115,7 +115,6 @@ produce(void *arg)
 int
 main(int argc, char **argv)
 {
-    logger_init();
     int opt;
     int consumer_threads = 0,
         producer_threads = 0;
@@ -128,10 +127,13 @@ main(int argc, char **argv)
     Options o;
     memset(&o, '\0', sizeof(o));
 
-    while ((opt = getopt(argc, argv, "i:o:c:p:b:h:q:g:t:f:B:H:Q:G:T:F:")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:B:H:Q:G:T:F:")) != -1)
     {
         switch (opt)
         {
+            case 'l':
+                o.logger = optarg;
+                break;
             case 'i':
                 o.input = optarg[0];
                 break;
@@ -190,6 +192,8 @@ main(int argc, char **argv)
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
+
+    logger_init(o.logger);
 
     q = queue_init();
 

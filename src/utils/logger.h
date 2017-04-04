@@ -16,11 +16,11 @@
 
 typedef struct Logger
 {
-    const char *fname;
+    char *fname;
     int fd;
 } Logger;
 
-void logger_init();
+void logger_init(const char* fname);
 void logger_free();
 void logger_log(const char *fmt, ...);
 

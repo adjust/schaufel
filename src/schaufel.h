@@ -16,7 +16,7 @@ typedef struct Options {
     char *out_file;
     char *out_groupid;
     char *out_topic;
-
+    char *logger;
 } Options;
 
 #endif
