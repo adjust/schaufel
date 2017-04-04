@@ -187,7 +187,7 @@ main(int argc, char **argv)
         }
     }
 
-    if (!consumer_threads || !producer_threads)
+    if (!consumer_threads || !producer_threads || options_validate(o) != 1)
         print_usage();
 
     signal(SIGINT, stop);

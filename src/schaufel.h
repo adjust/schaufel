@@ -1,6 +1,9 @@
 #ifndef _SCHAUFEL_H_
 #define _SCHAUFEL_H_
 
+#include <utils/logger.h>
+#include <stdio.h>
+
 typedef struct Options {
     char  input;
     char *in_host;
@@ -18,5 +21,7 @@ typedef struct Options {
     char *out_topic;
     char *logger;
 } Options;
+
+int options_validate(Options o);
 
 #endif
