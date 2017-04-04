@@ -189,6 +189,7 @@ main(int argc, char **argv)
         print_usage();
 
     signal(SIGINT, stop);
+    signal(SIGTERM, stop);
 
     q = queue_init();
 
