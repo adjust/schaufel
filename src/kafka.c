@@ -169,7 +169,7 @@ kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
     rd_kafka_poll_set_consumer(rk);
 
     rd_kafka_topic_partition_list_t *topics = rd_kafka_topic_partition_list_new(1);
-    rd_kafka_topic_partition_list_add(topics, "test", -1);
+    rd_kafka_topic_partition_list_add(topics, topic, -1);
 
     if ((err = rd_kafka_subscribe(rk, topics)))
     {
