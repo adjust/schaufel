@@ -21,7 +21,7 @@ file_meta_init(char *fname, char *options)
     m->fp = fopen(fname, options);
     if (m->fp == NULL)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+        logger_log("%s %d: %s %s", __FILE__, __LINE__, fname, strerror(errno));
         abort();
     }
     return m;
