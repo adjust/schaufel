@@ -12,10 +12,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define LOG_BUFFER_SIZE 10000
+#define LOG_BUFFER_SIZE 1000
 
 typedef struct Logger
 {
+    char *buf;
     char *fname;
     int fd;
 } Logger;
@@ -32,13 +33,15 @@ void logger_log(const char *fmt, ...);
         _local = localtime(&_time);                              \
         _timestr = asctime(_local);                              \
         _len += snprintf(_buf, LOG_BUFFER_SIZE, "%s", _timestr); \
+        if (_len > LOG_BUFFER_SIZE)                              \
+            _len = LOG_BUFFER_SIZE;                              \
         _buf[_len - 1] = ' ';                                    \
     } while (0)
 
 #define logger_write(_fd, _buf, _len)          \
     do {                                       \
-        if (_len > LOG_BUFFER_SIZE)            \
-            _len = LOG_BUFFER_SIZE;            \
+        if (_len > LOG_BUFFER_SIZE + 2)        \
+            _len = LOG_BUFFER_SIZE + 2;        \
         if (write(_fd, _buf, _len) < 0)        \
             fprintf(                           \
                 stderr,                        \

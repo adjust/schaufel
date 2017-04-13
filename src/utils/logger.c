@@ -12,6 +12,8 @@ void logger_init(const char *fname)
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
         exit(1);
     }
+
+    l->buf = calloc(LOG_BUFFER_SIZE + 2, sizeof *(l->buf));
     logger_log("logger initialized");
 }
 
@@ -21,6 +23,7 @@ void logger_free()
     if (l->fd < 0)
         return;
     free(l->fname);
+    free(l->buf);
     close(l->fd);
     l->fd = -1;
 }
@@ -29,14 +32,14 @@ void logger_log(const char *fmt, ...)
 {
     Logger *l = &logger;
     va_list args;
-    //TODO: move alloc in init
-    char *buf = calloc(LOG_BUFFER_SIZE + 2, sizeof *buf);
     int len = 0;
-    buffer_set_timestamp(buf, len);
+    buffer_set_timestamp(l->buf, len);
     va_start(args, fmt);
-    len += vsnprintf(buf + len, LOG_BUFFER_SIZE, fmt, args);
+    len += vsnprintf(l->buf + len, LOG_BUFFER_SIZE - len, fmt, args);
     va_end(args);
-    buf[len++] = '\n';
-    logger_write(l->fd, buf, len);
-    free(buf);
+    if (len > LOG_BUFFER_SIZE)
+        len = LOG_BUFFER_SIZE;
+    l->buf[len++] = '\n';
+    l->buf[len++] = '\0';
+    logger_write(l->fd, l->buf, len);
 }
