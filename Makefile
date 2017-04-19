@@ -4,7 +4,7 @@ INSTALL=install -c
 CC = gcc
 LD = gcc
 CFLAGS = -Wall -std=gnu11
-LIB = -lpthread -lhiredis -lrdkafka
+LIB = -lpthread -lhiredis -lrdkafka -lpq
 INC = -Isrc/
 
 CFLAGS_DEBUG = $(CFLAGS) -g

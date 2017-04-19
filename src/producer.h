@@ -4,6 +4,7 @@
 #include <dummy.h>
 #include <file.h>
 #include <kafka.h>
+#include <postgres.h>
 #include <queue.h>
 #include <redis.h>
 #include <schaufel.h>
