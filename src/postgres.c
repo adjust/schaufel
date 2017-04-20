@@ -3,16 +3,44 @@
 typedef struct Meta {
     PGconn   *conn;
     PGresult *res;
+    char     *conninfo;
     int       count;
     int       copy;
 } *Meta;
+
+size_t number_length( long number )
+{
+    size_t count = 0;
+    if( number == 0 || number < 0 )
+        ++count;
+    while( number != 0 )
+    {
+        number /= 10;
+        ++count;
+    }
+    return count;
+}
+
+
+char *
+_connectinfo(char *hostname, int port)
+{
+	int len = strlen(hostname)
+		    + number_length(port)
+			+ strlen(" dbname=data user=postgres ")
+			+ strlen(" host= ")
+			+ strlen(" port= ");
+    char *conninfo = calloc(len + 1, sizeof(*conninfo));
+    snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
+    return conninfo;
+}
 
 Meta
 postgres_meta_init(char *hostname, int port)
 {
     Meta m = calloc(1, sizeof(*m));
-    char *conninfo = "dbname=testdb user=postgres";
-    m->conn = PQconnectdb(conninfo);
+    m->conninfo = _connectinfo(hostname, port);
+    m->conn = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn) != CONNECTION_OK)
     {
         logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
@@ -24,6 +52,7 @@ postgres_meta_init(char *hostname, int port)
 void
 postgres_meta_free(Meta *m)
 {
+    free((*m)->conninfo);
     PQfinish((*m)->conn);
     free(*m);
     *m = NULL;
