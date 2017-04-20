@@ -209,6 +209,11 @@ main(int argc, char **argv)
         }
     }
 
+    if (o.logger == NULL)
+        print_usage();
+
+    logger_init(o.logger);
+
     if (!consumer_threads || !producer_threads || options_validate(o) != 1)
         print_usage();
 
