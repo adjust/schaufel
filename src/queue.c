@@ -62,6 +62,8 @@ typedef struct Queue
 {
     struct timespec timeout;
     int64_t length;
+    int64_t added;
+    int64_t delivered;
     pthread_mutex_t mutex;
     pthread_cond_t producer_cond;
     pthread_cond_t consumer_cond;
@@ -133,6 +135,7 @@ queue_add(Queue q, void *data, int64_t msgtype)
         pthread_cond_broadcast(&q->producer_cond);
 
     q->length++;
+    q->added++;
     pthread_mutex_unlock(&q->mutex);
 
     return 0;
@@ -174,6 +177,7 @@ queue_get(Queue q, Message msg)
     firstrec = q->first;
     q->first = q->first->next;
     q->length--;
+    q->delivered++;
 
     if (q->first == NULL)
     {
@@ -229,4 +233,26 @@ queue_length(Queue q)
     counter = q->length;
     pthread_mutex_unlock(&q->mutex);
     return counter;
+}
+
+long
+queue_added(Queue q)
+{
+    int64_t added;
+    pthread_mutex_lock(&q->mutex);
+    added = q->added;
+    q->added = 0;
+    pthread_mutex_unlock(&q->mutex);
+    return added;
+}
+
+long
+queue_delivered(Queue q)
+{
+    int64_t delivered;
+    pthread_mutex_lock(&q->mutex);
+    delivered = q->delivered;
+    q->delivered = 0;
+    pthread_mutex_unlock(&q->mutex);
+    return delivered;
 }

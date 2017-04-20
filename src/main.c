@@ -42,6 +42,27 @@ print_usage()
 }
 
 void *
+stats(void *arg)
+{
+    long added     = 0;
+    long delivered = 0;
+    while (run)
+    {
+        long secs_used,micros_used;
+        struct timeval start, end;
+        gettimeofday(&start, NULL);
+        added = queue_added(q);
+        delivered = queue_delivered(q);
+        sleep(1);
+        gettimeofday(&end, NULL);
+        secs_used=(end.tv_sec - start.tv_sec);
+        micros_used= ((secs_used*1000000) + end.tv_usec) - (start.tv_usec);
+        logger_log("added / s: %ld delivered / s: %ld",added * 1000000 / micros_used, delivered * 1000000 / micros_used);
+    }
+    return NULL;
+}
+
+void *
 consume(void *arg)
 {
     Message msg = message_init();
@@ -123,6 +144,7 @@ main(int argc, char **argv)
 
     pthread_t *c_thread;
     pthread_t *p_thread;
+    pthread_t stat_thread;
 
     Options o;
     memset(&o, '\0', sizeof(o));
@@ -205,11 +227,15 @@ main(int argc, char **argv)
     for (int i = 0; i < producer_threads; ++i)
         pthread_create(&(p_thread[i]), NULL, produce, &o);
 
+    pthread_create(&stat_thread, NULL, stats, NULL);
+
     for (int i = 0; i < consumer_threads; ++i)
         pthread_join(c_thread[i], &res);
 
     for (int i = 0; i < producer_threads; ++i)
         pthread_join(p_thread[i], &res);
+
+    pthread_join(stat_thread, &res);
 
     free(c_thread);
     free(p_thread);

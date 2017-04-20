@@ -63,7 +63,7 @@ postgres_producer_produce(Producer p, Message msg)
     PQputCopyData(m->conn, newline, 1);
 
     m->count = m->count + 1;
-    if (m->count == 100)
+    if (m->count == 2000)
     {
         PQputCopyEnd(m->conn, NULL);
         m->count = 0;
