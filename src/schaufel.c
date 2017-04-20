@@ -97,6 +97,22 @@ _kafka_producer_validate(Options o)
 }
 
 int
+_postgres_producer_validate(Options o)
+{
+    if (o.out_host == NULL)
+    {
+        logger_log("%s %d: Missing out_host parameter", __FILE__, __LINE__);
+        return -1;
+    }
+    if (o.out_port == 0)
+    {
+        logger_log("%s %d: Missing out_port parameter", __FILE__, __LINE__);
+        return -1;
+    }
+    return 0;
+}
+
+int
 options_validate(Options o)
 {
     int ok = 1;
@@ -134,6 +150,8 @@ options_validate(Options o)
         case 'k':
             ok += _kafka_producer_validate(o);
             break;
+        case 'p':
+            ok += _postgres_producer_validate(o);
     }
 
     return ok;
