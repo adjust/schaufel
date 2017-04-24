@@ -156,3 +156,21 @@ options_validate(Options o)
 
     return ok;
 }
+
+int
+parse_connstring(char *conninfo, char **hostname, int *port)
+{
+    const char *delim = ":";
+    char *save;
+    char *port_str;
+    *hostname = strdup(strtok_r(conninfo, delim, &save));
+    if (*hostname == NULL)
+        return -1;
+    port_str = strtok_r(NULL, delim, &save);
+    if (port_str == NULL)
+        return 1;
+    *port = atoi(port_str);
+    if (*port == 0)
+        return -1;
+    return 0;
+}
