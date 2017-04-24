@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <producer.h>
-#include <schaufel.h>
+#include <utils/helper.h>
 
 int run   = 1;
 int ready = 0;

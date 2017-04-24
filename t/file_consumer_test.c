@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <test/test.h>
 #include <utils/logger.h>
-#include <schaufel.h>
+#include <utils/helper.h>
 
 int
 main(void)

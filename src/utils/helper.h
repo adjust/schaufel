@@ -1,5 +1,5 @@
-#ifndef _SCHAUFEL_H_
-#define _SCHAUFEL_H_
+#ifndef _SCHAUFEL_UTILS_HELPER_H_
+#define _SCHAUFEL_UTILS_HELPER_H_
 
 #include <utils/logger.h>
 #include <stdio.h>

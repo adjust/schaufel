@@ -6,7 +6,7 @@
 #include <kafka.h>
 #include <queue.h>
 #include <redis.h>
-#include <schaufel.h>
+#include <utils/helper.h>
 
 typedef struct Consumer *Consumer;
 
