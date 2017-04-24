@@ -104,11 +104,6 @@ _postgres_producer_validate(Options o)
         logger_log("%s %d: Missing out_host parameter", __FILE__, __LINE__);
         return -1;
     }
-    if (o.out_port == 0)
-    {
-        logger_log("%s %d: Missing out_port parameter", __FILE__, __LINE__);
-        return -1;
-    }
     return 0;
 }
 
@@ -174,16 +169,20 @@ int
 parse_connstring(char *conninfo, char **hostname, int *port)
 {
     const char *delim = ":";
-    char *save;
-    char *port_str;
-    *hostname = strdup(strtok_r(conninfo, delim, &save));
+    char *save,
+         *port_str,
+         *dup;
+    int res = 0;
+
+    dup = strdup(conninfo);
+    *hostname = strdup(strtok_r(dup, delim, &save));
     if (*hostname == NULL)
-        return -1;
-    port_str = strtok_r(NULL, delim, &save);
-    if (port_str == NULL)
-        return 1;
-    *port = atoi(port_str);
-    if (*port == 0)
-        return -1;
-    return 0;
+        res = -1;
+    else if ((port_str = strtok_r(NULL, delim, &save)) == NULL)
+        res = 1;
+    else if ((*port = atoi(port_str)) == 0)
+        res = -1;
+
+    free(dup);
+    return res;
 }

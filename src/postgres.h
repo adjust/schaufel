@@ -9,7 +9,7 @@
 
 typedef struct Producer *Producer;
 
-Producer postgres_producer_init(char *hostname, int port);
+Producer postgres_producer_init(char *host);
 
 void postgres_producer_free(Producer *p);
 
@@ -17,7 +17,7 @@ void postgres_producer_produce(Producer p, Message msg);
 
 typedef struct Consumer *Consumer;
 
-Consumer postgres_consumer_init(char *hostname, int port);
+Consumer postgres_consumer_init(char *host);
 
 void postgres_consumer_free(Consumer *c);
 

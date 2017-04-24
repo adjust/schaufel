@@ -9,23 +9,29 @@ typedef struct Meta {
 } *Meta;
 
 char *
-_connectinfo(char *hostname, int port)
+_connectinfo(char *host)
 {
-	int len = strlen(hostname)
-		    + number_length(port)
-			+ strlen(" dbname=data user=postgres ")
-			+ strlen(" host= ")
-			+ strlen(" port= ");
+    char *hostname;
+    int port = 0;
+
+    if (parse_connstring(host, &hostname, &port) == -1)
+        abort();
+
+    int len = strlen(hostname)
+            + number_length(port)
+            + strlen(" dbname=data user=postgres ")
+            + strlen(" host= ")
+            + strlen(" port= ");
     char *conninfo = calloc(len + 1, sizeof(*conninfo));
     snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
     return conninfo;
 }
 
 Meta
-postgres_meta_init(char *hostname, int port)
+postgres_meta_init(char *host)
 {
     Meta m = calloc(1, sizeof(*m));
-    m->conninfo = _connectinfo(hostname, port);
+    m->conninfo = _connectinfo(host);
     m->conn = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn) != CONNECTION_OK)
     {
@@ -45,11 +51,11 @@ postgres_meta_free(Meta *m)
 }
 
 Producer
-postgres_producer_init(char *hostname, int port)
+postgres_producer_init(char *host)
 {
     Producer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(hostname, port);
+    postgres->meta          = postgres_meta_init(host);
     postgres->producer_free = postgres_producer_free;
     postgres->produce       = postgres_producer_produce;
 
@@ -98,11 +104,11 @@ postgres_producer_free(Producer *p)
 }
 
 Consumer
-postgres_consumer_init(char *hostname, int port)
+postgres_consumer_init(char *host)
 {
     Consumer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(hostname, port);
+    postgres->meta          = postgres_meta_init(host);
     postgres->consumer_free = postgres_consumer_free;
     postgres->consume       = postgres_consumer_consume;
 
