@@ -24,6 +24,8 @@ typedef struct Options {
 
 int options_validate(Options o);
 
+size_t number_length(long number);
+
 int parse_connstring(char *conninfo, char **hostname, int *port);
 
 #endif

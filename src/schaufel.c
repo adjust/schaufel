@@ -157,6 +157,19 @@ options_validate(Options o)
     return ok;
 }
 
+size_t number_length(long number)
+{
+    size_t count = 0;
+    if( number == 0 || number < 0 )
+        ++count;
+    while( number != 0 )
+    {
+        number /= 10;
+        ++count;
+    }
+    return count;
+}
+
 int
 parse_connstring(char *conninfo, char **hostname, int *port)
 {
