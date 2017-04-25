@@ -53,7 +53,7 @@ stats(void *arg)
         gettimeofday(&start, NULL);
         added = queue_added(q);
         delivered = queue_delivered(q);
-        sleep(1);
+        sleep(5);
         gettimeofday(&end, NULL);
         secs_used=(end.tv_sec - start.tv_sec);
         micros_used= ((secs_used*1000000) + end.tv_usec) - (start.tv_usec);

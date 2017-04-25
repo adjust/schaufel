@@ -80,7 +80,15 @@ postgres_producer_produce(Producer p, Message msg)
     }
     char *buf = (char *) message_get_data(msg);
     char *newline = "\n";
-    PQputCopyData(m->conn, buf, strlen(buf));
+
+    char *lit = PQescapeLiteral(m->conn, buf, strlen(buf));
+    if (lit[0] == ' ' && lit[1] == 'E')
+        PQputCopyData(m->conn, lit + 3, strlen(lit) - 4);
+    else if (lit[0] == '\'')
+        PQputCopyData(m->conn, lit + 1, strlen(lit) - 2);
+    else
+        abort();
+
     PQputCopyData(m->conn, newline, 1);
 
     m->count = m->count + 1;
@@ -90,6 +98,7 @@ postgres_producer_produce(Producer p, Message msg)
         m->count = 0;
         m->copy  = 0;
     }
+    free(lit);
 }
 
 void
