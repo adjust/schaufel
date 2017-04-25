@@ -7,7 +7,7 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-redis_meta_init(char *hostname, int port, char *topic)
+redis_meta_init(char *host, char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
     if (m == NULL)
@@ -15,6 +15,12 @@ redis_meta_init(char *hostname, int port, char *topic)
         logger_log("%s %d: allocate failed", __FILE__, __LINE__);
         abort();
     }
+
+    char *hostname = NULL;
+    int   port = 0;
+
+    if (parse_connstring(host, &hostname, &port) == -1)
+        abort();
 
     struct timeval timeout = { 1, 500000 };
     m->c = redisConnectWithTimeout(hostname, port, timeout);
@@ -46,11 +52,11 @@ redis_meta_free(Meta *m)
 }
 
 Producer
-redis_producer_init(char *hostname, int port, char *topic)
+redis_producer_init(char *host, char *topic)
 {
     Producer redis = calloc(1, sizeof(*redis));
 
-    redis->meta          = redis_meta_init(hostname, port, topic);
+    redis->meta          = redis_meta_init(host, topic);
     redis->producer_free = redis_producer_free;
     redis->produce       = redis_producer_produce;
 
@@ -75,11 +81,11 @@ redis_producer_free(Producer *p)
 }
 
 Consumer
-redis_consumer_init(char *hostname, int port, char *topic)
+redis_consumer_init(char *host, char *topic)
 {
     Consumer redis = calloc(1, sizeof(*redis));
 
-    redis->meta          = redis_meta_init(hostname, port, topic);
+    redis->meta          = redis_meta_init(host, topic);
     redis->consumer_free = redis_consumer_free;
     redis->consume       = redis_consumer_consume;
 

@@ -19,11 +19,6 @@ _redis_consumer_validate(Options o)
         logger_log("%s %d: Missing in_host parameter", __FILE__, __LINE__);
         return -1;
     }
-    if (o.in_port == 0)
-    {
-        logger_log("%s %d: Missing in_port parameter", __FILE__, __LINE__);
-        return -1;
-    }
     if (o.in_topic == NULL)
     {
         logger_log("%s %d: Missing in_topic parameter", __FILE__, __LINE__);
@@ -65,11 +60,6 @@ _redis_producer_validate(Options o)
     if (o.out_host == NULL)
     {
         logger_log("%s %d: Missing out_host parameter", __FILE__, __LINE__);
-        return -1;
-    }
-    if (o.out_port == 0)
-    {
-        logger_log("%s %d: Missing out_port parameter", __FILE__, __LINE__);
         return -1;
     }
     if (o.out_topic == NULL)

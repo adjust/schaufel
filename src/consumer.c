@@ -13,7 +13,7 @@ consumer_init(char kind, void *opt)
             c = file_consumer_init(((Options *)opt)->in_file);
             break;
         case 'r':
-            c = redis_consumer_init(((Options *)opt)->in_host, ((Options *)opt)->in_port, ((Options *)opt)->in_topic);
+            c = redis_consumer_init(((Options *)opt)->in_host, ((Options *)opt)->in_topic);
             break;
         case 'k':
             c = kafka_consumer_init(((Options *)opt)->in_broker, ((Options *)opt)->in_topic, ((Options *)opt)->in_groupid);
