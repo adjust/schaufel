@@ -10,6 +10,10 @@ typedef struct Array *Array;
 
 Array array_init(size_t len);
 
+size_t array_used(Array array);
+
+char * array_get(Array array, size_t index);
+
 void array_insert(Array array, char *val);
 
 char * array_pop(Array array);

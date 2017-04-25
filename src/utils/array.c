@@ -20,6 +20,20 @@ array_init(size_t len)
     return array;
 }
 
+size_t
+array_used(Array array)
+{
+    return array->used;
+}
+
+char *
+array_get(Array array, size_t index)
+{
+    if (index > array->used - 1)
+        return NULL;
+    return array->payload[index];
+}
+
 void
 array_insert(Array array, char *val)
 {

@@ -186,3 +186,30 @@ parse_connstring(char *conninfo, char **hostname, int *port)
     free(dup);
     return res;
 }
+
+Array
+parse_hostinfo(char *hostinfo)
+{
+    Array a = array_init(1);
+    char *host,
+         *save,
+         *dup,
+         *dup_old;
+
+    char *delim = ",";
+
+    dup = strdup(hostinfo);
+    dup_old = dup;
+
+    while ((host = strtok_r(dup, delim, &save)) != NULL)
+    {
+        dup = NULL;
+        array_insert(a, host);
+    }
+
+    if (dup != NULL)
+        return NULL;
+
+    free(dup_old);
+    return a;
+}

@@ -2,6 +2,7 @@
 #define _SCHAUFEL_UTILS_HELPER_H_
 
 #include <utils/logger.h>
+#include <utils/array.h>
 #include <stdio.h>
 
 typedef struct Options {
@@ -28,4 +29,5 @@ size_t number_length(long number);
 
 int parse_connstring(char *conninfo, char **hostname, int *port);
 
+Array parse_hostinfo(char *hostinfo);
 #endif
