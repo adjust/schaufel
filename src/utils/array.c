@@ -23,20 +23,30 @@ array_init(size_t len)
 size_t
 array_used(Array array)
 {
+    if (array == NULL)
+        return 0;
+
     return array->used;
 }
 
 char *
 array_get(Array array, size_t index)
 {
+    if (array == NULL)
+        return NULL;
+
     if (index > array->used - 1)
         return NULL;
+
     return array->payload[index];
 }
 
 void
 array_insert(Array array, char *val)
 {
+    if (array == NULL)
+        return;
+
     if (array->used == array->len)
     {
         array->len *= 2;

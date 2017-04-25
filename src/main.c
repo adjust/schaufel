@@ -138,7 +138,9 @@ main(int argc, char **argv)
 {
     int opt;
     int consumer_threads = 0,
-        producer_threads = 0;
+        producer_threads = 0,
+        r_c_threads   = 0,
+        r_p_threads   = 0;
 
     void *res;
 
@@ -173,6 +175,7 @@ main(int argc, char **argv)
                 break;
             case 'h':
                 o.in_host = optarg;
+                o.in_hosts =  parse_hostinfo(o.in_host);
                 break;
             case 'q':
                 o.in_port = atoi(optarg);
@@ -191,6 +194,7 @@ main(int argc, char **argv)
                 break;
             case 'H':
                 o.out_host = optarg;
+                o.out_hosts =  parse_hostinfo(o.out_host);
                 break;
             case 'Q':
                 o.out_port = atoi(optarg);
@@ -224,20 +228,42 @@ main(int argc, char **argv)
 
     q = queue_init();
 
-    c_thread = calloc(consumer_threads, sizeof(*c_thread));
-    for (int i = 0; i < consumer_threads; ++i)
-        pthread_create(&(c_thread[i]), NULL, consume, &o);
+    if (o.in_hosts)
+        r_c_threads = consumer_threads * array_used(o.in_hosts);
+    else
+        r_c_threads = consumer_threads;
 
-    p_thread = calloc(producer_threads, sizeof(*p_thread));
-    for (int i = 0; i < producer_threads; ++i)
-        pthread_create(&(p_thread[i]), NULL, produce, &o);
+    c_thread = calloc(r_c_threads, sizeof(*c_thread));
+
+    for (int i = 0; i < r_c_threads; ++i)
+    {
+        int mod = array_used(o.in_hosts) ? array_used(o.in_hosts) : 1;
+        Options local = o;
+        local.in_host = array_get(o.in_hosts, i % mod);
+        pthread_create(&(c_thread[i]), NULL, consume, &local);
+    }
+
+    if (o.out_hosts)
+        r_p_threads = producer_threads * array_used(o.out_hosts);
+    else
+        r_p_threads = producer_threads;
+
+    p_thread = calloc(r_p_threads, sizeof(*p_thread));
+
+    for (int i = 0; i < r_p_threads; ++i)
+    {
+        int mod = array_used(o.out_hosts) ? array_used(o.out_hosts) : 1;
+        Options local = o;
+        local.out_host = array_get(o.out_hosts, i % mod);
+        pthread_create(&(p_thread[i]), NULL, produce, &local);
+    }
 
     pthread_create(&stat_thread, NULL, stats, NULL);
 
-    for (int i = 0; i < consumer_threads; ++i)
+    for (int i = 0; i < r_c_threads; ++i)
         pthread_join(c_thread[i], &res);
 
-    for (int i = 0; i < producer_threads; ++i)
+    for (int i = 0; i < r_p_threads; ++i)
         pthread_join(p_thread[i], &res);
 
     pthread_join(stat_thread, &res);

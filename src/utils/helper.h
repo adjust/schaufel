@@ -21,6 +21,8 @@ typedef struct Options {
     char *out_groupid;
     char *out_topic;
     char *logger;
+    Array in_hosts;
+    Array out_hosts;
 } Options;
 
 int options_validate(Options o);
