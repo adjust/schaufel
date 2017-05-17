@@ -45,6 +45,7 @@ postgres_meta_init(char *host, char *host_replica)
     }
 
     m->conninfo_replica = _connectinfo(host_replica);
+
     if (m->conninfo_replica == NULL)
         return m;
 
@@ -65,6 +66,7 @@ postgres_meta_free(Meta *m)
     PQfinish((*m)->conn_master);
     if ((*m)->conninfo_replica == NULL)
         PQfinish((*m)->conn_replica);
+    free((*m)->conninfo_replica);
     free(*m);
     *m = NULL;
 }
@@ -116,9 +118,9 @@ postgres_producer_produce(Producer p, Message msg)
 
     if (lit[0] == ' ' && lit[1] == 'E')
     {
+        PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
         if (m->conninfo_replica)
-            PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
-        PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
+            PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
     }
     else if (lit[0] == '\'')
     {
@@ -153,7 +155,8 @@ postgres_producer_free(Producer *p)
     if (m->copy != 0)
     {
         PQputCopyEnd(m->conn_master, NULL);
-        PQputCopyEnd(m->conn_replica, NULL);
+        if (m->conninfo_replica)
+            PQputCopyEnd(m->conn_replica, NULL);
     }
     postgres_meta_free(&m);
     free(*p);
