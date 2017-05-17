@@ -2,8 +2,10 @@
 
 typedef struct Meta {
     PGconn   *conn_master;
+    PGconn   *conn_replica;
     PGresult *res;
     char     *conninfo;
+    char     *conninfo_replica;
     int       count;
     int       copy;
 } *Meta;
@@ -11,6 +13,8 @@ typedef struct Meta {
 char *
 _connectinfo(char *host)
 {
+    if (host == NULL)
+        return NULL;
     char *hostname;
     int port = 0;
 
@@ -28,16 +32,29 @@ _connectinfo(char *host)
 }
 
 Meta
-postgres_meta_init(char *host)
+postgres_meta_init(char *host, char *host_replica)
 {
     Meta m = calloc(1, sizeof(*m));
-    m->conninfo    = _connectinfo(host);
+    m->conninfo = _connectinfo(host);
+
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
     {
         logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
         abort();
     }
+
+    m->conninfo_replica = _connectinfo(host_replica);
+    if (m->conninfo_replica == NULL)
+        return m;
+
+    m->conn_replica = PQconnectdb(m->conninfo_replica);
+    if (PQstatus(m->conn_replica) != CONNECTION_OK)
+    {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_replica));
+        abort();
+    }
+
     return m;
 }
 
@@ -46,16 +63,18 @@ postgres_meta_free(Meta *m)
 {
     free((*m)->conninfo);
     PQfinish((*m)->conn_master);
+    if ((*m)->conninfo_replica == NULL)
+        PQfinish((*m)->conn_replica);
     free(*m);
     *m = NULL;
 }
 
 Producer
-postgres_producer_init(char *host)
+postgres_producer_init(char *host, char *host_replica)
 {
     Producer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host);
+    postgres->meta          = postgres_meta_init(host, host_replica);
     postgres->producer_free = postgres_producer_free;
     postgres->produce       = postgres_producer_produce;
 
@@ -71,12 +90,6 @@ postgres_producer_produce(Producer p, Message msg)
     char *newline = "\n";
 
     char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
-    if (lit[0] == ' ' && lit[1] == 'E')
-        PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
-    else if (lit[0] == '\'')
-        PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
-    else
-        abort();
 
     if (m->copy == 0)
     {
@@ -86,16 +99,47 @@ postgres_producer_produce(Producer p, Message msg)
             logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
             abort();
         }
-        m->copy = 1;
         PQclear(m->res);
+
+        if (m->conninfo_replica)
+        {
+            m->res = PQexec(m->conn_replica, "COPY data FROM STDIN");
+            if (PQresultStatus(m->res) != PGRES_COPY_IN)
+            {
+                logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_replica));
+                abort();
+            }
+            PQclear(m->res);
+        }
+        m->copy = 1;
     }
 
+    if (lit[0] == ' ' && lit[1] == 'E')
+    {
+        if (m->conninfo_replica)
+            PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
+        PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
+    }
+    else if (lit[0] == '\'')
+    {
+        PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
+        if (m->conninfo_replica)
+            PQputCopyData(m->conn_replica, lit + 1, strlen(lit) - 2);
+    }
+    else
+        abort();
+
     PQputCopyData(m->conn_master, newline, 1);
+
+    if (m->conninfo_replica)
+        PQputCopyData(m->conn_replica, newline, 1);
 
     m->count = m->count + 1;
     if (m->count == 2000)
     {
         PQputCopyEnd(m->conn_master, NULL);
+        if (m->conninfo_replica)
+            PQputCopyEnd(m->conn_replica, NULL);
         m->count = 0;
         m->copy  = 0;
     }
@@ -107,7 +151,10 @@ postgres_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
     if (m->copy != 0)
+    {
         PQputCopyEnd(m->conn_master, NULL);
+        PQputCopyEnd(m->conn_replica, NULL);
+    }
     postgres_meta_free(&m);
     free(*p);
     *p = NULL;
@@ -118,7 +165,7 @@ postgres_consumer_init(char *host)
 {
     Consumer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host);
+    postgres->meta          = postgres_meta_init(host, NULL);
     postgres->consumer_free = postgres_consumer_free;
     postgres->consume       = postgres_consumer_consume;
 

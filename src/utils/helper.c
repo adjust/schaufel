@@ -178,23 +178,23 @@ parse_connstring(char *conninfo, char **hostname, int *port)
 }
 
 Array
-parse_hostinfo(char *hostinfo)
+_delimit_by(char *str, char* delim)
 {
+    if (str == NULL)
+        return NULL;
     Array a = array_init(1);
-    char *host,
+    char *match,
          *save,
          *dup,
          *dup_old;
 
-    char *delim = ",";
-
-    dup = strdup(hostinfo);
+    dup = strdup(str);
     dup_old = dup;
 
-    while ((host = strtok_r(dup, delim, &save)) != NULL)
+    while ((match = strtok_r(dup, delim, &save)) != NULL)
     {
         dup = NULL;
-        array_insert(a, host);
+        array_insert(a, match);
     }
 
     if (dup != NULL)
@@ -202,4 +202,26 @@ parse_hostinfo(char *hostinfo)
 
     free(dup_old);
     return a;
+}
+
+Array
+parse_hostinfo_master(char *hostinfo)
+{
+    char *delim1 = ";";
+    Array a = _delimit_by(hostinfo, delim1);
+    char *delim = ",";
+    Array b = _delimit_by(array_get(a, 0), delim);
+    array_free(&a);
+    return b;
+}
+
+Array
+parse_hostinfo_replica(char *hostinfo)
+{
+    char *delim1 = ";";
+    Array a = _delimit_by(hostinfo, delim1);
+    char *delim = ",";
+    Array b = _delimit_by(array_get(a, 1), delim);
+    array_free(&a);
+    return b;
 }

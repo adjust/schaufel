@@ -16,7 +16,7 @@ producer_init(char kind, void *opt)
             p = redis_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_topic);
             break;
         case 'p':
-            p = postgres_producer_init(((Options *)opt)->out_host);
+            p = postgres_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_host_replica);
             break;
         case 'k':
             p = kafka_producer_init(((Options *)opt)->out_broker, ((Options *)opt)->out_topic);

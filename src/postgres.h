@@ -9,7 +9,7 @@
 
 typedef struct Producer *Producer;
 
-Producer postgres_producer_init(char *host);
+Producer postgres_producer_init(char *host, char *host_replica);
 
 void postgres_producer_free(Producer *p);
 

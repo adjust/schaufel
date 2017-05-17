@@ -175,7 +175,7 @@ main(int argc, char **argv)
                 break;
             case 'h':
                 o.in_host = optarg;
-                o.in_hosts =  parse_hostinfo(o.in_host);
+                o.in_hosts =  parse_hostinfo_master(o.in_host);
                 break;
             case 'q':
                 o.in_port = atoi(optarg);
@@ -194,7 +194,8 @@ main(int argc, char **argv)
                 break;
             case 'H':
                 o.out_host = optarg;
-                o.out_hosts =  parse_hostinfo(o.out_host);
+                o.out_hosts =  parse_hostinfo_master(o.out_host);
+                o.out_hosts_replica =  parse_hostinfo_replica(o.out_host);
                 break;
             case 'Q':
                 o.out_port = atoi(optarg);
@@ -255,6 +256,7 @@ main(int argc, char **argv)
         int mod = array_used(o.out_hosts) ? array_used(o.out_hosts) : 1;
         Options local = o;
         local.out_host = array_get(o.out_hosts, i % mod);
+        local.out_host_replica = array_get(o.out_hosts_replica, i % mod);
         pthread_create(&(p_thread[i]), NULL, produce, &local);
     }
 

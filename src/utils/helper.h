@@ -15,6 +15,7 @@ typedef struct Options {
     char *in_topic;
     char  output;
     char *out_host;
+    char *out_host_replica;
     char *out_broker;
     int   out_port;
     char *out_file;
@@ -23,6 +24,7 @@ typedef struct Options {
     char *logger;
     Array in_hosts;
     Array out_hosts;
+    Array out_hosts_replica;
 } Options;
 
 int options_validate(Options o);
@@ -31,5 +33,8 @@ size_t number_length(long number);
 
 int parse_connstring(char *conninfo, char **hostname, int *port);
 
-Array parse_hostinfo(char *hostinfo);
+Array parse_hostinfo_master(char *hostinfo);
+
+Array parse_hostinfo_replica(char *hostinfo);
+
 #endif
