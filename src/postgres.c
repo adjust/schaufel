@@ -1,7 +1,7 @@
 #include <postgres.h>
 
 typedef struct Meta {
-    PGconn   *conn;
+    PGconn   *conn_master;
     PGresult *res;
     char     *conninfo;
     int       count;
@@ -31,11 +31,11 @@ Meta
 postgres_meta_init(char *host)
 {
     Meta m = calloc(1, sizeof(*m));
-    m->conninfo = _connectinfo(host);
-    m->conn = PQconnectdb(m->conninfo);
-    if (PQstatus(m->conn) != CONNECTION_OK)
+    m->conninfo    = _connectinfo(host);
+    m->conn_master = PQconnectdb(m->conninfo);
+    if (PQstatus(m->conn_master) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
         abort();
     }
     return m;
@@ -45,7 +45,7 @@ void
 postgres_meta_free(Meta *m)
 {
     free((*m)->conninfo);
-    PQfinish((*m)->conn);
+    PQfinish((*m)->conn_master);
     free(*m);
     *m = NULL;
 }
@@ -70,32 +70,32 @@ postgres_producer_produce(Producer p, Message msg)
     char *buf = (char *) message_get_data(msg);
     char *newline = "\n";
 
-    char *lit = PQescapeLiteral(m->conn, buf, strlen(buf));
+    char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
     if (lit[0] == ' ' && lit[1] == 'E')
-        PQputCopyData(m->conn, lit + 3, strlen(lit) - 4);
+        PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
     else if (lit[0] == '\'')
-        PQputCopyData(m->conn, lit + 1, strlen(lit) - 2);
+        PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
     else
         abort();
 
     if (m->copy == 0)
     {
-        m->res = PQexec(m->conn, "COPY data FROM STDIN");
+        m->res = PQexec(m->conn_master, "COPY data FROM STDIN");
         if (PQresultStatus(m->res) != PGRES_COPY_IN)
         {
-            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
+            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
             abort();
         }
         m->copy = 1;
         PQclear(m->res);
     }
 
-    PQputCopyData(m->conn, newline, 1);
+    PQputCopyData(m->conn_master, newline, 1);
 
     m->count = m->count + 1;
     if (m->count == 2000)
     {
-        PQputCopyEnd(m->conn, NULL);
+        PQputCopyEnd(m->conn_master, NULL);
         m->count = 0;
         m->copy  = 0;
     }
@@ -107,7 +107,7 @@ postgres_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
     if (m->copy != 0)
-        PQputCopyEnd(m->conn, NULL);
+        PQputCopyEnd(m->conn_master, NULL);
     postgres_meta_free(&m);
     free(*p);
     *p = NULL;
