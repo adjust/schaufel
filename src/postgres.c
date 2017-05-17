@@ -67,6 +67,17 @@ postgres_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
 
+    char *buf = (char *) message_get_data(msg);
+    char *newline = "\n";
+
+    char *lit = PQescapeLiteral(m->conn, buf, strlen(buf));
+    if (lit[0] == ' ' && lit[1] == 'E')
+        PQputCopyData(m->conn, lit + 3, strlen(lit) - 4);
+    else if (lit[0] == '\'')
+        PQputCopyData(m->conn, lit + 1, strlen(lit) - 2);
+    else
+        abort();
+
     if (m->copy == 0)
     {
         m->res = PQexec(m->conn, "COPY data FROM STDIN");
@@ -78,16 +89,6 @@ postgres_producer_produce(Producer p, Message msg)
         m->copy = 1;
         PQclear(m->res);
     }
-    char *buf = (char *) message_get_data(msg);
-    char *newline = "\n";
-
-    char *lit = PQescapeLiteral(m->conn, buf, strlen(buf));
-    if (lit[0] == ' ' && lit[1] == 'E')
-        PQputCopyData(m->conn, lit + 3, strlen(lit) - 4);
-    else if (lit[0] == '\'')
-        PQputCopyData(m->conn, lit + 1, strlen(lit) - 2);
-    else
-        abort();
 
     PQputCopyData(m->conn, newline, 1);
 
