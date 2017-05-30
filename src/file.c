@@ -78,7 +78,6 @@ file_consumer_init(char *fname)
     file->meta          = file_meta_init(fname, "r");
     file->consumer_free = file_consumer_free;
     file->consume       = file_consumer_consume;
-
     return file;
 }
 

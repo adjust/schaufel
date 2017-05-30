@@ -6,6 +6,7 @@ typedef struct Meta {
     PGresult *res;
     char     *conninfo;
     char     *conninfo_replica;
+    char     *cpycmd;
     int       count;
     int       copy;
 } *Meta;
@@ -32,9 +33,15 @@ _connectinfo(char *host)
 }
 
 Meta
-postgres_meta_init(char *host, char *host_replica)
+postgres_meta_init(char *host, char *host_replica, char *nsp)
 {
     Meta m = calloc(1, sizeof(*m));
+    const char *fmtstring = "COPY %s.data FROM STDIN";
+
+    m->cpycmd = calloc(strlen(fmtstring) + strlen(nsp) + 1, sizeof(*(m->cpycmd)));
+    snprintf(m->cpycmd, strlen(fmtstring) + strlen(nsp), fmtstring, nsp);
+    logger_log("poi1 %s %d", nsp, strlen(nsp));
+    logger_log("poi %s %d", m->cpycmd, strlen(m->cpycmd));
     m->conninfo = _connectinfo(host);
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -72,11 +79,11 @@ postgres_meta_free(Meta *m)
 }
 
 Producer
-postgres_producer_init(char *host, char *host_replica)
+postgres_producer_init(char *host, char *host_replica, char *nsp)
 {
     Producer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host, host_replica);
+    postgres->meta          = postgres_meta_init(host, host_replica, nsp);
     postgres->producer_free = postgres_producer_free;
     postgres->produce       = postgres_producer_produce;
 
@@ -95,7 +102,7 @@ postgres_producer_produce(Producer p, Message msg)
 
     if (m->copy == 0)
     {
-        m->res = PQexec(m->conn_master, "COPY data FROM STDIN");
+        m->res = PQexec(m->conn_master, m->cpycmd);
         if (PQresultStatus(m->res) != PGRES_COPY_IN)
         {
             logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
@@ -105,7 +112,7 @@ postgres_producer_produce(Producer p, Message msg)
 
         if (m->conninfo_replica)
         {
-            m->res = PQexec(m->conn_replica, "COPY data FROM STDIN");
+            m->res = PQexec(m->conn_replica, m->cpycmd);
             if (PQresultStatus(m->res) != PGRES_COPY_IN)
             {
                 logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_replica));
@@ -168,7 +175,7 @@ postgres_consumer_init(char *host)
 {
     Consumer postgres = calloc(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host, NULL);
+    postgres->meta          = postgres_meta_init(host, NULL, NULL);
     postgres->consumer_free = postgres_consumer_free;
     postgres->consume       = postgres_consumer_consume;
 

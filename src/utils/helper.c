@@ -78,7 +78,7 @@ _kafka_producer_validate(Options o)
         logger_log("%s %d: Missing out_broker parameter", __FILE__, __LINE__);
         return -1;
     }
-    if (o.in_topic == NULL)
+    if (o.out_topic == NULL)
     {
         logger_log("%s %d: Missing out_topic parameter", __FILE__, __LINE__);
         return -1;
@@ -92,6 +92,11 @@ _postgres_producer_validate(Options o)
     if (o.out_host == NULL)
     {
         logger_log("%s %d: Missing out_host parameter", __FILE__, __LINE__);
+        return -1;
+    }
+    if (o.out_topic == NULL)
+    {
+        logger_log("%s %d: Missing out_topic parameter", __FILE__, __LINE__);
         return -1;
     }
     return 0;
