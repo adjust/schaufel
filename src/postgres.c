@@ -46,7 +46,6 @@ _cpycmd(char *host, char *generation)
     char *ptr = hostname;
     while(*ptr)
     {
-        logger_log("%c", *ptr);
         if(*ptr == '-')
         {
             *ptr = '_';
