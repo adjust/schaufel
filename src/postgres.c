@@ -32,16 +32,45 @@ _connectinfo(char *host)
     return conninfo;
 }
 
+static char *
+_cpycmd(char *host, char *generation)
+{
+    if (host == NULL)
+        return NULL;
+    char *hostname;
+    int port = 0;
+
+    if (parse_connstring(host, &hostname, &port) == -1)
+        abort();
+
+    char *ptr = hostname;
+    while(*ptr)
+    {
+        logger_log("%c", *ptr);
+        if(*ptr == '-')
+        {
+            *ptr = '_';
+        }
+        ++ptr;
+    }
+
+    const char *fmtstring = "COPY %s_%d_%s.data FROM STDIN";
+
+    int len = strlen(hostname)
+            + number_length(port)
+            + strlen(fmtstring);
+
+    char *cpycmd = calloc(len + 1, sizeof(*cpycmd));
+    snprintf(cpycmd, len, fmtstring, hostname, port, generation);
+    return cpycmd;
+}
+
 Meta
 postgres_meta_init(char *host, char *host_replica, char *nsp)
 {
     Meta m = calloc(1, sizeof(*m));
-    const char *fmtstring = "COPY %s.data FROM STDIN";
 
-    m->cpycmd = calloc(strlen(fmtstring) + strlen(nsp) + 1, sizeof(*(m->cpycmd)));
-    snprintf(m->cpycmd, strlen(fmtstring) + strlen(nsp), fmtstring, nsp);
-    logger_log("poi1 %s %d", nsp, strlen(nsp));
-    logger_log("poi %s %d", m->cpycmd, strlen(m->cpycmd));
+    m->cpycmd = _cpycmd(host, nsp);
     m->conninfo = _connectinfo(host);
 
     m->conn_master = PQconnectdb(m->conninfo);
