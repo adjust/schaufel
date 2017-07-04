@@ -25,29 +25,4 @@ void logger_init(const char* fname);
 void logger_free();
 void logger_log(const char *fmt, ...);
 
-#define buffer_set_timestamp(_buf, _len)                         \
-    do {                                                         \
-        char *_timestr;                                          \
-        struct tm *_local;                                       \
-        time_t _time = time(NULL);                               \
-        _local = localtime(&_time);                              \
-        _timestr = asctime(_local);                              \
-        _len += snprintf(_buf, LOG_BUFFER_SIZE, "%s", _timestr); \
-        if (_len > LOG_BUFFER_SIZE)                              \
-            _len = LOG_BUFFER_SIZE;                              \
-        _buf[_len - 1] = ' ';                                    \
-    } while (0)
-
-#define logger_write(_fd, _buf, _len)          \
-    do {                                       \
-        if (_len > LOG_BUFFER_SIZE + 2)        \
-            _len = LOG_BUFFER_SIZE + 2;        \
-        if (write(_fd, _buf, _len) < 0)        \
-            fprintf(                           \
-                stderr,                        \
-                "while writing to logfile %s", \
-                strerror(errno)                \
-            );                                 \
-    } while(0)
-
 #endif
