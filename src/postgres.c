@@ -211,7 +211,7 @@ postgres_consumer_init(char *host)
 }
 
 int
-postgres_consumer_consume(Consumer c, Message msg)
+postgres_consumer_consume(UNUSED Consumer c, UNUSED Message msg)
 {
     //TODO
     return -1;

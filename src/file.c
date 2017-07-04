@@ -1,5 +1,6 @@
 #include <file.h>
 #include <errno.h>
+#include <stdio.h>
 
 /* TODO:
  * lots of error handling

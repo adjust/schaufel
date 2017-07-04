@@ -11,7 +11,7 @@ int ready = 0;
 Queue q;
 
 static void
-stop(int sig)
+stop(UNUSED int sig)
 {
     logger_log("received signal to stop");
     run = 0;
@@ -42,7 +42,7 @@ print_usage()
 }
 
 void *
-stats(void *arg)
+stats(UNUSED void *arg)
 {
     long added     = 0;
     long delivered = 0;

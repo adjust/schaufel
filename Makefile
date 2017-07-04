@@ -3,7 +3,8 @@ INSTALL=install -c
 
 CC = gcc
 LD = gcc
-CFLAGS = -Wall -std=gnu11
+CFLAGS = -Wall -std=c11
+CFLAGS += -D_POSIX_C_SOURCE=200809L
 LIB = -lpthread -lhiredis -lrdkafka -lpq
 INC = -Isrc/
 

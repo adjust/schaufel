@@ -10,7 +10,7 @@ dummy_producer_init()
 }
 
 void
-dummy_producer_produce(Producer p, Message msg)
+dummy_producer_produce(UNUSED Producer p, Message msg)
 {
     printf("dummy: %s\n", (char *) message_get_data(msg));
 }
@@ -32,7 +32,7 @@ dummy_consumer_init()
 }
 
 int
-dummy_consumer_consume(Consumer c, Message msg)
+dummy_consumer_consume(UNUSED Consumer c, Message msg)
 {
     char *dummy_string = calloc(17, sizeof(*dummy_string));
     snprintf(dummy_string, 17, "{\"type\":\"dummy\"}");
