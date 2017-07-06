@@ -3,7 +3,7 @@ INSTALL=install -c
 
 CC = gcc
 LD = gcc
-CFLAGS = -Wall -std=c11
+CFLAGS = -Wall -std=c11 -Wextra -Werror -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 LIB = -lpthread -lhiredis -lrdkafka -lpq
 INC = -Isrc/
