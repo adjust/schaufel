@@ -24,9 +24,8 @@ message_get_data(Message msg)
 void
 message_set_data(Message msg, void *data)
 {
-    if (!msg)
-        return NULL;
-    msg->data = data;
+    if (msg)
+        msg->data = data;
 }
 
 void

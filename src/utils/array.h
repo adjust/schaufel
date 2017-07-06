@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utils/logger.h>
 
 typedef struct Array *Array;
 
