@@ -254,10 +254,11 @@ main(int argc, char **argv)
     for (int i = 0; i < r_p_threads; ++i)
     {
         int mod = array_used(o.out_hosts) ? array_used(o.out_hosts) : 1;
-        Options local = o;
-        local.out_host = array_get(o.out_hosts, i % mod);
-        local.out_host_replica = array_get(o.out_hosts_replica, i % mod);
-        pthread_create(&(p_thread[i]), NULL, produce, &local);
+        Options *local = calloc(1, sizeof(*local));
+        memcpy(local, &o, sizeof(o));
+        local->out_host = array_get(o.out_hosts, i % mod);
+        local->out_host_replica = array_get(o.out_hosts_replica, i % mod);
+        pthread_create(&(p_thread[i]), NULL, produce, local);
     }
 
     pthread_create(&stat_thread, NULL, stats, NULL);
