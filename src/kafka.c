@@ -56,6 +56,10 @@ Meta
 kafka_producer_meta_init(char *broker, char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
+    if (!m) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
     char errstr[512];
     rd_kafka_t *rk;
     rd_kafka_topic_t *rkt;
@@ -104,6 +108,10 @@ Meta
 kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
 {
     Meta m = calloc(1, sizeof(*m));
+    if (!m) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
     rd_kafka_resp_err_t err;
     char errstr[512];
     rd_kafka_t *rk;
@@ -212,6 +220,10 @@ Producer
 kafka_producer_init(char *broker, char *topic)
 {
     Producer kafka = calloc(1, sizeof(*kafka));
+    if (!kafka) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     kafka->meta          = kafka_producer_meta_init(broker, topic);
     kafka->producer_free = kafka_producer_free;
@@ -267,6 +279,10 @@ Consumer
 kafka_consumer_init(char *broker, char *topic, char *groupid)
 {
     Consumer kafka = calloc(1, sizeof(*kafka));
+    if (!kafka) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     kafka->meta          = kafka_consumer_meta_init(broker, topic, groupid);
     kafka->consumer_free = kafka_consumer_free;
@@ -317,6 +333,10 @@ kafka_consumer_consume(Consumer c, Message msg)
         }
 
         char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
+        if (!cpy) {
+            logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+            abort();
+        }
         strncpy(cpy, (char *)rkmessage->payload, (int)rkmessage->len);
         message_set_data(msg, cpy);
         rd_kafka_message_destroy(rkmessage);

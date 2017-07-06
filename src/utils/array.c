@@ -11,12 +11,20 @@ Array
 array_init(size_t len)
 {
     Array array = calloc(1, sizeof(*array));
+    if (!array) {
+        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
     if (len == 0)
         array->len = 1;
     else
         array->len = len;
 
     array->payload = calloc(len, sizeof(*(array->payload)));
+    if (!array->payload) {
+        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
     return array;
 }
 
@@ -51,6 +59,10 @@ array_insert(Array array, char *val)
     {
         array->len *= 2;
         array->payload = realloc(array->payload, array->len * sizeof(*(array->payload)));
+        if (!array->payload) {
+            logger_log("%s %d realloc failed\n", __FILE__, __LINE__);
+            abort();
+        }
         for (uint32_t i = array->used + 1; i < array->len; ++i)
             array->payload[i] = NULL;
     }
@@ -70,6 +82,8 @@ array_pop(Array array)
 void
 array_free(Array *array)
 {
+    if (!array)
+       return;
     for (uint32_t i = 0; i < (*array)->len; ++i)
         free((*array)->payload[i]);
     free((*array)->payload);

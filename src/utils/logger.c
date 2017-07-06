@@ -14,6 +14,10 @@ void logger_init(const char *fname)
     }
 
     l->buf = calloc(LOG_BUFFER_SIZE + 2, sizeof *(l->buf));
+    if (!l->buf) {
+        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
     logger_log("logger initialized");
 }
 

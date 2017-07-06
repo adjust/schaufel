@@ -24,6 +24,8 @@ message_get_data(Message msg)
 void
 message_set_data(Message msg, void *data)
 {
+    if (!msg)
+        return NULL;
     msg->data = data;
 }
 
@@ -46,6 +48,8 @@ MessageList
 message_list_init(void)
 {
     MessageList msglist = calloc(1, sizeof(*msglist));
+    if (!msglist)
+        return NULL;
     msglist->msg = message_init();
     return msglist;
 }
@@ -75,6 +79,8 @@ Queue
 queue_init(void)
 {
     Queue q = calloc(1, sizeof(*q));
+    if (!q)
+        return NULL;
 
     if (pthread_cond_init(&q->producer_cond, NULL) != 0)
         return NULL;

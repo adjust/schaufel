@@ -66,6 +66,11 @@ void *
 consume(void *arg)
 {
     Message msg = message_init();
+    if (msg == NULL)
+    {
+        logger_log("%s %d: could not init message", __FILE__, __LINE__);
+        return NULL;
+    }
     Consumer c = consumer_init(((Options *)arg)->input, arg);
     if (c == NULL)
     {
@@ -228,6 +233,10 @@ main(int argc, char **argv)
     logger_init(o.logger);
 
     q = queue_init();
+    if (!q) {
+        logger_log("%s %d: Failed to init queue\n", __FILE__, __LINE__);
+        abort();
+    }
 
     if (o.in_hosts)
         r_c_threads = consumer_threads * array_used(o.in_hosts);
@@ -235,6 +244,10 @@ main(int argc, char **argv)
         r_c_threads = consumer_threads;
 
     c_thread = calloc(r_c_threads, sizeof(*c_thread));
+    if (!c_thread) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     for (int i = 0; i < r_c_threads; ++i)
     {
@@ -250,6 +263,10 @@ main(int argc, char **argv)
         r_p_threads = producer_threads;
 
     p_thread = calloc(r_p_threads, sizeof(*p_thread));
+    if (!p_thread) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     for (int i = 0; i < r_p_threads; ++i)
     {

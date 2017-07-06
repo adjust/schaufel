@@ -4,6 +4,10 @@ Producer
 dummy_producer_init()
 {
     Producer dummy = calloc(1, sizeof(*dummy));
+    if (!dummy) {
+        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
     dummy->producer_free = dummy_producer_free;
     dummy->produce       = dummy_producer_produce;
     return dummy;
@@ -26,6 +30,10 @@ Consumer
 dummy_consumer_init()
 {
     Consumer dummy = calloc(1, sizeof(*dummy));
+    if (!dummy) {
+        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
     dummy->consumer_free = dummy_consumer_free;
     dummy->consume       = dummy_consumer_consume;
     return dummy;

@@ -28,6 +28,10 @@ _connectinfo(char *host)
             + strlen(" host= ")
             + strlen(" port= ");
     char *conninfo = calloc(len + 1, sizeof(*conninfo));
+    if (!conninfo) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
     snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
     return conninfo;
 }
@@ -60,6 +64,10 @@ _cpycmd(char *host, char *generation)
             + strlen(fmtstring);
 
     char *cpycmd = calloc(len + 1, sizeof(*cpycmd));
+    if (!cpycmd) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
     snprintf(cpycmd, len, fmtstring, hostname, port, generation);
     return cpycmd;
 }
@@ -68,6 +76,10 @@ Meta
 postgres_meta_init(char *host, char *host_replica, char *nsp)
 {
     Meta m = calloc(1, sizeof(*m));
+    if (!m) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     m->cpycmd = _cpycmd(host, nsp);
     m->conninfo = _connectinfo(host);
@@ -110,6 +122,10 @@ Producer
 postgres_producer_init(char *host, char *host_replica, char *nsp)
 {
     Producer postgres = calloc(1, sizeof(*postgres));
+    if (!postgres) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     postgres->meta          = postgres_meta_init(host, host_replica, nsp);
     postgres->producer_free = postgres_producer_free;
@@ -202,6 +218,10 @@ Consumer
 postgres_consumer_init(char *host)
 {
     Consumer postgres = calloc(1, sizeof(*postgres));
+    if (!postgres) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 
     postgres->meta          = postgres_meta_init(host, NULL, NULL);
     postgres->consumer_free = postgres_consumer_free;
