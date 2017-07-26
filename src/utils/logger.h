@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define LOG_BUFFER_SIZE 1000
+#define LOG_BUFFER_SIZE 4096
 
 typedef struct Logger
 {
