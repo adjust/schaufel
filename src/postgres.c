@@ -141,6 +141,12 @@ postgres_producer_produce(Producer p, Message msg)
 
     char *buf = (char *) message_get_data(msg);
     char *newline = "\n";
+    char *s = strstr(buf, "\\u0000");
+    if (s != NULL)
+    {
+        logger_log("found invalid unicode byte sequence: %s", buf);
+        return;
+    }
 
     char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
 
