@@ -305,11 +305,16 @@ kafka_consumer_consume(Consumer c, Message msg)
         if (rkmessage->err)
         {
             if (rkmessage->err == RD_KAFKA_RESP_ERR__PARTITION_EOF)
+            {
+                /*
+                 * Debug messages
                 logger_log("Consumer reached end of %s [%"PRId32"] "
                     "message queue at offset %"PRId64"\n",
                     rd_kafka_topic_name(rkmessage->rkt),
                     rkmessage->partition, rkmessage->offset);
-
+                */
+                return 0;
+            }
             if (rkmessage->rkt)
             {
                 logger_log("%% Consume error for "
