@@ -73,6 +73,12 @@ kafka_producer_meta_init(char *broker, char *topic)
         abort();
     }
 
+    if (rd_kafka_conf_set(conf, "queue.buffering.max.ms","100",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        abort();
+    }
+
     rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
     rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
