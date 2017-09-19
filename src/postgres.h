@@ -7,9 +7,14 @@
 #include <stdlib.h>
 #include <libpq-fe.h>
 
+typedef enum {
+    POSTGRES_JSON,
+    POSTGRES_CSV,
+} postgres_format;
+
 typedef struct Producer *Producer;
 
-Producer postgres_producer_init(char *host, char *host_replica, char *nsp);
+Producer postgres_producer_init(char *host, char *host_replica, char *nsp, postgres_format fmt);
 
 void postgres_producer_free(Producer *p);
 

@@ -37,8 +37,14 @@ _connectinfo(char *host)
 }
 
 static char *
-_cpycmd(char *host, char *generation)
+_cpycmd(char *host, char *generation, postgres_format fmt)
 {
+    static const char * const fmt_strs[] = {
+        [POSTGRES_JSON] = "COPY %s_%d_%s.data FROM STDIN",
+        [POSTGRES_CSV] = "COPY %s_%d_%s.data FROM STDIN (DATA CSV)",
+    };
+    const char *fmtstring = fmt_strs[fmt];
+
     if (host == NULL)
         return NULL;
     char *hostname;
@@ -57,8 +63,6 @@ _cpycmd(char *host, char *generation)
         ++ptr;
     }
 
-    const char *fmtstring = "COPY %s_%d_%s.data FROM STDIN";
-
     int len = strlen(hostname)
             + number_length(port)
             + strlen(fmtstring);
@@ -73,7 +77,7 @@ _cpycmd(char *host, char *generation)
 }
 
 Meta
-postgres_meta_init(char *host, char *host_replica, char *nsp)
+postgres_meta_init(char *host, char *host_replica, char *nsp, postgres_format fmt)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -81,7 +85,7 @@ postgres_meta_init(char *host, char *host_replica, char *nsp)
         abort();
     }
 
-    m->cpycmd = _cpycmd(host, nsp);
+    m->cpycmd = _cpycmd(host, nsp, fmt);
     m->conninfo = _connectinfo(host);
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -119,7 +123,7 @@ postgres_meta_free(Meta *m)
 }
 
 Producer
-postgres_producer_init(char *host, char *host_replica, char *nsp)
+postgres_producer_init(char *host, char *host_replica, char *nsp, postgres_format fmt)
 {
     Producer postgres = calloc(1, sizeof(*postgres));
     if (!postgres) {
@@ -127,7 +131,7 @@ postgres_producer_init(char *host, char *host_replica, char *nsp)
         abort();
     }
 
-    postgres->meta          = postgres_meta_init(host, host_replica, nsp);
+    postgres->meta          = postgres_meta_init(host, host_replica, nsp, fmt);
     postgres->producer_free = postgres_producer_free;
     postgres->produce       = postgres_producer_produce;
 
@@ -229,7 +233,7 @@ postgres_consumer_init(char *host)
         abort();
     }
 
-    postgres->meta          = postgres_meta_init(host, NULL, NULL);
+    postgres->meta          = postgres_meta_init(host, NULL, NULL, POSTGRES_JSON);
     postgres->consumer_free = postgres_consumer_free;
     postgres->consume       = postgres_consumer_consume;
 
