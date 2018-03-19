@@ -248,8 +248,6 @@ main(int argc, char **argv)
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
 
-    logger_init(o.logger);
-
     q = queue_init();
     if (!q) {
         logger_log("%s %d: Failed to init queue\n", __FILE__, __LINE__);
