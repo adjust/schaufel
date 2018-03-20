@@ -6,7 +6,7 @@ void logger_init(const char *fname)
 {
     Logger *l = &logger;
     l->fname  = strdup(fname);
-    l->fd     = open(l->fname, O_CREAT | O_APPEND | O_WRONLY, 0777);
+    l->fd     = open(l->fname, O_CREAT | O_APPEND | O_WRONLY, 0640);
     if (l->fd < 0)
     {
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
