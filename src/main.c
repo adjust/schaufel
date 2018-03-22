@@ -115,7 +115,7 @@ consume(void *arg)
     while (get_state(&consume_state))
     {
         if (consumer_consume(c, msg) == -1)
-            return NULL;
+            break;
         if (message_get_data(msg) != NULL)
         {
             queue_add(q, message_get_data(msg), 1);
