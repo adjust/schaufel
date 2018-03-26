@@ -182,6 +182,18 @@ parse_connstring(char *conninfo, char **hostname, int *port)
     return res;
 }
 
+bool get_state(const volatile atomic_bool *state)
+{
+    return atomic_load(state);
+}
+
+bool set_state(volatile atomic_bool *state, bool value)
+{
+    bool expected = !value;
+
+    return atomic_compare_exchange_strong(state, &expected, value);
+}
+
 Array
 _delimit_by(char *str, char* delim)
 {

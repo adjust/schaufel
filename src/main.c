@@ -1,20 +1,32 @@
 #include <utils/logger.h>
 #include <queue.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
 #include <producer.h>
 #include <utils/helper.h>
 
-int run   = 1;
-int ready = 0;
+
+/* Schaufel keeps track of consume and produce states.
+ *
+ * consume_state is statically initialised to true (for convenience).
+ * produce_state is initialised on runtime when at least one producer is up.
+ *
+ * Use get_state(&state) to query a state atomically.
+ * Use set_state(&state, true|false) to set/unset a state atomically.
+ */
+static volatile atomic_bool consume_state = ATOMIC_VAR_INIT(true);
+static volatile atomic_bool produce_state;
+
 Queue q;
 
 static void
 stop(UNUSED int sig)
 {
     logger_log("received signal to stop");
-    run = 0;
+    set_state(&consume_state, false);
 }
 
 void
@@ -46,7 +58,7 @@ stats(UNUSED void *arg)
 {
     long added     = 0;
     long delivered = 0;
-    while (run)
+    while (get_state(&consume_state))
     {
         long secs_used,micros_used;
         struct timeval start, end;
@@ -79,11 +91,11 @@ consume(void *arg)
     }
 
     logger_log("waiting for producer to come up");
-    while (!ready)
+    while (!get_state(&produce_state))
         sleep(1);
     logger_log("producer are up");
 
-    while(run)
+    while (get_state(&consume_state))
     {
         if (consumer_consume(c, msg) == -1)
             return NULL;
@@ -96,7 +108,6 @@ consume(void *arg)
     }
     message_free(&msg);
     consumer_free(&c);
-    run = 0;
     return NULL;
 }
 
@@ -111,13 +122,13 @@ produce(void *arg)
         return NULL;
     }
 
-    // at least on producer ready
-    ready = 1;
+    // at least one producer ready
+    set_state(&produce_state, true);
 
     int ret = 0;
     while(42)
     {
-        if (!run && ret == ETIMEDOUT)
+        if (!get_state(&consume_state) && ret == ETIMEDOUT)
             break;
         ret = queue_get(q, msg);
 
@@ -283,9 +294,11 @@ main(int argc, char **argv)
 
     for (int i = 0; i < r_c_threads; ++i)
         pthread_join(c_thread[i], &res);
+    set_state(&consume_state, false);
 
     for (int i = 0; i < r_p_threads; ++i)
         pthread_join(p_thread[i], &res);
+    set_state(&produce_state, false);
 
     pthread_join(stat_thread, &res);
 

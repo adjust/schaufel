@@ -3,6 +3,8 @@
 
 #include <utils/logger.h>
 #include <utils/array.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 typedef struct Options {
@@ -32,6 +34,9 @@ int options_validate(Options o);
 size_t number_length(long number);
 
 int parse_connstring(char *conninfo, char **hostname, int *port);
+
+bool get_state(const volatile atomic_bool *state);
+bool set_state(volatile atomic_bool *state, bool value);
 
 Array parse_hostinfo_master(char *hostinfo);
 
