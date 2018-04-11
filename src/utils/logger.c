@@ -32,22 +32,19 @@ void logger_free()
     l->fd = -1;
 }
 
-static int buffer_set_timestamp(char *buf)
+static size_t buffer_set_timestamp(char *buf)
 {
-    int len;
-    char *timestr;
+    size_t len;
     struct tm *local;
     time_t tm = time(NULL);
     local = localtime(&tm);
-    timestr = asctime(local);
-    len = snprintf(buf, LOG_BUFFER_SIZE, "%s", timestr);
-    if (len > LOG_BUFFER_SIZE)
-        len = LOG_BUFFER_SIZE;
-    buf[len - 1] = ' ';
+    len = strftime(buf, LOG_BUFFER_SIZE, "%a %b %e %T %Y ", local);
+    if (!len)
+        buf[0] = '\0';
     return len;
 }
 
-static void logger_write(int fd, char *buf, int len)
+static void logger_write(int fd, char *buf, size_t len)
 {
     if (len > LOG_BUFFER_SIZE + 2)
         len = LOG_BUFFER_SIZE + 2;
@@ -59,7 +56,7 @@ void logger_log(const char *fmt, ...)
 {
     Logger *l = &logger;
     va_list args;
-    int len = buffer_set_timestamp(l->buf);
+    size_t len = buffer_set_timestamp(l->buf);
     va_start(args, fmt);
     len += vsnprintf(l->buf + len, LOG_BUFFER_SIZE - len, fmt, args);
     va_end(args);
