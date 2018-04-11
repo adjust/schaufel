@@ -39,7 +39,7 @@ static size_t buffer_set_timestamp(char *buf)
     time_t tm = time(NULL);
     local = localtime(&tm);
     len = strftime(buf, LOG_BUFFER_SIZE, "%a %b %e %T %Y ", local);
-    if (!len)
+    if (len == 0)
         buf[0] = '\0';
     return len;
 }
