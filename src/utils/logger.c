@@ -32,7 +32,7 @@ void logger_free()
     l->fd = -1;
 }
 
-int buffer_set_timestamp(char *buf)
+static int buffer_set_timestamp(char *buf)
 {
     int len;
     char *timestr;
@@ -47,7 +47,7 @@ int buffer_set_timestamp(char *buf)
     return len;
 }
 
-void logger_write(int fd, char *buf, int len)
+static void logger_write(int fd, char *buf, int len)
 {
     if (len > LOG_BUFFER_SIZE + 2)
         len = LOG_BUFFER_SIZE + 2;
