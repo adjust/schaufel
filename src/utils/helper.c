@@ -24,6 +24,12 @@ _redis_consumer_validate(Options o)
         logger_log("%s %d: Missing in_topic parameter", __FILE__, __LINE__);
         return -1;
     }
+    if (o.in_pipeline < 0)
+    {
+        logger_log("%s %d: Negative in_pipeline parameter", __FILE__, __LINE__);
+        return -1;
+    }
+
     return 0;
 }
 
@@ -65,6 +71,11 @@ _redis_producer_validate(Options o)
     if (o.out_topic == NULL)
     {
         logger_log("%s %d: Missing out_topic parameter", __FILE__, __LINE__);
+        return -1;
+    }
+    if (o.out_pipeline < 0)
+    {
+        logger_log("%s %d: Negative out_pipeline parameter", __FILE__, __LINE__);
         return -1;
     }
     return 0;

@@ -12,6 +12,7 @@ typedef struct Options {
     char *in_host;
     char *in_broker;
     int   in_port;
+    int   in_pipeline;
     char *in_file;
     char *in_groupid;
     char *in_topic;
@@ -20,6 +21,7 @@ typedef struct Options {
     char *out_host_replica;
     char *out_broker;
     int   out_port;
+    int   out_pipeline;
     char *out_file;
     char *out_groupid;
     char *out_topic;

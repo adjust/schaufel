@@ -13,7 +13,7 @@ producer_init(char kind, void *opt)
             p = file_producer_init(((Options *)opt)->out_file);
             break;
         case 'r':
-            p = redis_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_topic);
+            p = redis_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_topic, ((Options *)opt)->out_pipeline);
             break;
         case 'p':
             p = postgres_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_host_replica, ((Options *)opt)->out_topic);

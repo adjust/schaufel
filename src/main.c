@@ -55,6 +55,12 @@ print_usage()
            "                (used as topic name for kafka)\n"
            "                (used as generation id for postgres)\n"
            "-f | -F : consumer / producer filename (only file)\n"
+           "-s | -S : consumer / producer pipeline batch size (only redis)\n"
+           "        :       Requires exactly one integer argument (default: 0)\n"
+           "        :       0 disables pipelining\n"
+           "        :       Redis: 10k is upstream recommended max\n"
+           "        :       Thread count must be a factor of the respective\n"
+           "        :       pipeline batch size.\n"
            "-l      : path to the log file\n"
            "-V      : print version\n"
            "\n");
@@ -173,7 +179,9 @@ main(int argc, char **argv)
     int consumer_threads = 0,
         producer_threads = 0,
         r_c_threads   = 0,
-        r_p_threads   = 0;
+        r_p_threads   = 0,
+        r_c_pipeline  = 0,
+        r_p_pipeline  = 0;
 
     void *res;
 
@@ -184,7 +192,7 @@ main(int argc, char **argv)
     Options o;
     memset(&o, '\0', sizeof(o));
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:B:H:Q:G:T:F:V")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:s:B:H:Q:G:T:F:S:V")) != -1)
     {
         switch (opt)
         {
@@ -222,6 +230,9 @@ main(int argc, char **argv)
             case 'f':
                 o.in_file = optarg;
                 break;
+            case 's':
+                o.in_pipeline = atoi(optarg);
+                break;
             case 'B':
                 o.out_broker = optarg;
                 break;
@@ -242,6 +253,9 @@ main(int argc, char **argv)
             case 'F':
                 o.out_file = optarg;
                 break;
+            case 'S':
+                o.out_pipeline = atoi(optarg);
+                break;
             case 'V':
                 print_version();
             default:
@@ -256,6 +270,24 @@ main(int argc, char **argv)
 
     if (!consumer_threads || !producer_threads || options_validate(o) != 1)
         print_usage();
+
+    if (o.in_pipeline) {
+        if (o.in_pipeline % consumer_threads != 0) {
+            logger_log("%s %d: Consumer threads (-c) must be a factor of input pipeline size (-s)\n",
+                       __FILE__, __LINE__);
+            print_usage();
+        }
+        r_c_pipeline = o.in_pipeline / consumer_threads;
+    }
+
+    if (o.out_pipeline) {
+        if (o.out_pipeline % producer_threads != 0) {
+            logger_log("%s %d: Producer threads (-C) must be a factor of output pipeline size (-S)\n",
+                       __FILE__, __LINE__);
+            print_usage();
+        }
+        r_p_pipeline = o.out_pipeline / producer_threads;
+    }
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
@@ -283,6 +315,7 @@ main(int argc, char **argv)
         Options *local = calloc(1, sizeof(*local));
         memcpy(local, &o, sizeof(o));
         local->in_host = array_get(o.in_hosts, i % mod);
+        local->in_pipeline = r_c_pipeline;
         pthread_create(&(c_thread[i]), NULL, consume, local);
     }
 
@@ -304,6 +337,7 @@ main(int argc, char **argv)
         memcpy(local, &o, sizeof(o));
         local->out_host = array_get(o.out_hosts, i % mod);
         local->out_host_replica = array_get(o.out_hosts_replica, i % mod);
+        local->out_pipeline = r_p_pipeline;
         pthread_create(&(p_thread[i]), NULL, produce, local);
     }
 
