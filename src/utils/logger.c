@@ -1,35 +1,36 @@
 #include <utils/logger.h>
 
-static Logger logger;
+static int log_fd;
+static char *log_fname;
+static _Thread_local char log_buffer[LOG_BUFFER_SIZE + 2];
 
 void logger_init(const char *fname)
 {
-    Logger *l = &logger;
-    l->fname  = strdup(fname);
-    l->fd     = open(l->fname, O_CREAT | O_APPEND | O_WRONLY, 0640);
-    if (l->fd < 0)
+    log_buffer[0] = '\0';
+    log_fname     = strdup(fname);
+    if (!log_fname)
+    {
+        fprintf(stderr, "failed to allocate memory: %s\n", strerror(errno));
+        exit(1);
+    }
+    log_fd        = open(fname, O_CREAT | O_APPEND | O_WRONLY, 0640);
+    if (log_fd < 0)
     {
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
         exit(1);
     }
 
-    l->buf = calloc(LOG_BUFFER_SIZE + 2, sizeof *(l->buf));
-    if (!l->buf) {
-        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
     logger_log("logger initialized");
 }
 
 void logger_free()
 {
-    Logger *l = &logger;
-    if (l->fd < 0)
+    if (log_fd < 0)
         return;
-    free(l->fname);
-    free(l->buf);
-    close(l->fd);
-    l->fd = -1;
+    free(log_fname);
+    close(log_fd);
+    log_buffer[0] = '\0';
+    log_fd = -1;
 }
 
 static size_t buffer_set_timestamp(char *buf)
@@ -54,15 +55,14 @@ static void logger_write(int fd, char *buf, size_t len)
 
 void logger_log(const char *fmt, ...)
 {
-    Logger *l = &logger;
     va_list args;
-    size_t len = buffer_set_timestamp(l->buf);
+    int len = buffer_set_timestamp(log_buffer);
     va_start(args, fmt);
-    len += vsnprintf(l->buf + len, LOG_BUFFER_SIZE - len, fmt, args);
+    len += vsnprintf(log_buffer + len, LOG_BUFFER_SIZE - len, fmt, args);
     va_end(args);
     if (len > LOG_BUFFER_SIZE)
         len = LOG_BUFFER_SIZE;
-    l->buf[len++] = '\n';
-    l->buf[len++] = '\0';
-    logger_write(l->fd, l->buf, len);
+    log_buffer[len++] = '\n';
+    log_buffer[len++] = '\0';
+    logger_write(log_fd, log_buffer, len);
 }

@@ -14,13 +14,6 @@
 
 #define LOG_BUFFER_SIZE 4096
 
-typedef struct Logger
-{
-    char *buf;
-    char *fname;
-    int fd;
-} Logger;
-
 void logger_init(const char* fname);
 void logger_free();
 void logger_log(const char *fmt, ...);
