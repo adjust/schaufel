@@ -247,6 +247,7 @@ main(int argc, char **argv)
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
+    signal(SIGHUP, stop);
 
     q = queue_init();
     if (!q) {
