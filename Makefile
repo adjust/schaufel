@@ -5,6 +5,7 @@ CC = gcc
 LD = gcc
 CFLAGS = -Wall -std=c11 -Wextra -Werror -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
+CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 LIB = -lpthread -lhiredis -lrdkafka -lpq
 INC = -Isrc/
 
@@ -29,6 +30,8 @@ OBJ_DEBUG = $(patsubst src/%.c, $(OBJDIR_DEBUG)/%.o, $(SOURCES))
 OBJ_RELEASE = $(patsubst src/%.c, $(OBJDIR_RELEASE)/%.o, $(SOURCES))
 OBJ_TEST = $(patsubst $(OBJDIR_DEBUG)/main.o, ,$(OBJ_DEBUG))
 OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR_DEBUG)/%.o, $(TEST_SOURCES))
+
+SCHAUFEL_VERSION = 0.1
 
 all: debug release
 

@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <producer.h>
 #include <utils/helper.h>
-
+#include <version.h>
 
 /* Schaufel keeps track of consume and produce states.
  *
@@ -56,7 +56,15 @@ print_usage()
            "                (used as generation id for postgres)\n"
            "-f | -F : consumer / producer filename (only file)\n"
            "-l      : path to the log file\n"
+           "-V      : print version\n"
            "\n");
+    exit(1);
+}
+
+void
+print_version()
+{
+    printf("schaufel version: %s\n\n", _SCHAUFEL_VERSION);
     exit(1);
 }
 
@@ -174,7 +182,7 @@ main(int argc, char **argv)
     Options o;
     memset(&o, '\0', sizeof(o));
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:B:H:Q:G:T:F:")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:B:H:Q:G:T:F:V")) != -1)
     {
         switch (opt)
         {
@@ -231,6 +239,9 @@ main(int argc, char **argv)
                 break;
             case 'F':
                 o.out_file = optarg;
+                break;
+            case 'V':
+                print_version();
                 break;
             default:
                 print_usage();
