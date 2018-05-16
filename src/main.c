@@ -64,8 +64,10 @@ print_usage()
 void
 print_version()
 {
-    printf("schaufel version: %s\n\n", _SCHAUFEL_VERSION);
-    exit(1);
+    printf("schaufel version: "
+            _SCHAUFEL_VERSION
+            "\n");
+    exit(0);
 }
 
 void *
@@ -242,7 +244,6 @@ main(int argc, char **argv)
                 break;
             case 'V':
                 print_version();
-                break;
             default:
                 print_usage();
         }
