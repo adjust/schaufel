@@ -29,7 +29,7 @@ stop(UNUSED int sig)
     set_state(&consume_state, false);
 }
 
-void
+NORETURN void
 print_usage()
 {
     printf("usage\n"
@@ -67,7 +67,7 @@ print_usage()
     exit(1);
 }
 
-void
+NORETURN void
 print_version()
 {
     printf("schaufel version: "

@@ -44,6 +44,7 @@ Array parse_hostinfo_master(char *hostinfo);
 
 Array parse_hostinfo_replica(char *hostinfo);
 
+#define NORETURN __attribute__((__noreturn__))
 #define UNUSED __attribute__((__unused__))
 
 #endif
