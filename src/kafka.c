@@ -133,6 +133,12 @@ kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
         abort();
     }
 
+    if (rd_kafka_conf_set(conf, "partition.assignment.strategy","roundrobin",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        abort();
+    }
+
     if (rd_kafka_topic_conf_set(topic_conf, "offset.store.method","broker",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
         logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
