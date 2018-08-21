@@ -33,7 +33,7 @@ redis_meta_init(char *host, char *topic, size_t pipe_max)
     {
         if (m->c)
         {
-            logger_log("%s %d: redis connection failed:", __FILE__, __LINE__, m->c->errstr);
+            logger_log("%s %d: redis connection failed: %s", __FILE__, __LINE__, m->c->errstr);
             redisFree(m->c);
             abort();
         }
