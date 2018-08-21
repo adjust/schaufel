@@ -13,9 +13,10 @@
 #include <sys/types.h>
 
 #define LOG_BUFFER_SIZE 4096
+#define FORMAT_PRINTF(x,y) __attribute__((format (printf,(x),(y))))
 
 void logger_init(const char* fname);
 void logger_free();
-void logger_log(const char *fmt, ...);
+void logger_log(const char *fmt, ...) FORMAT_PRINTF(1,2);
 
 #endif
