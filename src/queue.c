@@ -3,6 +3,7 @@
 typedef struct Message
 {
     void    *data;
+    size_t   datalen;
     int64_t  msgtype;
 } *Message;
 
@@ -26,6 +27,21 @@ message_set_data(Message msg, void *data)
 {
     if (msg)
         msg->data = data;
+}
+
+void
+message_set_len(Message msg, size_t len)
+{
+    if(msg)
+       msg->datalen = len;
+}
+
+size_t
+message_get_len(Message msg)
+{
+    if (msg == NULL)
+        return 0;
+    return msg->datalen;
 }
 
 void

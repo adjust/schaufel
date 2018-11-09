@@ -242,7 +242,8 @@ void
 kafka_producer_produce(Producer p, Message msg)
 {
     char *buf = (char *) message_get_data(msg);
-    size_t len = strlen(buf);
+    //size_t len = strlen(buf);
+    size_t len = message_get_len(msg);
     rd_kafka_t *rk = ((Meta) p->meta)->rk;
     rd_kafka_topic_t *rkt = ((Meta)p->meta)->rkt;
 retry:
@@ -350,6 +351,7 @@ kafka_consumer_consume(Consumer c, Message msg)
         }
         memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
         message_set_data(msg, cpy);
+        message_set_len(msg, (size_t)rkmessage->len);
         rd_kafka_message_destroy(rkmessage);
     }
     return 0;
