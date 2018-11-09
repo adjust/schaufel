@@ -124,7 +124,7 @@ consume(void *arg)
             break;
         if (message_get_data(msg) != NULL)
         {
-            queue_add(q, message_get_data(msg), 1);
+            queue_add(q, message_get_data(msg), message_get_len(msg), 1);
             //give up ownership
             message_set_data(msg, NULL);
         }

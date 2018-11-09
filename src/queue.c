@@ -120,7 +120,7 @@ queue_init(void)
 }
 
 int
-queue_add(Queue q, void *data, int64_t msgtype)
+queue_add(Queue q, void *data, size_t datalen, int64_t msgtype)
 {
     MessageList newmsg;
     pthread_mutex_lock(&q->mutex);
@@ -137,6 +137,10 @@ queue_add(Queue q, void *data, int64_t msgtype)
         return ENOMEM;
     }
 
+    if (datalen != 0)
+    {
+        newmsg->msg->datalen = datalen;
+    }
     newmsg->msg->data = data;
     newmsg->msg->msgtype = msgtype;
 
@@ -207,6 +211,7 @@ queue_get(Queue q, Message msg)
     }
 
     msg->data = firstrec->msg->data;
+    msg->datalen = firstrec->msg->datalen;
     msg->msgtype = firstrec->msg->msgtype;
 
     pthread_cond_broadcast(&q->consumer_cond);
