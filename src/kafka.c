@@ -348,7 +348,7 @@ kafka_consumer_consume(Consumer c, Message msg)
             logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
             abort();
         }
-        strncpy(cpy, (char *)rkmessage->payload, (int)rkmessage->len);
+        memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
         message_set_data(msg, cpy);
         rd_kafka_message_destroy(rkmessage);
     }
