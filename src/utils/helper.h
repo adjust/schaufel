@@ -20,6 +20,7 @@ typedef struct Options {
     char *out_host;
     char *out_host_replica;
     char *out_broker;
+    char *out_comp;
     int   out_port;
     int   out_pipeline;
     char *out_file;

@@ -1,5 +1,5 @@
 #include <utils/helper.h>
-
+#include <stdlib.h>
 int
 _file_consumer_validate(Options o)
 {
@@ -63,6 +63,7 @@ _file_producer_validate(Options o)
 int
 _redis_producer_validate(Options o)
 {
+
     if (o.out_host == NULL)
     {
         logger_log("%s %d: Missing out_host parameter", __FILE__, __LINE__);
@@ -78,12 +79,18 @@ _redis_producer_validate(Options o)
         logger_log("%s %d: Negative out_pipeline parameter", __FILE__, __LINE__);
         return -1;
     }
+
     return 0;
 }
 
 int
 _kafka_producer_validate(Options o)
 {
+    const char* kafka_compression[] = {
+        "lz4\0",
+        "none\0",
+        NULL
+    };
     if (o.out_broker == NULL)
     {
         logger_log("%s %d: Missing out_broker parameter", __FILE__, __LINE__);
@@ -93,6 +100,22 @@ _kafka_producer_validate(Options o)
     {
         logger_log("%s %d: Missing out_topic parameter", __FILE__, __LINE__);
         return -1;
+    }
+    if (o.out_comp != NULL)
+    {
+        size_t i = 0;
+        while(kafka_compression[i] != NULL) {
+            if((strlen(o.out_comp) == strlen(kafka_compression[i])) &&
+                !(strncmp(o.out_comp,kafka_compression[i],strlen(o.out_comp))))
+            {
+                break;
+            }
+            i++;
+        }
+        if(kafka_compression[i] == NULL) {
+            logger_log("%s %d: Unknown kafka compression: %s", __FILE__, __LINE__, o.out_comp);
+            return -1;
+        }
     }
     return 0;
 }

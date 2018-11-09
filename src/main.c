@@ -61,6 +61,7 @@ print_usage()
            "        :       Redis: 10k is upstream recommended max\n"
            "        :       Thread count must be a factor of the respective\n"
            "        :       pipeline batch size.\n"
+           "-k      : (lz4|none) kafka producer compression\n"
            "-l      : path to the log file\n"
            "-V      : print version\n"
            "\n");
@@ -192,7 +193,7 @@ main(int argc, char **argv)
     Options o;
     memset(&o, '\0', sizeof(o));
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:s:B:H:Q:G:T:F:S:V")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:s:k:B:H:Q:G:T:F:S:V")) != -1)
     {
         switch (opt)
         {
@@ -232,6 +233,9 @@ main(int argc, char **argv)
                 break;
             case 's':
                 o.in_pipeline = atoi(optarg);
+                break;
+            case 'k':
+                o.out_comp = optarg;
                 break;
             case 'B':
                 o.out_broker = optarg;

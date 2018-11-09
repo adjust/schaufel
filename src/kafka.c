@@ -53,7 +53,7 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-kafka_producer_meta_init(char *broker, char *topic)
+kafka_producer_meta_init(char *broker, char *topic, char *out_comp)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -66,11 +66,23 @@ kafka_producer_meta_init(char *broker, char *topic)
     rd_kafka_conf_t *conf;
 
     conf = rd_kafka_conf_new();
-
-    if (rd_kafka_conf_set(conf, "compression.codec", "lz4", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    if (out_comp == NULL)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
-        abort();
+        printf("Setting lz4\n");
+        if (rd_kafka_conf_set(conf, "compression.codec", "lz4", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+        {
+            logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+            abort();
+        }
+    }
+    else
+    {
+        logger_log("%s %d: Setting custom compression.codec: %s \n", __FILE__, __LINE__, out_comp);
+        if (rd_kafka_conf_set(conf, "compression.codec", out_comp, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+        {
+            logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+            abort();
+        }
     }
 
     if (rd_kafka_conf_set(conf, "queue.buffering.max.ms","1000",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
@@ -223,7 +235,7 @@ kafka_consumer_meta_free(Meta *m)
 
 
 Producer
-kafka_producer_init(char *broker, char *topic)
+kafka_producer_init(char *broker, char *topic, char *out_comp)
 {
     Producer kafka = calloc(1, sizeof(*kafka));
     if (!kafka) {
@@ -231,7 +243,7 @@ kafka_producer_init(char *broker, char *topic)
         abort();
     }
 
-    kafka->meta          = kafka_producer_meta_init(broker, topic);
+    kafka->meta          = kafka_producer_meta_init(broker, topic, out_comp);
     kafka->producer_free = kafka_producer_free;
     kafka->produce       = kafka_producer_produce;
 

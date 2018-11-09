@@ -19,7 +19,7 @@ producer_init(char kind, void *opt)
             p = postgres_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_host_replica, ((Options *)opt)->out_topic);
             break;
         case 'k':
-            p = kafka_producer_init(((Options *)opt)->out_broker, ((Options *)opt)->out_topic);
+            p = kafka_producer_init(((Options *)opt)->out_broker, ((Options *)opt)->out_topic, ((Options *)opt)->out_comp);
             break;
         default:
             return NULL;

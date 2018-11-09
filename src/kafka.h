@@ -10,7 +10,7 @@
 
 typedef struct Producer *Producer;
 
-Producer kafka_producer_init(char *broker, char *topic);
+Producer kafka_producer_init(char *broker, char *topic, char *out_comp);
 
 void kafka_producer_free(Producer *p);
 
