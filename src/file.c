@@ -55,9 +55,10 @@ void
 file_producer_produce(Producer p, Message msg)
 {
     char *line = message_get_data(msg);
-    char *newline = "\n";
-    fwrite(line, strlen(line), sizeof(*line),((Meta) p->meta)->fp);
-    fwrite(newline, 1, 1,((Meta) p->meta)->fp);
+    size_t len = message_get_len(msg);
+    //char *newline = "\n";
+
+    fwrite(line, len, sizeof(*line),((Meta) p->meta)->fp);
 }
 
 void
@@ -93,8 +94,9 @@ file_consumer_consume(Consumer c, Message msg)
         logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
         return -1;
     }
-    line[read-1] = '\0';
+
     message_set_data(msg, line);
+    message_set_len(msg, (size_t) read);
     return 0;
 }
 
