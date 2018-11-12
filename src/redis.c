@@ -105,10 +105,10 @@ redis_producer_produce(Producer p, Message msg)
     Meta m = (Meta)p->meta;
 
     if (m->pipe_max == 0) { /* No pipelining. */
-        m->reply = redisCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
+        m->reply = redisCommand(m->c, "RPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
         freeReplyObject(m->reply);
     } else { /* Pipelining */
-        redisAppendCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
+        redisAppendCommand(m->c, "RPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
         m->pipe_cur++;
         redis_meta_check_pipeline(m, true);
     }
