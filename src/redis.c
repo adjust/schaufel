@@ -105,10 +105,10 @@ redis_producer_produce(Producer p, Message msg)
     Meta m = (Meta)p->meta;
 
     if (m->pipe_max == 0) { /* No pipelining. */
-        m->reply = redisCommand(m->c, "LPUSH %s %s",m->topic, (char *) message_get_data(msg));
+        m->reply = redisCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
         freeReplyObject(m->reply);
     } else { /* Pipelining */
-        redisAppendCommand(m->c, "LPUSH %s %s",m->topic, (char *) message_get_data(msg));
+        redisAppendCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
         m->pipe_cur++;
         redis_meta_check_pipeline(m, true);
     }
@@ -142,8 +142,9 @@ redis_consumer_handle_reply(const redisReply *reply, Message msg)
     if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2)
     {
         char *result = calloc(reply->element[1]->len + 1, sizeof(*result));
-        strncpy(result, reply->element[1]->str, reply->element[1]->len);
+        memcpy(result, reply->element[1]->str, reply->element[1]->len);
         message_set_data(msg, result);
+        message_set_len(msg, reply->element[1]->len);
     }
 }
 
