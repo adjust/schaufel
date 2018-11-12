@@ -56,7 +56,6 @@ file_producer_produce(Producer p, Message msg)
 {
     char *line = message_get_data(msg);
     size_t len = message_get_len(msg);
-    //char *newline = "\n";
 
     fwrite(line, len, sizeof(*line),((Meta) p->meta)->fp);
 }
