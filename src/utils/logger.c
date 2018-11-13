@@ -49,7 +49,7 @@ static void logger_write(int fd, char *buf, size_t len)
 {
     if (len > LOG_BUFFER_SIZE + 2)
         len = LOG_BUFFER_SIZE + 2;
-    if (write(fd, buf, len) < 0)
+    if (write(fd, buf, (len-1)) < 0)
         fprintf(stderr, "while writing to logfile %s", strerror(errno));
 }
 
