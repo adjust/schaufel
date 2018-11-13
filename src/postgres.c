@@ -140,7 +140,15 @@ postgres_producer_produce(Producer p, Message msg)
     Meta m = (Meta)p->meta;
 
     char *buf = (char *) message_get_data(msg);
+    size_t len = message_get_len(msg);
     char *newline = "\n";
+
+    if (buf[len] != '\0')
+    {
+        logger_log("payload doesn't end on null terminator");
+        return;
+    }
+
     char *s = strstr(buf, "\\u0000");
     if (s != NULL)
     {
