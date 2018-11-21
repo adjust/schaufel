@@ -330,7 +330,6 @@ kafka_consumer_consume(Consumer c, Message msg)
                     rkmessage->partition,
                     rkmessage->offset,
                     rd_kafka_message_errstr(rkmessage));
-                rd_kafka_message_destroy(rkmessage);
             }
             else
                 logger_log("%% Consumer error: %s: %s\n",
@@ -341,6 +340,7 @@ kafka_consumer_consume(Consumer c, Message msg)
                 rkmessage->err == RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
                 abort();
 
+            rd_kafka_message_destroy(rkmessage);
             return 0;
         }
 
