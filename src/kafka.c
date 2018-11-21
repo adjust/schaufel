@@ -132,6 +132,16 @@ kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
         logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
         abort();
     }
+    if (rd_kafka_conf_set(conf, "fetch.wait.max.ms","1000",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        abort();
+    }
+    if (rd_kafka_conf_set(conf, "queued.max.messages.kbytes","2097152",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        abort();
+    }
 
     if (rd_kafka_topic_conf_set(topic_conf, "offset.store.method","broker",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
