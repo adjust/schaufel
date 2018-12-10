@@ -31,7 +31,7 @@ OBJ_RELEASE = $(patsubst src/%.c, $(OBJDIR_RELEASE)/%.o, $(SOURCES))
 OBJ_TEST = $(patsubst $(OBJDIR_DEBUG)/main.o, ,$(OBJ_DEBUG))
 OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR_DEBUG)/%.o, $(TEST_SOURCES))
 
-SCHAUFEL_VERSION = 0.1
+SCHAUFEL_VERSION = 0.3
 
 all: debug release
 
