@@ -6,6 +6,8 @@
 #include <producer.h>
 #include <stdlib.h>
 #include <libpq-fe.h>
+#include <pthread.h>
+#include <sys/prctl.h>
 
 typedef struct Producer *Producer;
 
