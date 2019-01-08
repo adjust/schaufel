@@ -108,7 +108,7 @@ _commit_worker(void *meta)
         /* if count > 0 it implies that copy == 1,
          * therefore it is safe to commit data */
         if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
-            logger_log("%s %d: Autocommiting", __FILE__, __LINE__);
+            logger_log("%s %d: Autocommiting %d entries", __FILE__, __LINE__, (*m)->count);
             _commit(m);
         }
 
