@@ -113,6 +113,7 @@ _commit_worker(void *meta)
         }
 
         pthread_mutex_unlock(&((*m)->commit_mutex));
+        pthread_testcancel();
     }
 }
 
@@ -275,16 +276,15 @@ void
 postgres_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
-    if (m->copy != 0)
-    {
-        PQputCopyEnd(m->conn_master, NULL);
-        if (m->conninfo_replica)
-            PQputCopyEnd(m->conn_replica, NULL);
-    }
 
     pthread_cancel(m->commit_worker);
     void *res;
     pthread_join(m->commit_worker, &res);
+
+    if (m->copy != 0)
+    {
+        _commit(&m);
+    }
 
     postgres_meta_free(&m);
     free(*p);
