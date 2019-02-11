@@ -92,8 +92,8 @@ _commit_worker(void *meta)
 {
     Meta *m = (Meta *) meta;
 
-    #if __linux__
-    prctl(PR_SET_NAME, "commit worker");
+    #ifdef PR_SET_NAME
+    prctl(PR_SET_NAME, "commit_worker");
     #endif
 
     while(42)

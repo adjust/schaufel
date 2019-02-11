@@ -7,9 +7,7 @@
 #include <stdlib.h>
 #include <libpq-fe.h>
 #include <pthread.h>
-#ifdef __linux__
 #include <sys/prctl.h>
-#endif
 
 typedef struct Producer *Producer;
 
