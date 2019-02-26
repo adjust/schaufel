@@ -87,6 +87,13 @@ _commit(Meta *m)
     (*m)->commit_iter = 0;
 }
 
+void
+_commit_worker_cleanup(void *mutex)
+{
+    pthread_mutex_unlock((pthread_mutex_t*) mutex);
+    return;
+}
+
 void *
 _commit_worker(void *meta)
 {
@@ -96,11 +103,13 @@ _commit_worker(void *meta)
     prctl(PR_SET_NAME, "commit_worker");
     #endif
 
+
     while(42)
     {
         sleep(1);
 
         pthread_mutex_lock(&((*m)->commit_mutex));
+        pthread_cleanup_push(_commit_worker_cleanup, &(*m)->commit_mutex);
 
         (*m)->commit_iter++;
         (*m)->commit_iter &= 0xF;
@@ -108,13 +117,16 @@ _commit_worker(void *meta)
         /* if count > 0 it implies that copy == 1,
          * therefore it is safe to commit data */
         if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
-            logger_log("%s %d: Autocommiting %d entries", __FILE__, __LINE__, (*m)->count);
+            logger_log("%s %d: Autocommiting %d entries",
+                __FILE__, __LINE__, (*m)->count);
             _commit(m);
         }
 
+        pthread_cleanup_pop(0);
         pthread_mutex_unlock(&((*m)->commit_mutex));
         pthread_testcancel();
     }
+
 }
 
 Meta
