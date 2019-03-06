@@ -230,6 +230,7 @@ postgres_producer_produce(Producer p, Message msg)
 
     char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
 
+    pthread_mutex_lock(&m->commit_mutex);
     if (m->copy == 0)
     {
         m->res = PQexec(m->conn_master, m->cpycmd);
@@ -273,7 +274,6 @@ postgres_producer_produce(Producer p, Message msg)
     if (m->conninfo_replica)
         PQputCopyData(m->conn_replica, newline, 1);
 
-    pthread_mutex_lock(&m->commit_mutex);
     m->count = m->count + 1;
     if (m->count == 2000)
     {
