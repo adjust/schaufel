@@ -300,57 +300,56 @@ kafka_consumer_init(char *broker, char *topic, char *groupid)
 int
 kafka_consumer_consume(Consumer c, Message msg)
 {
-
     rd_kafka_t *rk = ((Meta) c->meta)->rk;
     rd_kafka_message_t *rkmessage;
 
     rkmessage = rd_kafka_consumer_poll(rk, 10000);
-    if (rkmessage)
+
+    if (!rkmessage)
+        return 0;
+
+    if (rkmessage->err)
     {
-
-        if (rkmessage->err)
+        switch(rkmessage->err)
         {
-            switch(rkmessage->err)
-            {
-                case RD_KAFKA_RESP_ERR__PARTITION_EOF:
-                    break;
+            case RD_KAFKA_RESP_ERR__PARTITION_EOF:
+                break;
 
-                case RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION:
-                case RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC:
-                    abort();
-                    break;
+            case RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION:
+            case RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC:
+                abort();
+                break;
 
-                default:
-                    if (rkmessage->rkt)
-                    {
-                        logger_log("%% Consume error for "
-                            "topic \"%s\" [%"PRId32"] "
-                            "offset %"PRId64": %s\n",
-                            rd_kafka_topic_name(rkmessage->rkt),
-                            rkmessage->partition,
-                            rkmessage->offset,
-                            rd_kafka_message_errstr(rkmessage));
-                    }
-                    else
-                        logger_log("%% Consumer error: %s: %s\n",
-                            rd_kafka_err2str(rkmessage->err),
-                            rd_kafka_message_errstr(rkmessage));
-            }
-
-            rd_kafka_message_destroy(rkmessage);
-            return 0;
+            default:
+                if (rkmessage->rkt)
+                {
+                    logger_log("%% Consume error for "
+                        "topic \"%s\" [%"PRId32"] "
+                        "offset %"PRId64": %s\n",
+                        rd_kafka_topic_name(rkmessage->rkt),
+                        rkmessage->partition,
+                        rkmessage->offset,
+                        rd_kafka_message_errstr(rkmessage));
+                }
+                else
+                    logger_log("%% Consumer error: %s: %s\n",
+                        rd_kafka_err2str(rkmessage->err),
+                        rd_kafka_message_errstr(rkmessage));
         }
-
-        char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
-        if (!cpy) {
-            logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-            abort();
-        }
-        memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
-        message_set_data(msg, cpy);
-        message_set_len(msg, (size_t)rkmessage->len);
         rd_kafka_message_destroy(rkmessage);
+        return 0;
     }
+
+    char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
+    if (!cpy) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
+    memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
+    message_set_data(msg, cpy);
+    message_set_len(msg, (size_t)rkmessage->len);
+    rd_kafka_message_destroy(rkmessage);
+
     return 0;
 }
 
