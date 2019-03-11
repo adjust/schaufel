@@ -11,7 +11,7 @@ main(void)
     Options o;
     memset(&o, '\0', sizeof(o));
     o.in_file = "sample/dummy_file";
-    logger_init("log/test");
+    logger_init("sample/dummy_log");
     Message msg = message_init();
     Consumer c = consumer_init('f', &o);
     char *string;
