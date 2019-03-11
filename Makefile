@@ -1,84 +1,54 @@
-PREFIX=/usr/local/bin
-INSTALL=install -c
+PREFIX ?= /usr/local/bin
+INSTALL ?= install
 
-CC = gcc
-LD = gcc
-CFLAGS = -Wall -std=c11 -Wextra -Werror -pedantic
+CC ?= gcc
+LD = $(CC)
+CFLAGS ?= -Wall -std=c11 -Wextra -Werror -pedantic -O2 -march=native
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 LIB = -lpthread -lhiredis -lrdkafka -lpq
 INC = -Isrc/
 
-CFLAGS_DEBUG = $(CFLAGS) -g
-LIB_DEBUG = $(LIB)
-LIBDIR_DEBUG = $(LIBDIR)
-INC_DEBUG = $(INC)
-OBJDIR_DEBUG = obj/Debug
-OUT_DEBUG = bin/Debug/schaufel
-
-CFLAGS_RELEASE = $(CFLAGS) -O2 -march=native
-LIB_RELEASE = $(LIB)
-LIBDIR_RELEASE = $(LIBDIR)
-INC_RELEASE = $(INC)
-OBJDIR_RELEASE = obj/Release
-OUT_RELEASE = bin/Release/schaufel
+OBJDIR = obj
+OUT = bin/schaufel
 
 SOURCES = $(wildcard src/*.c) $(wildcard src/utils/*.c)
 TEST_SOURCES = $(wildcard t/*.c)
 
-OBJ_DEBUG = $(patsubst src/%.c, $(OBJDIR_DEBUG)/%.o, $(SOURCES))
-OBJ_RELEASE = $(patsubst src/%.c, $(OBJDIR_RELEASE)/%.o, $(SOURCES))
-OBJ_TEST = $(patsubst $(OBJDIR_DEBUG)/main.o, ,$(OBJ_DEBUG))
-OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR_DEBUG)/%.o, $(TEST_SOURCES))
+OBJ = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SOURCES))
+OBJ_TEST = $(patsubst $(OBJDIR)/main.o, ,$(OBJ))
+OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR)/%.o, $(TEST_SOURCES))
 
-SCHAUFEL_VERSION = 0.4
+SCHAUFEL_VERSION ?= 0.5
 
-all: debug release
+all: release
 
-debug: before_debug $(OBJ_DEBUG) out_debug
+release: before_release $(OBJ) out_release
 
-release: before_release $(OBJ_RELEASE) out_release
-
-test: clean_debug before_debug $(OBJ_TEST) $(OBJ_BIN_TEST)
-
-before_debug:
-	test -d bin/Debug || mkdir -p bin/Debug
-	test -d obj/Debug || mkdir -p obj/Debug
-	test -d obj/Debug/utils || mkdir -p obj/Debug/utils
+test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
 before_release:
-	test -d bin/Release || mkdir -p bin/Release
-	test -d obj/Release || mkdir -p obj/Release
-	test -d obj/Release/utils || mkdir -p obj/Release/utils
+	test -d bin || mkdir -p bin
+	test -d obj || mkdir -p obj
+	test -d obj/utils || mkdir -p obj/utils
 
-clean: clean_debug clean_release
-
-clean_debug:
-	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
-	rm -rf bin/Debug
-	rm -rf $(OBJDIR_DEBUG)
+clean: clean_release
 
 clean_release:
-	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)
-	rm -rf bin/Release
-	rm -rf $(OBJDIR_RELEASE)
+	rm -f $(OBJ) $(OUT)
+	rm -rf bin
+	rm -rf $(OBJDIR)
 
-out_debug: $(OBJ_DEBUG)
-	$(LD) $(LIBDIR_DEBUG) $(OBJ_DEBUG) $(LIB_DEBUG) -o $(OUT_DEBUG)
+out_release: $(OBJ)
+	$(LD) $(LIBDIR) $(OBJ) $(LIB) -o $(OUT)
 
-out_release: $(OBJ_RELEASE)
-	$(LD) $(LIBDIR_RELEASE) $(OBJ_RELEASE) $(LIB_RELEASE) -o $(OUT_RELEASE)
+$(OBJDIR)/%.o: src/%.c
+	$(CC) $(INC) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR_DEBUG)/%.o: src/%.c
-	$(CC) $(INC_DEBUG) $(CFLAGS_DEBUG) -c $< -o $@
-
-$(OBJDIR_RELEASE)/%.o: src/%.c
-	$(CC) $(INC_RELEASE) $(CFLAGS_RELEASE) -c $< -o $@
-
-$(OBJDIR_DEBUG)/%.o: t/%.c
-	$(CC) $(INC_DEBUG) $(CFLAGS_DEBUG) -c $< -o $@
-	$(LD) $(LIBDIR_DEBUG) $(OBJ_TEST) $@ $(LIB_DEBUG) -o bin/Debug/$(subst .o, ,$(notdir $@))
-	valgrind -q --leak-check=full bin/Debug/$(subst .o, ,$(notdir $@))
+$(OBJDIR)/%.o: t/%.c
+	$(CC) $(INC) $(CFLAGS) -c $< -o $@
+	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIB) -o bin/$(subst .o, ,$(notdir $@))
+	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
 install: all
-	${INSTALL} bin/Debug/schaufel ${PREFIX}/schaufel
+	${INSTALL} bin/schaufel ${PREFIX}/schaufel
