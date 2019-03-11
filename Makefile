@@ -28,9 +28,7 @@ release: before_release $(OBJ) out_release
 test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
 before_release:
-	test -d bin || mkdir -p bin
-	test -d obj || mkdir -p obj
-	test -d obj/utils || mkdir -p obj/utils
+	mkdir -p obj/utils bin
 
 clean: clean_release
 
