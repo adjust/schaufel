@@ -3,7 +3,8 @@ INSTALL ?= install
 
 CC ?= gcc
 LD = $(CC)
-CFLAGS ?= -Wall -std=c11 -Wextra -Werror -pedantic -O2 -march=native
+CFLAGS += -Wall -Wextra -pedantic
+CFLAGS += -std=c11
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 LIB = -lpthread -lhiredis -lrdkafka -lpq
