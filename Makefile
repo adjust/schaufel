@@ -1,5 +1,6 @@
-PREFIX ?= /usr/local/bin
-INSTALL ?= install
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+INSTALL ?= install -D
 
 CC ?= gcc
 LD = $(CC)
@@ -50,4 +51,4 @@ $(OBJDIR)/%.o: t/%.c
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
 install: all
-	${INSTALL} bin/schaufel ${PREFIX}/schaufel
+	$(INSTALL) bin/schaufel $(DESTDIR)$(BINDIR)/schaufel
