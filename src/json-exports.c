@@ -1,8 +1,13 @@
 #include <json-exports.h>
 
+typedef struct Needles *Needles;
 typedef struct Needles {
-    char**          pointers;
-    size_t          elements;
+    char*           jpointer;
+    void*           to_binary;
+    Needles         next;
+    size_t          maxlength;
+    size_t          length;
+    char*           result;
 } *Needles;
 
 typedef struct Meta {
@@ -65,7 +70,6 @@ _needles()
         "/timestamp",
         NULL
     };
-    size_t i;
 
     Needles needles = calloc(1,sizeof(*needles));
     if (!needles) {
@@ -73,26 +77,34 @@ _needles()
         strerror(errno));
         abort();
     }
-    needles->elements = 0;
+    Needles first = needles;
+
     do {
-        if(*(json_pointers+(needles->elements)) == NULL)
-            break;
-        needles->elements++;
-    } while (1);
+        printf("json_pointers: %s\n", *json_pointers);
+        needles->jpointer = calloc(1,strlen(*json_pointers));
+        strcpy(needles->jpointer, *json_pointers);
 
-    printf("elements %ld\n", needles->elements);
-    needles->pointers = calloc(needles->elements+1,sizeof(char*));
+        // 2 kb ought to be a good start for a buffer
+        needles->maxlength = 2048;
+        needles->result = calloc(1, needles->maxlength);
 
-    for (i = 0; i < needles->elements; i++) {
+        // TODO: turn flow into sanity
+        json_pointers++;
         if (*json_pointers == NULL)
             break;
-        *((needles->pointers)+i) = malloc(strlen(*json_pointers));
-        strcpy(*((needles->pointers)+i), *json_pointers);
-        printf("%ld %s\n", i, *((needles->pointers)+i));
-        json_pointers++;
-    };
 
-    return(needles);
+        Needles next = calloc(1,sizeof(*needles));
+        if (!needles) {
+            logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
+            strerror(errno));
+            abort();
+        }
+        needles->next = next;
+        needles = needles->next;
+
+    } while (*json_pointers != NULL);
+
+    return(first);
 }
 
 static char *
@@ -106,7 +118,7 @@ _cpycmd(char *host, char *table)
     if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
-    const char *fmtstring = "COPY %s FROM STDIN";
+    const char *fmtstring = "COPY %s FROM STDIN ( FORMAT csv, QUOTE '\"')";
 
     int len = strlen(table)
             + strlen(fmtstring);
@@ -209,12 +221,14 @@ exports_meta_free(Meta *m)
     free((*m)->conninfo);
     PQfinish((*m)->conn_master);
 
-    size_t i = 0;
-    for (i = 0; i < (*m)->needles->elements; i++) {
-        free(*((*m)->needles->pointers+i));
+    Needles last;
+
+    while((*m)->needles != NULL) {
+        last = (*m)->needles;
+        free((*m)->needles->result);
+        (*m)->needles = (*m)->needles->next;
+        free(last);
     }
-    free((*m)->needles->pointers);
-    free((*m)->needles);
 
     free(*m);
     *m = NULL;
@@ -245,31 +259,40 @@ exports_producer_init(char *host, char *nsp)
 }
 
 int
-_deref(Message msg, Needles needles, char** result)
+_deref(char* data, Needles needles)
 {
-    size_t length;
     char* jstring;
     struct json_object* haystack;
     struct json_object* needle;
-    size_t i = 0;
-    haystack = json_tokener_parse(message_get_data(msg));
+
+    haystack = json_tokener_parse(data);
     if(!haystack)
         return -1;
 
-    for (i = 0; i < needles->elements; i++)
-    {
-        if(json_pointer_get(haystack, *(needles->pointers+i), &needle))
-        {
-            // Assume value does not exit, put null in array
-            *(result+i) = calloc(1,sizeof(char));
+    while(needles) {
+        if(json_pointer_get(haystack, needles->jpointer, &needle)) {
+            strlcpy(needles->result, "\0", 1);
+            needles->length = 0;
+        } else {
+            jstring = (char*) json_object_to_json_string_length(
+                needle, 0, &(needles->length));
+
+            // grow buffer if needed
+            if(needles->length >= needles->maxlength) {
+                needles->result = realloc(needles->result, needles->length+1);
+                if(!needles->result) {
+                    logger_log("%s %d: Failed to realloc!", __FILE__, __LINE__);
+                    abort();
+                }
+                needles->maxlength = needles->length+1;
+                logger_log("%s %d: Reallocating result buffer"
+                    " (consider increasing)!",
+                    __FILE__, __LINE__);
+            }
+            strlcpy(needles->result, jstring, (needles->length+1));
         }
-        else {
-            jstring = (char*) json_object_to_json_string_length(needle,
-                0, &length);
-            *(result+i) = malloc(length+2);
-            strlcpy(*(result+i), jstring, length+1);
-        }
-    };
+        needles = needles->next;
+    }
 
     json_object_put(haystack);
     return 0;
@@ -279,12 +302,15 @@ void
 exports_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
+    Needles needles = m->needles;
 
-    char *buf = (char *) message_get_data(msg);
     size_t len = message_get_len(msg);
+    char* data = message_get_data(msg);
+    // Make buffer larger than message
+    char *buf = calloc(2,len);
     char *newline = "\n";
 
-    if (buf[len] != '\0')
+    if (data[len] != '\0')
     {
         logger_log("payload doesn't end on null terminator");
         return;
@@ -298,23 +324,21 @@ exports_producer_produce(Producer p, Message msg)
         return;
     }
     */
-    size_t i;
 
-    char **result = calloc(m->needles->elements, sizeof(char*));
-    if(_deref(msg, m->needles, result)) {
-        free(result);
-        puts("failed to parse json");
+    if(_deref(data, needles)) {
+        logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
         return;
     }
-    for (i = 0; i < m->needles->elements; i++)
-    {
-        printf("result: %s\n", *(result+i));
-        free(*(result+i));
-    }
-    free(result);
-    return;
+    needles = m->needles;
 
-    char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
+    while(needles) {
+        strcat(buf, needles->result);
+        printf("result: %ld, %s\n", needles->length, needles->result);
+        needles = needles->next;
+        if (!needles)
+            break;
+        strcat(buf, ",");
+    }
 
     pthread_mutex_lock(&m->commit_mutex);
     if (m->copy == 0)
@@ -331,17 +355,7 @@ exports_producer_produce(Producer p, Message msg)
         m->copy = 1;
     }
 
-    if (lit[0] == ' ' && lit[1] == 'E')
-    {
-        PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
-    }
-    else if (lit[0] == '\'')
-    {
-        PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
-    }
-    else
-        abort();
-
+    PQputCopyData(m->conn_master, buf, strlen(buf));
     PQputCopyData(m->conn_master, newline, 1);
 
     m->count = m->count + 1;
@@ -351,7 +365,7 @@ exports_producer_produce(Producer p, Message msg)
     }
     pthread_mutex_unlock(&m->commit_mutex);
 
-    free(lit);
+    free(buf);
 }
 
 void
