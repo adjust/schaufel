@@ -2,6 +2,7 @@
 #define _SCHAUFEL_POSTGRES_H_
 
 #include <consumer.h>
+#include <queue.h>
 #include <utils/logger.h>
 #include <producer.h>
 #include <stdlib.h>
