@@ -23,8 +23,8 @@ typedef struct Meta {
     Needles         needles;
 } *Meta;
 
-char *
-_connectinfo2(char *host)
+static char *
+_connectinfo(char *host)
 {
     if (host == NULL)
         return NULL;
@@ -133,8 +133,8 @@ _cpycmd(char *host, char *table)
     return cpycmd;
 }
 
-void
-_commit2(Meta *m)
+static void
+_commit(Meta *m)
 {
     PQputCopyEnd((*m)->conn_master, NULL);
 
@@ -143,15 +143,15 @@ _commit2(Meta *m)
     (*m)->commit_iter = 0;
 }
 
-void
-_commit2_worker2_cleanup(void *mutex)
+static void
+_commit_worker_cleanup(void *mutex)
 {
     pthread_mutex_unlock((pthread_mutex_t*) mutex);
     return;
 }
 
-void *
-_commit2_worker2(void *meta)
+static void *
+_commit_worker(void *meta)
 {
     Meta *m = (Meta *) meta;
 
@@ -165,7 +165,7 @@ _commit2_worker2(void *meta)
         sleep(1);
 
         pthread_mutex_lock(&((*m)->commit_mutex));
-        pthread_cleanup_push(_commit2_worker2_cleanup, &(*m)->commit_mutex);
+        pthread_cleanup_push(_commit_worker_cleanup, &(*m)->commit_mutex);
 
         (*m)->commit_iter++;
         (*m)->commit_iter &= 0xF;
@@ -175,14 +175,13 @@ _commit2_worker2(void *meta)
         if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
             logger_log("%s %d: Autocommiting %d entries",
                 __FILE__, __LINE__, (*m)->count);
-            _commit2(m);
+            _commit(m);
         }
 
         pthread_cleanup_pop(0);
         pthread_mutex_unlock(&((*m)->commit_mutex));
         pthread_testcancel();
     }
-
 }
 
 Meta
@@ -195,7 +194,7 @@ exports_meta_init(char *host, char *nsp)
     }
 
     m->cpycmd = _cpycmd(host, nsp);
-    m->conninfo = _connectinfo2(host);
+    m->conninfo = _connectinfo(host);
     m->needles = _needles();
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -249,7 +248,7 @@ exports_producer_init(char *host, char *nsp)
 
     if (pthread_create(&((Meta)(exports->meta))->commit_worker,
         NULL,
-        _commit2_worker2,
+        _commit_worker,
         (void *)&(exports->meta))) {
         logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
         abort();
@@ -275,7 +274,7 @@ _deref(char* data, Needles needles)
             needles->length = 0;
         } else {
             jstring = (char*) json_object_to_json_string_length(
-                needle, 0, &(needles->length));
+                needle, JSON_C_TO_STRING_NOSLASHESCAPE, &(needles->length));
 
             // grow buffer if needed
             if(needles->length >= needles->maxlength) {
@@ -316,15 +315,6 @@ exports_producer_produce(Producer p, Message msg)
         return;
     }
 
-    /* This code should be unneeded with json-c
-    char *s = strstr(buf, "\\u0000");
-    if (s != NULL)
-    {
-        logger_log("found invalid unicode byte sequence: %s", buf);
-        return;
-    }
-    */
-
     if(_deref(data, needles)) {
         logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
         return;
@@ -333,7 +323,7 @@ exports_producer_produce(Producer p, Message msg)
 
     while(needles) {
         strcat(buf, needles->result);
-        printf("result: %ld, %s\n", needles->length, needles->result);
+
         needles = needles->next;
         if (!needles)
             break;
@@ -361,7 +351,7 @@ exports_producer_produce(Producer p, Message msg)
     m->count = m->count + 1;
     if (m->count == 2000)
     {
-        _commit2(&m);
+        _commit(&m);
     }
     pthread_mutex_unlock(&m->commit_mutex);
 
@@ -379,7 +369,7 @@ exports_producer_free(Producer *p)
 
     if (m->copy != 0)
     {
-        _commit2(&m);
+        _commit(&m);
     }
 
     exports_meta_free(&m);
