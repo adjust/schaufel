@@ -8,7 +8,8 @@ CFLAGS += -Wall -Wextra -pedantic
 CFLAGS += -std=c11
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
-LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig
+CFLAGS += -D_BSD_SOURCE
+LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -lsjon-c
 INC = -Isrc/
 
 OBJDIR = obj

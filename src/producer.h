@@ -2,6 +2,7 @@
 #define _SCHAUFEL_PRODUCER_H_
 
 #include <dummy.h>
+#include <json-exports.h>
 #include <file.h>
 #include <kafka.h>
 #include <postgres.h>
