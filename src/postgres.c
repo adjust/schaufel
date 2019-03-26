@@ -75,7 +75,7 @@ _cpycmd(const char *host, const char *generation)
     return cpycmd;
 }
 
-void
+static void
 _commit(Meta *m)
 {
     PQputCopyEnd((*m)->conn_master, NULL);
@@ -87,14 +87,14 @@ _commit(Meta *m)
     (*m)->commit_iter = 0;
 }
 
-void
+static void
 _commit_worker_cleanup(void *mutex)
 {
     pthread_mutex_unlock((pthread_mutex_t*) mutex);
     return;
 }
 
-void *
+static void *
 _commit_worker(void *meta)
 {
     Meta *m = (Meta *) meta;
