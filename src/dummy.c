@@ -1,7 +1,7 @@
 #include <dummy.h>
 
 Producer
-dummy_producer_init()
+dummy_producer_init(UNUSED config_setting_t *config)
 {
     Producer dummy = calloc(1, sizeof(*dummy));
     if (!dummy) {
@@ -27,7 +27,7 @@ dummy_producer_free(Producer *p)
 }
 
 Consumer
-dummy_consumer_init()
+dummy_consumer_init(UNUSED config_setting_t *config)
 {
     Consumer dummy = calloc(1, sizeof(*dummy));
     if (!dummy) {
@@ -54,4 +54,23 @@ dummy_consumer_free(Consumer *c)
 {
     free(*c);
     *c = NULL;
+}
+
+int
+dummy_validator(UNUSED config_setting_t *config)
+{
+    return 1;
+}
+
+Validator
+dummy_validator_init()
+{
+    Validator v = calloc(1,sizeof(*v));
+    if(!v) {
+        fprintf(stderr,"%s %d calloc failed\n", __FILE__, __LINE__);
+        abort();
+    }
+    v->validate_consumer = &dummy_validator;
+    v->validate_producer = &dummy_validator;
+    return v;
 }

@@ -1,0 +1,22 @@
+#ifndef _SCHAUFEL_UTILS_CONFIG_H_
+#define _SCHAUFEL_UTILS_CONFIG_H_
+
+#include <libconfig.h>
+#include <search.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <utils/options.h>
+#include <utils/logger.h>
+#include <validator.h>
+
+void read_config(config_t *config, char *cfile);
+
+void config_merge(config_t *config, Options o);
+
+int get_thread_count(config_t *config, char *type);
+
+int config_validate(config_t *config);
+
+char* module_to_string(int module);
+
+#endif

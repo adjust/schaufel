@@ -11,7 +11,7 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-file_meta_init(char *fname, char *options)
+file_meta_init(const char *fname, char *options)
 {
     Meta m = calloc(1, sizeof(*m));
     if (m == NULL)
@@ -38,9 +38,12 @@ file_meta_free(Meta *m)
 }
 
 Producer
-file_producer_init(char *fname)
+file_producer_init(config_setting_t *config)
 {
     Producer file = calloc(1, sizeof(*file));
+    const char *fname = NULL;
+    config_setting_lookup_string(config, "file", &fname);
+
     if (file == NULL)
         logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
@@ -70,9 +73,11 @@ file_producer_free(Producer *p)
 }
 
 Consumer
-file_consumer_init(char *fname)
+file_consumer_init(config_setting_t *config)
 {
     Consumer file = calloc(1, sizeof(*file));
+    const char *fname = NULL;
+    config_setting_lookup_string(config, "file", &fname);
     if (file == NULL)
         logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
@@ -106,4 +111,32 @@ file_consumer_free(Consumer *c)
     file_meta_free(&m);
     free(*c);
     *c = NULL;
+}
+
+int
+file_validate(config_setting_t* config)
+{
+    int t = 0;
+    config_setting_lookup_int(config, "threads", &t);
+
+    if(t > 1) {
+        fprintf(stderr, "file consumer/producer is not thread safe!\n");
+        return(0);
+    }
+
+    return 1;
+}
+
+Validator
+file_validator_init()
+{
+    Validator v = calloc(1,sizeof(v));
+    if (v == NULL) {
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
+        abort();
+    }
+
+    v->validate_producer = file_validate;
+    v->validate_consumer = file_validate;
+    return v;
 }

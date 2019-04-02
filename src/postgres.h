@@ -8,10 +8,12 @@
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <sys/prctl.h>
+#include <queue.h>
+#include <validator.h>
 
 typedef struct Producer *Producer;
 
-Producer postgres_producer_init(char *host, char *host_replica, char *nsp);
+Producer postgres_producer_init(config_setting_t *config);
 
 void postgres_producer_free(Producer *p);
 
@@ -24,5 +26,9 @@ Consumer postgres_consumer_init(char *host);
 void postgres_consumer_free(Consumer *c);
 
 int postgres_consumer_consume(Consumer c, Message msg);
+
+typedef struct Validator *Validator;
+
+Validator postgres_validator_init();
 
 #endif

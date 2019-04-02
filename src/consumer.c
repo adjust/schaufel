@@ -1,22 +1,22 @@
 #include <consumer.h>
 
 Consumer
-consumer_init(char kind, void *opt)
+consumer_init(char kind, config_setting_t *config)
 {
     Consumer c;
     switch (kind)
     {
         case 'd':
-            c = dummy_consumer_init();
+            c = dummy_consumer_init(config);
             break;
         case 'f':
-            c = file_consumer_init(((Options *)opt)->in_file);
+            c = file_consumer_init(config);
             break;
         case 'r':
-            c = redis_consumer_init(((Options *)opt)->in_host, ((Options *)opt)->in_topic, ((Options *)opt)->in_pipeline);
+            c = redis_consumer_init(config);
             break;
         case 'k':
-            c = kafka_consumer_init(((Options *)opt)->in_broker, ((Options *)opt)->in_topic, ((Options *)opt)->in_groupid);
+            c = kafka_consumer_init(config);
             break;
         default:
             return NULL;

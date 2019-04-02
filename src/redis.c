@@ -3,14 +3,14 @@
 typedef struct Meta {
     redisContext *c;
     redisReply   *reply;
-    char         *topic;
+    const char   *topic;
     size_t        pipe_cur;
     size_t        pipe_max;
     bool          pipe_full;
 } *Meta;
 
 Meta
-redis_meta_init(char *host, char *topic, size_t pipe_max)
+redis_meta_init(const char *host, const char *topic, size_t pipe_max)
 {
     Meta m = calloc(1, sizeof(*m));
     if (m == NULL)
@@ -22,7 +22,7 @@ redis_meta_init(char *host, char *topic, size_t pipe_max)
     char *hostname = NULL;
     int   port = 0;
 
-    if (parse_connstring(host, &hostname, &port) == -1)
+    if (parse_connstring((char *) host, &hostname, &port) == -1)
         abort();
 
     struct timeval timeout = { 1, 500000 };
@@ -43,7 +43,7 @@ redis_meta_init(char *host, char *topic, size_t pipe_max)
         }
     }
 
-    m->topic = topic;
+    m->topic =  topic;
     return m;
 }
 
@@ -88,8 +88,15 @@ redis_meta_check_pipeline(Meta m, bool lazy)
 }
 
 Producer
-redis_producer_init(char *host, char *topic, size_t pipeline)
+redis_producer_init(config_setting_t *config)
 {
+    const char *host = NULL, *topic = NULL;
+    int pipeline = 0;
+
+    config_setting_lookup_string(config, "host", &host);
+    config_setting_lookup_string(config, "topic", &topic);
+    config_setting_lookup_int(config, "pipeline", &pipeline);
+
     Producer redis = calloc(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
@@ -125,8 +132,15 @@ redis_producer_free(Producer *p)
 }
 
 Consumer
-redis_consumer_init(char *host, char *topic, size_t pipeline)
+redis_consumer_init(config_setting_t *config)
 {
+    const char *host = NULL, *topic = NULL;
+    int pipeline = 0;
+
+    config_setting_lookup_string(config, "host", &host);
+    config_setting_lookup_string(config, "topic", &topic);
+    config_setting_lookup_int(config, "pipeline", &pipeline);
+
     Consumer redis = calloc(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
@@ -190,4 +204,45 @@ redis_consumer_free(Consumer *c)
     redis_meta_free(&m);
     free(*c);
     *c = NULL;
+}
+
+int
+redis_validator(config_setting_t *config)
+{
+    const char *result = NULL;
+    config_setting_lookup_string(config, "host", &result);
+    if(!result) {
+        fprintf(stderr, "redis: need host!\n");
+        return 0;
+    }
+    result = NULL;
+    config_setting_lookup_string(config, "topic", &result);
+    if(!result) {
+        fprintf(stderr, "redis: need a topic!\n");
+        return 0;
+    }
+    //todo : port/host parser
+
+    //todo: ask ali whether pipelining makes sense
+    /* answer:didn't make sense
+    config_setting_lookup_int(config, "pipeline", &res);
+    if(res) {
+        config_setting_lookup_int(config, "threads", &threads);
+        if (res % threads) {
+            fprintf(stderr, "%s %d: redis threads must be a factor of pipeline size\n", __FILE__, __LINE__);
+        return 0;
+      }
+    }
+    */
+    return 1;
+}
+
+
+Validator
+redis_validator_init()
+{
+    Validator v = calloc(1,sizeof(Validator));
+    v->validate_consumer = &redis_validator;
+    v->validate_producer = &redis_validator;
+    return v;
 }

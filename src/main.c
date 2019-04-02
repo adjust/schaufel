@@ -33,6 +33,7 @@ NORETURN void
 print_usage()
 {
     printf("usage\n"
+           "-C      : config file\n"
            "-i      : input  (consumer)\n"
            "-o      : output (producer)\n"
            "                d : dummy\n"
@@ -49,7 +50,6 @@ print_usage()
            "        :       For postgres, replicas may be submitted as a secondary\n"
            "        :       list in the same format. Two lists must be separated\n"
            "        :       by a semicolon.\n"
-           "-q | -Q : consumer / producer port (only redis)\n"
            "-t | -T : consumer / producer topic\n"
            "                (used as list name for redis)\n"
            "                (used as topic name for kafka)\n"
@@ -59,8 +59,6 @@ print_usage()
            "        :       Requires exactly one integer argument (default: 0)\n"
            "        :       0 disables pipelining\n"
            "        :       Redis: 10k is upstream recommended max\n"
-           "        :       Thread count must be a factor of the respective\n"
-           "        :       pipeline batch size.\n"
            "-l      : path to the log file\n"
            "-V      : print version\n"
            "\n");
@@ -98,15 +96,20 @@ stats(UNUSED void *arg)
 }
 
 void *
-consume(void *arg)
+consume(void *config)
 {
     Message msg = message_init();
+    const char *consumer_type = NULL;
+    config_setting_lookup_string((config_setting_t *) config,
+        "type", &consumer_type);
+
     if (msg == NULL)
     {
         logger_log("%s %d: could not init message", __FILE__, __LINE__);
         return NULL;
     }
-    Consumer c = consumer_init(((Options *)arg)->input, arg);
+    Consumer c = consumer_init(*consumer_type,
+        (config_setting_t *) config);
     if (c == NULL)
     {
         logger_log("%s %d: could not init consumer", __FILE__, __LINE__);
@@ -135,10 +138,14 @@ consume(void *arg)
 }
 
 void *
-produce(void *arg)
+produce(void *config)
 {
     Message msg = message_init();
-    Producer p = producer_init(((Options *)arg)->output, arg);
+    const char *producer_type = NULL;
+    config_setting_lookup_string((config_setting_t *) config,
+        "type", &producer_type);
+    Producer p = producer_init(*producer_type,
+        (config_setting_t *) config);
     if (p == NULL)
     {
         logger_log("%s %d: could not init producer", __FILE__, __LINE__);
@@ -172,6 +179,39 @@ produce(void *arg)
     return NULL;
 }
 
+void
+init_threads(config_t* config, char* type, pthread_t *threads)
+{
+    uint64_t list, thread_index;
+    config_setting_t *croot = NULL, *parent = NULL, *instance = NULL;
+
+    // todo: replace with sane code
+    void * (*function)(void *) = &consume;
+    if(!strcmp(type, "producers"))
+        function = &produce;
+
+    croot = config_root_setting(config);
+    parent = config_setting_get_member(croot, type);
+    list = config_setting_length(parent);
+
+    for (uint64_t i = 0; i < list; ++i)
+    {
+        instance = config_setting_get_elem(parent, i);
+        if(instance == NULL)
+            abort();
+        config_setting_lookup_int(instance, "threads", (int *) &thread_index);
+        for (uint64_t j = 0; j < thread_index; j++)
+        {
+            if(pthread_create(threads++, NULL, function, instance))
+            {
+                fprintf(stderr, "%s %d: pthread create failed!\n",
+                    __FILE__, __LINE__);
+                abort();
+            }
+        }
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -179,9 +219,7 @@ main(int argc, char **argv)
     int consumer_threads = 0,
         producer_threads = 0,
         r_c_threads   = 0,
-        r_p_threads   = 0,
-        r_c_pipeline  = 0,
-        r_p_pipeline  = 0;
+        r_p_threads   = 0;
 
     void *res;
 
@@ -192,7 +230,10 @@ main(int argc, char **argv)
     Options o;
     memset(&o, '\0', sizeof(o));
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:q:g:t:f:s:B:H:Q:G:T:F:S:V")) != -1)
+    config_t config;
+    config_init(&config);
+
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:V")) != -1)
     {
         switch (opt)
         {
@@ -207,9 +248,11 @@ main(int argc, char **argv)
                 break;
             case 'c':
                 consumer_threads += atoi(optarg);
+                o.consumer_threads = consumer_threads;
                 break;
             case 'p':
                 producer_threads += atoi(optarg);
+                o.producer_threads = producer_threads;
                 break;
             case 'b':
                 o.in_broker = optarg;
@@ -217,9 +260,6 @@ main(int argc, char **argv)
             case 'h':
                 o.in_host = optarg;
                 o.in_hosts =  parse_hostinfo_master(o.in_host);
-                break;
-            case 'q':
-                o.in_port = atoi(optarg);
                 break;
             case 'g':
                 o.in_groupid = optarg;
@@ -236,13 +276,13 @@ main(int argc, char **argv)
             case 'B':
                 o.out_broker = optarg;
                 break;
+            case 'C':
+                o.config = optarg;
+                break;
             case 'H':
                 o.out_host = optarg;
                 o.out_hosts =  parse_hostinfo_master(o.out_host);
                 o.out_hosts_replica =  parse_hostinfo_replica(o.out_host);
-                break;
-            case 'Q':
-                o.out_port = atoi(optarg);
                 break;
             case 'G':
                 o.out_groupid = optarg;
@@ -263,31 +303,16 @@ main(int argc, char **argv)
         }
     }
 
-    if (o.logger == NULL)
-        print_usage();
+    config_merge(&config, o);
 
-    logger_init(o.logger);
-
-    if (!consumer_threads || !producer_threads || options_validate(o) != 1)
-        print_usage();
-
-    if (o.in_pipeline) {
-        if (o.in_pipeline % consumer_threads != 0) {
-            logger_log("%s %d: Consumer threads (-c) must be a factor of input pipeline size (-s)\n",
-                       __FILE__, __LINE__);
+    if(!config_validate(&config)) {
+        if(!o.config)
             print_usage();
-        }
-        r_c_pipeline = o.in_pipeline / consumer_threads;
+        // else suggest manpage?
+        exit(1);
     }
 
-    if (o.out_pipeline) {
-        if (o.out_pipeline % producer_threads != 0) {
-            logger_log("%s %d: Producer threads (-C) must be a factor of output pipeline size (-S)\n",
-                       __FILE__, __LINE__);
-            print_usage();
-        }
-        r_p_pipeline = o.out_pipeline / producer_threads;
-    }
+    logger_init(config_lookup(&config, "logger"));
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
@@ -298,49 +323,23 @@ main(int argc, char **argv)
         abort();
     }
 
-    if (o.in_hosts)
-        r_c_threads = consumer_threads * array_used(o.in_hosts);
-    else
-        r_c_threads = consumer_threads;
-
+    r_c_threads = get_thread_count(&config, "consumers");
     c_thread = calloc(r_c_threads, sizeof(*c_thread));
     if (!c_thread) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
         abort();
     }
 
-    for (int i = 0; i < r_c_threads; ++i)
-    {
-        int mod = array_used(o.in_hosts) ? array_used(o.in_hosts) : 1;
-        Options *local = calloc(1, sizeof(*local));
-        memcpy(local, &o, sizeof(o));
-        local->in_host = array_get(o.in_hosts, i % mod);
-        local->in_pipeline = r_c_pipeline;
-        pthread_create(&(c_thread[i]), NULL, consume, local);
-    }
+    init_threads(&config, "consumers", c_thread);
 
-    if (o.out_hosts)
-        r_p_threads = producer_threads * array_used(o.out_hosts);
-    else
-        r_p_threads = producer_threads;
-
+    r_p_threads = get_thread_count(&config, "producers");
     p_thread = calloc(r_p_threads, sizeof(*p_thread));
     if (!p_thread) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
         abort();
     }
 
-    for (int i = 0; i < r_p_threads; ++i)
-    {
-        int mod = array_used(o.out_hosts) ? array_used(o.out_hosts) : 1;
-        Options *local = calloc(1, sizeof(*local));
-        memcpy(local, &o, sizeof(o));
-        local->out_host = array_get(o.out_hosts, i % mod);
-        local->out_host_replica = array_get(o.out_hosts_replica, i % mod);
-        local->out_pipeline = r_p_pipeline;
-        pthread_create(&(p_thread[i]), NULL, produce, local);
-    }
-
+    init_threads(&config, "producers", p_thread);
     pthread_create(&stat_thread, NULL, stats, NULL);
 
     for (int i = 0; i < r_c_threads; ++i)
@@ -356,7 +355,7 @@ main(int argc, char **argv)
     free(c_thread);
     free(p_thread);
     queue_free(&q);
-
+    config_destroy(&config);
     logger_log("done");
     return 0;
 }
