@@ -1,15 +1,29 @@
 #include <utils/config.h>
 
-int get_thread_count(config_t* config, char* type)
+int get_thread_count(config_t* config, int type)
 {
     config_setting_t* threads = NULL;
     int list = 0, j = 0, result = 0;
-    threads = config_lookup(config, type);
-    char* buf = malloc(1024);
+
+    char *typestr;
+    char *buf = malloc(1024);
+
+    switch(type)
+    {
+        case(SCHAUFEL_TYPE_CONSUMER):
+            typestr = "consumers";
+            break;
+        case(SCHAUFEL_TYPE_PRODUCER):
+            typestr = "producers";
+            break;
+        default:
+            abort();
+    }
+    threads = config_lookup(config, typestr);
 
     list = config_setting_length(threads);
     for(int i = 0; i < list; i++) {
-        snprintf(buf, 1023, "%s.[%d].threads", type, i);
+        snprintf(buf, 1023, "%s.[%d].threads", typestr, i);
         config_lookup_int(config,buf,&j);
         result += j;
     }

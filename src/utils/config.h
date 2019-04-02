@@ -17,7 +17,7 @@ void read_config(config_t *config, char *cfile);
 
 void config_merge(config_t *config, Options o);
 
-int get_thread_count(config_t *config, char *type);
+int get_thread_count(config_t *config, int type);
 
 int config_validate(config_t *config);
 
