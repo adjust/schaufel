@@ -1,6 +1,10 @@
 #ifndef _SCHAUFEL_UTILS_CONFIG_H_
 #define _SCHAUFEL_UTILS_CONFIG_H_
 
+#define SCHAUFEL_TYPE_CONSUMER 1
+#define SCHAUFEL_TYPE_PRODUCER 2
+
+
 #include <libconfig.h>
 #include <search.h>
 #include <stdio.h>

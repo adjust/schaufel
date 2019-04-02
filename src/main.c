@@ -180,20 +180,28 @@ produce(void *config)
 }
 
 void
-init_threads(config_t* config, char* type, pthread_t *threads)
+init_threads(config_t* config, int type, pthread_t *threads)
 {
     uint64_t list, thread_index;
+    void *(*function)(void *);
     config_setting_t *croot = NULL, *parent = NULL, *instance = NULL;
-
-    // todo: replace with sane code
-    void * (*function)(void *) = &consume;
-    if(!strcmp(type, "producers"))
-        function = &produce;
-
     croot = config_root_setting(config);
-    parent = config_setting_get_member(croot, type);
-    list = config_setting_length(parent);
 
+    switch(type)
+    {
+        case (SCHAUFEL_TYPE_CONSUMER):
+            parent = config_setting_get_member(croot, "consumers");
+            function = &consume;
+            break;
+        case (SCHAUFEL_TYPE_PRODUCER):
+            parent = config_setting_get_member(croot, "producers");
+            function = &produce;
+            break;
+        default:
+            abort();
+    }
+
+    list = config_setting_length(parent);
     for (uint64_t i = 0; i < list; ++i)
     {
         instance = config_setting_get_elem(parent, i);
@@ -330,7 +338,7 @@ main(int argc, char **argv)
         abort();
     }
 
-    init_threads(&config, "consumers", c_thread);
+    init_threads(&config, SCHAUFEL_TYPE_CONSUMER, c_thread);
 
     r_p_threads = get_thread_count(&config, "producers");
     p_thread = calloc(r_p_threads, sizeof(*p_thread));
@@ -339,7 +347,7 @@ main(int argc, char **argv)
         abort();
     }
 
-    init_threads(&config, "producers", p_thread);
+    init_threads(&config, SCHAUFEL_TYPE_PRODUCER, p_thread);
     pthread_create(&stat_thread, NULL, stats, NULL);
 
     for (int i = 0; i < r_c_threads; ++i)
