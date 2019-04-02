@@ -9,7 +9,7 @@
 
 typedef struct Producer *Producer;
 
-Producer dummy_producer_init();
+Producer dummy_producer_init(config_setting_t *config);
 
 void dummy_producer_free(Producer *p);
 
@@ -22,5 +22,9 @@ Consumer dummy_consumer_init();
 void dummy_consumer_free(Consumer *c);
 
 int dummy_consumer_consume(Consumer c, Message msg);
+
+typedef struct Validator *Validator;
+
+Validator dummy_validator_init();
 
 #endif

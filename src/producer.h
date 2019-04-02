@@ -17,7 +17,7 @@ typedef struct Producer {
     void *meta;
 } *Producer;
 
-Producer producer_init(char kind, void *opt);
+Producer producer_init(char kind, config_setting_t *config);
 
 void producer_free(Producer *p);
 

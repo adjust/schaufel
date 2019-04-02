@@ -4,8 +4,57 @@ static int log_fd;
 static char *log_fname;
 static _Thread_local char log_buffer[LOG_BUFFER_SIZE + 2];
 
-void logger_init(const char *fname)
+int logger_validate(config_setting_t *config)
 {
+    const char *retval = NULL;
+
+    //TODO: improve data structure
+    ENTRY item;
+    ENTRY* found;
+    if(!hcreate(16)) {
+        fprintf(stderr, "%s %d: failed to create hashmap %s\n",
+        __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
+    item.key = "file";
+    item.data = "file";
+    hsearch(item, ENTER);
+
+    if(config_setting_lookup_string(config, "type", &retval) != CONFIG_TRUE) {
+        fprintf(stderr, "logger needs a type (file only atm)\n");
+        goto error;
+    }
+
+    item.key = (char *) retval;
+    item.data = NULL;
+    found = hsearch(item, FIND);
+
+    if(found == NULL) {
+        fprintf(stderr, "unknown logger type: %s\n", retval);
+        goto error;
+    }
+    retval = NULL;
+
+    if(config_setting_lookup_string(config, (char *) found->data, &retval)
+        != CONFIG_TRUE) {
+        fprintf(stderr, "missing configuration for logger type: %s\n", (char *)found->data);
+        goto error;
+    }
+    if(!retval)
+        goto error;
+
+    hdestroy();
+    return 1;
+
+    error:
+    hdestroy();
+    return 0;
+}
+
+void logger_init(config_setting_t *config)
+{
+    const char *fname;
+    config_setting_lookup_string(config,"file",&fname);
     log_buffer[0] = '\0';
     log_fname     = strdup(fname);
     if (!log_fname)

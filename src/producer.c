@@ -1,25 +1,25 @@
 #include <producer.h>
 
 Producer
-producer_init(char kind, void *opt)
+producer_init(char kind, config_setting_t *config)
 {
     Producer p;
     switch (kind)
     {
         case 'd':
-            p = dummy_producer_init();
+            p = dummy_producer_init(config);
             break;
         case 'f':
-            p = file_producer_init(((Options *)opt)->out_file);
+            p = file_producer_init(config);
             break;
         case 'r':
-            p = redis_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_topic, ((Options *)opt)->out_pipeline);
+            p = redis_producer_init(config);
             break;
         case 'p':
-            p = postgres_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_host_replica, ((Options *)opt)->out_topic);
+            p = postgres_producer_init(config);
             break;
         case 'k':
-            p = kafka_producer_init(((Options *)opt)->out_broker, ((Options *)opt)->out_topic);
+            p = kafka_producer_init(config);
             break;
         default:
             return NULL;

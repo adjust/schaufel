@@ -10,7 +10,7 @@
 
 typedef struct Producer *Producer;
 
-Producer kafka_producer_init(char *broker, char *topic);
+Producer kafka_producer_init(config_setting_t *config);
 
 void kafka_producer_free(Producer *p);
 
@@ -18,10 +18,13 @@ void kafka_producer_produce(Producer p, Message msg);
 
 typedef struct Consumer *Consumer;
 
-Consumer kafka_consumer_init(char *broker, char *topic, char *groupid);
+Consumer kafka_consumer_init(config_setting_t *config);
 
 void kafka_consumer_free(Consumer *c);
 
 int kafka_consumer_consume(Consumer c, Message msg);
+
+typedef struct Validator *Validator;
+Validator kafka_validator_init();
 
 #endif

@@ -84,8 +84,12 @@ array_free(Array *array)
 {
     if (!array)
        return;
+    if (!*array)
+       return;
     for (uint32_t i = 0; i < (*array)->len; ++i)
         free((*array)->payload[i]);
     free((*array)->payload);
     free(*array);
+    *array = NULL;
 }
+

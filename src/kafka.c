@@ -53,7 +53,7 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-kafka_producer_meta_init(char *broker, char *topic)
+kafka_producer_meta_init(const char *broker, const char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -111,7 +111,7 @@ kafka_producer_meta_init(char *broker, char *topic)
 }
 
 Meta
-kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
+kafka_consumer_meta_init(const char *broker, const char *topic, const char *groupid)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -223,8 +223,11 @@ kafka_consumer_meta_free(Meta *m)
 
 
 Producer
-kafka_producer_init(char *broker, char *topic)
+kafka_producer_init(config_setting_t *config)
 {
+    const char *broker = NULL, *topic = NULL;
+    config_setting_lookup_string(config, "broker", &broker);
+    config_setting_lookup_string(config, "topic", &topic);
     Producer kafka = calloc(1, sizeof(*kafka));
     if (!kafka) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
@@ -282,8 +285,12 @@ kafka_producer_free(Producer *p)
 }
 
 Consumer
-kafka_consumer_init(char *broker, char *topic, char *groupid)
+kafka_consumer_init(config_setting_t *config)
 {
+    const char *broker = NULL, *topic = NULL, *groupid = NULL;
+    config_setting_lookup_string(config, "broker", &broker);
+    config_setting_lookup_string(config, "topic", &topic);
+    config_setting_lookup_string(config, "groupid", &groupid);
     Consumer kafka = calloc(1, sizeof(*kafka));
     if (!kafka) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
@@ -367,4 +374,54 @@ kafka_consumer_free(Consumer *c)
     kafka_consumer_meta_free(&m);
     free(*c);
     *c = NULL;
+}
+
+int
+kafka_validator(config_setting_t *config)
+{
+    const char *result = NULL;
+    config_setting_lookup_string(config, "broker", &result);
+    if(!result) {
+        fprintf(stderr, "kafka: need a broker!\n");
+        return 0;
+    }
+    result = NULL;
+    config_setting_lookup_string(config, "topic", &result);
+    if(!result) {
+        fprintf(stderr, "kafka: need a topic!\n");
+        return 0;
+    }
+    return 1;
+}
+
+int
+kafka_producer_validator(config_setting_t *config)
+{
+    return kafka_validator(config);
+}
+
+int
+kafka_consumer_validator(config_setting_t *config)
+{
+    const char *groupid = NULL;
+    config_setting_lookup_string(config, "groupid", &groupid);
+    if(!groupid) {
+        fprintf(stderr, "kafka: consumer needs a group!\n");
+        return 0;
+    }
+    return kafka_validator(config);
+}
+
+Validator
+kafka_validator_init()
+{
+    Validator v = calloc(1,sizeof(*v));
+    if(!v) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
+    v->validate_consumer = &kafka_producer_validator;
+    v->validate_producer = &kafka_consumer_validator;
+
+    return(v);
 }

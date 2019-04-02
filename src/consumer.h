@@ -16,7 +16,7 @@ typedef struct Consumer{
     void *meta;
 }*Consumer;
 
-Consumer consumer_init(char kind, void *opt);
+Consumer consumer_init(char kind, config_setting_t *config);
 
 void consumer_free(Consumer *c);
 

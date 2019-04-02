@@ -6,8 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <utils/logger.h>
-
-typedef struct Array *Array;
+#include <utils/options.h>
 
 Array array_init(size_t len);
 
