@@ -67,40 +67,55 @@ module_to_string(int module)
     return result;
 }
 
-static int _thread_validate(config_t* config, char* type)
+static int _thread_validate(config_t* config, int type)
 {
     char* buf = calloc(1,1024);
     config_setting_t *setting = NULL, *child = NULL;
+
     unsigned int i, list;
-    const char *conf_str = NULL;
     int conf_i = 0;
+
+    const char *conf_str = NULL;
+    char *typestr;
 
     Validator v;
     int ret = 1;
 
-    setting = config_lookup(config, type);
+    switch(type)
+    {
+        case(SCHAUFEL_TYPE_CONSUMER):
+            typestr = "consumers";
+            break;
+        case(SCHAUFEL_TYPE_PRODUCER):
+            typestr = "producers";
+            break;
+        default:
+            abort();
+    }
+
+    setting = config_lookup(config, typestr);
     if (!setting) {
-        fprintf(stderr, "Need a %s list\n", type);
+        fprintf(stderr, "Need a %s list\n", typestr);
         ret = 0;
         goto error;
     }
     if(config_setting_is_list(setting) != CONFIG_TRUE) {
-        fprintf(stderr, "%s needs to be a list\n", type);
+        fprintf(stderr, "%s needs to be a list\n", typestr);
         ret = 0;
         goto error;
     }
 
     list = config_setting_length(setting);
     for(i = 0; i < list; i++) {
-        snprintf(buf, 1023, "%s.[%d].threads", type, i);
+        snprintf(buf, 1023, "%s.[%d].threads", typestr, i);
         if(config_lookup_int(config,buf,&conf_i)!= CONFIG_TRUE
             || conf_i <= 0 ) {
-            fprintf(stderr, "%s: [%d] need threads\n", type, i);
+            fprintf(stderr, "%s: [%d] need threads\n", typestr, i);
             ret = 0;
         }
-        snprintf(buf, 1023, "%s.[%d].type", type, i);
+        snprintf(buf, 1023, "%s.[%d].type", typestr, i);
         if(config_lookup_string(config,buf,&conf_str)!= CONFIG_TRUE) {
-            fprintf(stderr, "%s: [%d] needs a type\n", type, i);
+            fprintf(stderr, "%s: [%d] needs a type\n", typestr, i);
             ret = 0;
         }
 
@@ -109,13 +124,13 @@ static int _thread_validate(config_t* config, char* type)
 
         v = validator_init((char *) conf_str);
 
-        if(!strcmp(type,"producers")) {
+        if(type == SCHAUFEL_TYPE_CONSUMER) {
             if(!v->validate_consumer(child)) {
                 ret = 0;
                 goto error;
             }
         }
-        if(!strcmp(type,"consumers")) {
+        if(type == SCHAUFEL_TYPE_PRODUCER) {
             if(!v->validate_producer(child)) {
                 ret = 0;
                 goto error;
@@ -146,10 +161,10 @@ int config_validate(config_t* config)
     }
 
     //check consumers
-    if(!_thread_validate(config, "consumers"))
+    if(!_thread_validate(config, SCHAUFEL_TYPE_CONSUMER))
         ok = 0;
     //check producers
-    if(!_thread_validate(config, "producers"))
+    if(!_thread_validate(config, SCHAUFEL_TYPE_PRODUCER))
         ok = 0;
 
     return ok;
