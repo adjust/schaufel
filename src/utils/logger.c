@@ -8,46 +8,26 @@ bool logger_validate(config_setting_t *config)
 {
     const char *retval = NULL;
 
-    //TODO: improve data structure
-    ENTRY item;
-    ENTRY* found;
-    if(!hcreate(16)) {
-        fprintf(stderr, "%s %d: failed to create hashmap %s\n",
-        __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
-    item.key = "file";
-    item.data = "file";
-    hsearch(item, ENTER);
-
+    // this check is a mere placeholder
     if(config_setting_lookup_string(config, "type", &retval) != CONFIG_TRUE) {
         fprintf(stderr, "logger needs a type (file only atm)\n");
         goto error;
     }
-
-    item.key = (char *) retval;
-    item.data = NULL;
-    found = hsearch(item, FIND);
-
-    if(found == NULL) {
-        fprintf(stderr, "unknown logger type: %s\n", retval);
+    if(strlen(retval) < 4 || strncmp(retval, "file", strlen("file"))) {
+        fprintf(stderr, "logger needs a type (file only atm)\n");
         goto error;
     }
+
     retval = NULL;
-
-    if(config_setting_lookup_string(config, (char *) found->data, &retval)
+    if(config_setting_lookup_string(config, "file", &retval)
         != CONFIG_TRUE) {
-        fprintf(stderr, "missing configuration for logger type: %s\n", (char *)found->data);
+        fprintf(stderr, "missing configuration for logger type: %s\n", "file");
         goto error;
     }
-    if(!retval)
-        goto error;
 
-    hdestroy();
     return true;
 
     error:
-    hdestroy();
     return false;
 }
 
