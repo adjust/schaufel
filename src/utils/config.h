@@ -9,6 +9,7 @@
 #include <search.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <utils/options.h>
 #include <utils/logger.h>
 #include <validator.h>
@@ -19,7 +20,7 @@ void config_merge(config_t *config, Options o);
 
 int get_thread_count(config_t *config, int type);
 
-int config_validate(config_t *config);
+bool config_validate(config_t *config);
 
 char* module_to_string(int module);
 

@@ -8,12 +8,13 @@
 #include <queue.h>
 #include <redis.h>
 #include <utils/helper.h>
+#include <stdbool.h>
 
 typedef struct Validator *Validator;
 
 typedef struct Validator {
-    int (*validate_consumer) (config_setting_t* config);
-    int (*validate_producer) (config_setting_t* config);
+    bool (*validate_consumer) (config_setting_t* config);
+    bool (*validate_producer) (config_setting_t* config);
 } *Validator;
 
 Validator validator_init(char* kind);
