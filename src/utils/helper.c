@@ -14,7 +14,7 @@ size_t number_length(long number)
 }
 
 int
-parse_connstring(char *conninfo, char **hostname, int *port)
+parse_connstring(const char *conninfo, char **hostname, int *port)
 {
     const char *delim = ":";
     char *save,

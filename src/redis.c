@@ -22,7 +22,7 @@ redis_meta_init(const char *host, const char *topic, size_t pipe_max)
     char *hostname = NULL;
     int   port = 0;
 
-    if (parse_connstring((char *) host, &hostname, &port) == -1)
+    if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
     struct timeval timeout = { 1, 500000 };
