@@ -22,7 +22,7 @@ _connectinfo(const char *host)
     char *hostname;
     int port = 0;
 
-    if (parse_connstring((char *)host, &hostname, &port) == -1)
+    if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
     int len = strlen(hostname)

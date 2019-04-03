@@ -13,7 +13,7 @@ int options_validate(Options o);
 
 size_t number_length(long number);
 
-int parse_connstring(char *conninfo, char **hostname, int *port);
+int parse_connstring(const char *conninfo, char **hostname, int *port);
 
 bool get_state(const volatile atomic_bool *state);
 bool set_state(volatile atomic_bool *state, bool value);
