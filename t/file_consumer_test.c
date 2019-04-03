@@ -4,16 +4,29 @@
 #include <test/test.h>
 #include <utils/logger.h>
 #include <utils/helper.h>
+#include <utils/config.h>
+#include <utils/options.h>
 
 int
 main(void)
 {
-    Options o;
-    memset(&o, '\0', sizeof(o));
-    o.in_file = "sample/dummy_file";
-    logger_init("sample/dummy_log");
+    config_t config;
+    config_setting_t *croot, *logger, *file, *setting;
+    config_init(&config);
+    croot = config_root_setting(&config);
+
+    //logger
+    logger = config_setting_add(croot,"logger",CONFIG_TYPE_GROUP);
+    setting = config_setting_add(logger, "file", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "sample/dummy_log");
+    //file
+    file = config_setting_add(croot,"file",CONFIG_TYPE_GROUP);
+    setting = config_setting_add(file, "file", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "sample/dummy_file");
+
+    logger_init(logger);
     Message msg = message_init();
-    Consumer c = consumer_init('f', &o);
+    Consumer c = consumer_init('f', file);
     char *string;
 
     consumer_consume(c, msg);
