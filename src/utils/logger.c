@@ -4,7 +4,7 @@ static int log_fd;
 static char *log_fname;
 static _Thread_local char log_buffer[LOG_BUFFER_SIZE + 2];
 
-int logger_validate(config_setting_t *config)
+bool logger_validate(config_setting_t *config)
 {
     const char *retval = NULL;
 
@@ -44,11 +44,11 @@ int logger_validate(config_setting_t *config)
         goto error;
 
     hdestroy();
-    return 1;
+    return true;
 
     error:
     hdestroy();
-    return 0;
+    return false;
 }
 
 void logger_init(config_setting_t *config)
