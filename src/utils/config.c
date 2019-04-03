@@ -76,6 +76,7 @@ module_to_string(int module)
             result = "file";
             break;
         default:
+            fprintf(stderr, "Unknown producer/consumer!\n");
             abort();
     }
     return result;
