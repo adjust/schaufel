@@ -17,7 +17,7 @@
 #define LOG_BUFFER_SIZE 4096
 #define FORMAT_PRINTF(x,y) __attribute__((format (printf,(x),(y))))
 
-int logger_validate(config_setting_t *config);
+bool logger_validate(config_setting_t *config);
 void logger_init(config_setting_t *config);
 void logger_free();
 void logger_log(const char *fmt, ...) FORMAT_PRINTF(1,2);

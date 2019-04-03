@@ -169,6 +169,7 @@ bool config_validate(config_t* config)
     {
         fprintf(stderr, "Need a logger defined\n");
         res = false;
+        goto error;
     }
     if(!logger_validate(setting)) {
         res = false;
@@ -181,6 +182,7 @@ bool config_validate(config_t* config)
     if(!_thread_validate(config, SCHAUFEL_TYPE_PRODUCER))
         res = false;
 
+    error:
     return res;
 }
 
