@@ -113,7 +113,7 @@ file_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-int
+bool
 file_validate(config_setting_t* config)
 {
     int t = 0;
@@ -121,10 +121,10 @@ file_validate(config_setting_t* config)
 
     if(t > 1) {
         fprintf(stderr, "file consumer/producer is not thread safe!\n");
-        return(0);
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
 Validator

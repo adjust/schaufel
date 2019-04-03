@@ -206,35 +206,23 @@ redis_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-int
+bool
 redis_validator(config_setting_t *config)
 {
     const char *result = NULL;
     config_setting_lookup_string(config, "host", &result);
     if(!result) {
         fprintf(stderr, "redis: need host!\n");
-        return 0;
+        return false;
     }
     result = NULL;
     config_setting_lookup_string(config, "topic", &result);
     if(!result) {
         fprintf(stderr, "redis: need a topic!\n");
-        return 0;
+        return false;
     }
-    //todo : port/host parser
 
-    //todo: ask ali whether pipelining makes sense
-    /* answer:didn't make sense
-    config_setting_lookup_int(config, "pipeline", &res);
-    if(res) {
-        config_setting_lookup_int(config, "threads", &threads);
-        if (res % threads) {
-            fprintf(stderr, "%s %d: redis threads must be a factor of pipeline size\n", __FILE__, __LINE__);
-        return 0;
-      }
-    }
-    */
-    return 1;
+    return true;
 }
 
 

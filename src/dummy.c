@@ -56,10 +56,10 @@ dummy_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-int
+bool
 dummy_validator(UNUSED config_setting_t *config)
 {
-    return 1;
+    return true;
 }
 
 Validator

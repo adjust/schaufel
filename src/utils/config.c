@@ -81,7 +81,7 @@ module_to_string(int module)
     return result;
 }
 
-static int _thread_validate(config_t* config, int type)
+static bool _thread_validate(config_t* config, int type)
 {
     char* buf = calloc(1,1024);
     config_setting_t *setting = NULL, *child = NULL;
@@ -93,7 +93,7 @@ static int _thread_validate(config_t* config, int type)
     char *typestr;
 
     Validator v;
-    int ret = 1;
+    bool ret = true;
 
     switch(type)
     {
@@ -110,12 +110,12 @@ static int _thread_validate(config_t* config, int type)
     setting = config_lookup(config, typestr);
     if (!setting) {
         fprintf(stderr, "Need a %s list\n", typestr);
-        ret = 0;
+        ret = false;
         goto error;
     }
     if(config_setting_is_list(setting) != CONFIG_TRUE) {
         fprintf(stderr, "%s needs to be a list\n", typestr);
-        ret = 0;
+        ret = false;
         goto error;
     }
 
@@ -125,12 +125,12 @@ static int _thread_validate(config_t* config, int type)
         if(config_lookup_int(config,buf,&conf_i)!= CONFIG_TRUE
             || conf_i <= 0 ) {
             fprintf(stderr, "%s: [%d] need threads\n", typestr, i);
-            ret = 0;
+            ret = false;
         }
         snprintf(buf, 1023, "%s.[%d].type", typestr, i);
         if(config_lookup_string(config,buf,&conf_str)!= CONFIG_TRUE) {
             fprintf(stderr, "%s: [%d] needs a type\n", typestr, i);
-            ret = 0;
+            ret = false;
         }
 
         child = config_setting_get_elem(setting, i);
@@ -140,13 +140,13 @@ static int _thread_validate(config_t* config, int type)
 
         if(type == SCHAUFEL_TYPE_CONSUMER) {
             if(!v->validate_consumer(child)) {
-                ret = 0;
+                ret = false;
                 goto error;
             }
         }
         if(type == SCHAUFEL_TYPE_PRODUCER) {
             if(!v->validate_producer(child)) {
-                ret = 0;
+                ret = false;
                 goto error;
             }
         }
@@ -158,9 +158,9 @@ static int _thread_validate(config_t* config, int type)
     return(ret);
 }
 
-int config_validate(config_t* config)
+bool config_validate(config_t* config)
 {
-    int ok = 1;
+    bool res = true;
     config_setting_t *setting;
 
     // check logger
@@ -168,20 +168,20 @@ int config_validate(config_t* config)
     if (!setting)
     {
         fprintf(stderr, "Need a logger defined\n");
-        return 0;
+        res = false;
     }
     if(!logger_validate(setting)) {
-        ok = 0;
+        res = false;
     }
 
     //check consumers
     if(!_thread_validate(config, SCHAUFEL_TYPE_CONSUMER))
-        ok = 0;
+        res = false;
     //check producers
     if(!_thread_validate(config, SCHAUFEL_TYPE_PRODUCER))
-        ok = 0;
+        res = false;
 
-    return ok;
+    return res;
 }
 
 void

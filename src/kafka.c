@@ -376,14 +376,14 @@ kafka_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-int
+bool
 kafka_validator(config_setting_t *config)
 {
     const char *result = NULL;
     config_setting_lookup_string(config, "broker", &result);
     if(!result) {
         fprintf(stderr, "kafka: need a broker!\n");
-        return 0;
+        return false;
     }
     result = NULL;
     config_setting_lookup_string(config, "topic", &result);
@@ -391,23 +391,23 @@ kafka_validator(config_setting_t *config)
         fprintf(stderr, "kafka: need a topic!\n");
         return 0;
     }
-    return 1;
+    return true;
 }
 
-int
+bool
 kafka_producer_validator(config_setting_t *config)
 {
     return kafka_validator(config);
 }
 
-int
+bool
 kafka_consumer_validator(config_setting_t *config)
 {
     const char *groupid = NULL;
     config_setting_lookup_string(config, "groupid", &groupid);
     if(!groupid) {
         fprintf(stderr, "kafka: consumer needs a group!\n");
-        return 0;
+        return false;
     }
     return kafka_validator(config);
 }

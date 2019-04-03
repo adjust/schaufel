@@ -341,7 +341,7 @@ postgres_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-int
+bool
 postgres_validate(config_setting_t *config)
 {
     config_setting_t *parent = NULL, *instance = NULL, *setting = NULL;
@@ -349,7 +349,7 @@ postgres_validate(config_setting_t *config)
 
     Array master,replica;
     int m, r, threads;
-    int ret = 1;
+    bool ret = true;
 
     // We need the parent list, because the postgres
     // consumer may add further consumers to the list.
@@ -358,14 +358,14 @@ postgres_validate(config_setting_t *config)
     if(config_setting_lookup_string(config, "host", &hosts) != CONFIG_TRUE) {
         fprintf(stderr, "%s %d: require host string!\n",
             __FILE__, __LINE__);
-        ret = 0;
+        ret = false;
         goto error;
     }
 
     if(config_setting_lookup_int(config, "threads", &threads) != CONFIG_TRUE) {
         fprintf(stderr, "%s %d: require threads integer!\n",
             __FILE__, __LINE__);
-        ret = 0;
+        ret = false;
         goto error;
     }
 
@@ -379,21 +379,21 @@ postgres_validate(config_setting_t *config)
         == CONFIG_TRUE && r) {
         fprintf(stderr, "%s %d: replica %s conflicts with host list!\n",
             __FILE__, __LINE__, replicas);
-        ret = 0;
+        ret = false;
         goto error;
     }
 
     if(config_setting_lookup_string(config, "topic", &topic) != CONFIG_TRUE) {
         fprintf(stderr, "%s %d: need a topic/generation!\n",
             __FILE__, __LINE__);
-        ret = 0;
+        ret = false;
         goto error;
     }
 
     if(m == 0) {
         fprintf(stderr, "%s %d: I require at least one host!\n",
             __FILE__, __LINE__);
-        ret = 0;
+        ret = false;
         goto error;
     }
     if(r > m || ( r > 0 && r < m)) {
@@ -413,7 +413,7 @@ postgres_validate(config_setting_t *config)
     {
         instance = config_setting_add(parent, NULL, CONFIG_TYPE_GROUP);
         if(instance == NULL) {
-            ret = 0;
+            ret = false;
             goto  error;
         }
         setting = config_setting_add(instance, "type", CONFIG_TYPE_STRING);
