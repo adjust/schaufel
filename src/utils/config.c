@@ -120,6 +120,12 @@ static bool _thread_validate(config_t* config, int type)
     }
 
     list = config_setting_length(setting);
+    if(!list) {
+        fprintf(stderr, "Need at least one %s item!\n", typestr);
+        ret = false;
+        goto error;
+    }
+
     for(i = 0; i < list; i++) {
         snprintf(buf, 1023, "%s.[%d].threads", typestr, i);
         if(config_lookup_int(config,buf,&conf_i)!= CONFIG_TRUE
