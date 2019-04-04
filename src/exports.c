@@ -51,58 +51,40 @@ _connectinfo(const char *host)
 }
 
 Needles
-_needles()
+_needle_alloc()
 {
-    /* replace with dynamic parser */
-    const char** json_pointers = (const char *[]) {
-        "/context/app_token",
-        "/context/tracker_token",
-        "/context/device_ids/idfa",
-        "/context/device_ids/gps_adid",
-        "/context/device_ids/imei",
-        "/context/request/Header/User-Agent/0",
-        "/context/impression/OsName",
-        "/context/impression/IpAddress",
-        "/context/impression/ServerIp",
-        "/context/impression/CreatedAt",
-        "/context/impression/OsVersion",
-        "/context/impression/ReferenceTag",
-        "/timestamp",
-        NULL
-    };
-
-    Needles needles = calloc(1,sizeof(*needles));
-    if (!needles) {
+    Needles needle = calloc(1,sizeof(*needle));
+    if (!needle) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
         strerror(errno));
         abort();
     }
-    Needles first = needles;
 
-    do {
-        printf("json_pointers: %s\n", *json_pointers);
-        needles->jpointer = calloc(1,strlen(*json_pointers));
-        strcpy(needles->jpointer, *json_pointers);
+    needle->maxlength = 2048;
+    needle->result = calloc(1, needle->maxlength);
 
-        // 2 kb ought to be a good start for a buffer
-        needles->maxlength = 2048;
-        needles->result = calloc(1, needles->maxlength);
+    return needle;
+}
 
-        // TODO: turn flow into sanity
-        json_pointers++;
-        if (*json_pointers == NULL)
+Needles
+_needles(config_setting_t *needlestack)
+{
+    config_setting_t *setting;
+    const char *jpointer = NULL;
+    int list;
+    list = config_setting_length(needlestack);
+
+    Needles first = _needle_alloc();
+    Needles needle = first;
+    for(int i = 0; i < list; i++) {
+        setting = config_setting_get_elem(needlestack, i);
+        jpointer = config_setting_get_string(setting);
+        needle->jpointer = strdup(jpointer);
+        if(i == (list-1))
             break;
-
-        Needles next = calloc(1,sizeof(*needles));
-        if (!needles) {
-            logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
-            strerror(errno));
-            abort();
-        }
-        needles->next = next;
-        needles = needles->next;
-
-    } while (*json_pointers != NULL);
+        needle->next = _needle_alloc();
+        needle = needle->next;
+    }
 
     return(first);
 }
@@ -185,7 +167,7 @@ _commit_worker(void *meta)
 }
 
 Meta
-exports_meta_init(const char *host, const char *topic)
+exports_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -195,7 +177,7 @@ exports_meta_init(const char *host, const char *topic)
 
     m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
-    m->needles = _needles();
+    m->needles = _needles(needlestack);
 
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
@@ -237,15 +219,17 @@ Producer
 exports_producer_init(config_setting_t *config)
 {
     const char *host = NULL, *topic = NULL;
+    config_setting_t *needlestack = NULL;
     config_setting_lookup_string(config, "host", &host);
     config_setting_lookup_string(config, "topic", &topic);
+    needlestack = config_setting_get_member(config, "jpointers");
     Producer exports = calloc(1, sizeof(*exports));
     if (!exports) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
         abort();
     }
 
-    exports->meta          = exports_meta_init(host, topic);
+    exports->meta          = exports_meta_init(host, topic, needlestack);
     exports->producer_free = exports_producer_free;
     exports->produce       = exports_producer_produce;
 
@@ -384,6 +368,7 @@ Consumer
 exports_consumer_init(config_setting_t *config)
 {
     const char *host = NULL;
+    config_setting_t *needles = NULL;
     config_setting_lookup_string(config, "host", &host);
     Consumer exports = calloc(1, sizeof(*exports));
     if (!exports) {
@@ -391,7 +376,7 @@ exports_consumer_init(config_setting_t *config)
         abort();
     }
 
-    exports->meta          = exports_meta_init(host, NULL);
+    exports->meta          = exports_meta_init(host, NULL, needles);
     exports->consumer_free = exports_consumer_free;
     exports->consume       = exports_consumer_consume;
 
@@ -417,7 +402,32 @@ exports_consumer_free(Consumer *c)
 bool
 exporter_validate(UNUSED config_setting_t *config)
 {
+    config_setting_t *setting = NULL;
+    const char *host = NULL, *topic = NULL, *jpointer = NULL;
+    if(config_setting_lookup_string(config, "host", &host) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %d: require host string!\n",
+            __FILE__, __LINE__);
+        goto error;
+    }
+
+    if(config_setting_lookup_string(config, "topic", &topic) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %d: require topic string!\n",
+            __FILE__, __LINE__);
+        goto error;
+    }
+    if(!(setting = config_setting_get_member(config,"jpointers"))) {
+        fprintf(stderr, "%s %d: require jpointers!\n",
+            __FILE__, __LINE__);
+        goto error;
+    }
+    if (config_setting_is_list(setting) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %d: require jpointer must be a list\n",
+            __FILE__, __LINE__);
+        goto error;
+    }
     return true;
+    error:
+    return false;
 }
 
 
@@ -425,6 +435,11 @@ Validator
 exports_validator_init()
 {
     Validator v = calloc(1,sizeof(*v));
+    if(!v) {
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
+        abort();
+    }
+
     v->validate_consumer = &exporter_validate;
     v->validate_producer = &exporter_validate;
     return v;
