@@ -143,7 +143,13 @@ static bool _thread_validate(config_t* config, int type)
         child = config_setting_get_elem(setting, i);
         config_setting_lookup_string(child, "type", &conf_str);
 
-        v = validator_init((char *) conf_str);
+        v = validator_init(conf_str);
+        if(!v) {
+            fprintf(stderr, "Type %s has no validator!\n", conf_str);
+            ret = false;
+            goto error;
+        }
+
 
         if(type == SCHAUFEL_TYPE_CONSUMER) {
             if(!v->validate_consumer(child)) {
