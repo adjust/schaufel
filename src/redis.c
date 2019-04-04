@@ -229,7 +229,11 @@ redis_validator(config_setting_t *config)
 Validator
 redis_validator_init()
 {
-    Validator v = calloc(1,sizeof(Validator));
+    Validator v = calloc(1,sizeof(*v));
+    if (v == NULL) {
+        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
+        abort();
+    }
     v->validate_consumer = &redis_validator;
     v->validate_producer = &redis_validator;
     return v;
