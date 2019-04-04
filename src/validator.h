@@ -2,6 +2,7 @@
 #define _SCHAUFEL_VALIDATOR_H
 
 #include <dummy.h>
+#include <exports.h>
 #include <file.h>
 #include <kafka.h>
 #include <postgres.h>
