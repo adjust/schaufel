@@ -24,7 +24,7 @@ typedef struct Meta {
 } *Meta;
 
 static char *
-_connectinfo(char *host)
+_connectinfo(const char *host)
 {
     if (host == NULL)
         return NULL;
@@ -108,7 +108,7 @@ _needles()
 }
 
 static char *
-_cpycmd(char *host, char *table)
+_cpycmd(const char *host, const char *table)
 {
     if (host == NULL)
         return NULL;
@@ -185,7 +185,7 @@ _commit_worker(void *meta)
 }
 
 Meta
-exports_meta_init(char *host, char *nsp)
+exports_meta_init(const char *host, const char *topic)
 {
     Meta m = calloc(1, sizeof(*m));
     if (!m) {
@@ -193,7 +193,7 @@ exports_meta_init(char *host, char *nsp)
         abort();
     }
 
-    m->cpycmd = _cpycmd(host, nsp);
+    m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
     m->needles = _needles();
 
@@ -234,15 +234,18 @@ exports_meta_free(Meta *m)
 }
 
 Producer
-exports_producer_init(char *host, char *nsp)
+exports_producer_init(config_setting_t *config)
 {
+    const char *host = NULL, *topic = NULL;
+    config_setting_lookup_string(config, "host", &host);
+    config_setting_lookup_string(config, "topic", &topic);
     Producer exports = calloc(1, sizeof(*exports));
     if (!exports) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
         abort();
     }
 
-    exports->meta          = exports_meta_init(host, nsp);
+    exports->meta          = exports_meta_init(host, topic);
     exports->producer_free = exports_producer_free;
     exports->produce       = exports_producer_produce;
 
@@ -378,8 +381,10 @@ exports_producer_free(Producer *p)
 }
 
 Consumer
-exports_consumer_init(char *host)
+exports_consumer_init(config_setting_t *config)
 {
+    const char *host = NULL;
+    config_setting_lookup_string(config, "host", &host);
     Consumer exports = calloc(1, sizeof(*exports));
     if (!exports) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
@@ -407,4 +412,20 @@ exports_consumer_free(Consumer *c)
     exports_meta_free(&m);
     free(*c);
     *c = NULL;
+}
+
+bool
+exporter_validate(UNUSED config_setting_t *config)
+{
+    return true;
+}
+
+
+Validator
+exports_validator_init()
+{
+    Validator v = calloc(1,sizeof(*v));
+    v->validate_consumer = &exporter_validate;
+    v->validate_producer = &exporter_validate;
+    return v;
 }

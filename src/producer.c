@@ -16,7 +16,7 @@ producer_init(char kind, config_setting_t *config)
             p = redis_producer_init(config);
             break;
         case 'e':
-            p = exports_producer_init(((Options *)opt)->out_host, ((Options *)opt)->out_topic);
+            p = exports_producer_init(config);
             break;
         case 'p':
             p = postgres_producer_init(config);
