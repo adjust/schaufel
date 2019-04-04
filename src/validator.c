@@ -12,6 +12,9 @@ validator_init(const char* kind)
         case 'f':
             v = file_validator_init();
             break;
+        case 'e':
+            v = exports_validator_init();
+            break;
         case 'p':
             v = postgres_validator_init();
             break;

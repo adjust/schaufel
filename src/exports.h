@@ -13,7 +13,7 @@
 
 typedef struct Producer *Producer;
 
-Producer exports_producer_init(char *host, char *nsp);
+Producer exports_producer_init(config_setting_t *config);
 
 void exports_producer_free(Producer *p);
 
@@ -21,10 +21,14 @@ void exports_producer_produce(Producer p, Message msg);
 
 typedef struct Consumer *Consumer;
 
-Consumer exports_consumer_init(char *host);
+Consumer exports_consumer_init(config_setting_t *config);
 
 void exports_consumer_free(Consumer *c);
 
 int exports_consumer_consume(Consumer c, Message msg);
+
+typedef struct Validator *Validator;
+
+Validator exports_validator_init();
 
 #endif

@@ -9,7 +9,7 @@ CFLAGS += -std=c11
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 CFLAGS += -D_BSD_SOURCE
-LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -lsjon-c
+LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
 INC = -Isrc/
 
 OBJDIR = obj
