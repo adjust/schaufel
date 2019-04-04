@@ -443,8 +443,7 @@ postgres_validate(config_setting_t *config)
 Validator
 postgres_validator_init()
 {
-    Validator v;
-    v = calloc(1,sizeof(v));
+    Validator v = calloc(1,sizeof(*v));
     if(v == NULL) {
         logger_log("%s %d: allocate failed", __FILE__, __LINE__);
         abort();
