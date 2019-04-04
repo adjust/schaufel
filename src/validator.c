@@ -1,7 +1,7 @@
 #include <validator.h>
 
 Validator
-validator_init(char* kind)
+validator_init(const char* kind)
 {
     Validator v;
     switch (*kind)

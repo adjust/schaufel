@@ -17,5 +17,5 @@ typedef struct Validator {
     bool (*validate_producer) (config_setting_t* config);
 } *Validator;
 
-Validator validator_init(char* kind);
+Validator validator_init(const char* kind);
 #endif
