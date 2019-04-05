@@ -62,6 +62,11 @@ _needle_alloc()
 
     needle->maxlength = 2048;
     needle->result = calloc(1, needle->maxlength);
+    if(!needle->result) {
+        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
+        strerror(errno));
+        abort();
+    }
 
     return needle;
 }
@@ -80,8 +85,6 @@ _needles(config_setting_t *needlestack)
         setting = config_setting_get_elem(needlestack, i);
         jpointer = config_setting_get_string(setting);
         needle->jpointer = strdup(jpointer);
-        if(i == (list-1))
-            break;
         needle->next = _needle_alloc();
         needle = needle->next;
     }
@@ -255,7 +258,7 @@ _deref(char* data, Needles needles)
     if(!haystack)
         return -1;
 
-    while(needles) {
+    while(needles->next) {
         if(json_pointer_get(haystack, needles->jpointer, &needle)) {
             strlcpy(needles->result, "\0", 1);
             needles->length = 0;
@@ -308,13 +311,13 @@ exports_producer_produce(Producer p, Message msg)
     }
     needles = m->needles;
 
-    while(needles) {
+    while(needles->next) {
         strcat(buf, needles->result);
 
         needles = needles->next;
-        if (!needles)
-            break;
-        strcat(buf, ",");
+        // Setting the comma depends on there being an element after
+        if(needles->next)
+            strcat(buf, ",");
     }
 
     pthread_mutex_lock(&m->commit_mutex);
