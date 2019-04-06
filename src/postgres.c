@@ -1,18 +1,5 @@
 #include <postgres.h>
-
-typedef struct Meta {
-    PGconn          *conn_master;
-    PGconn          *conn_replica;
-    PGresult        *res;
-    char            *conninfo;
-    char            *conninfo_replica;
-    char            *cpycmd;
-    int             count;
-    int             copy;
-    int             commit_iter;
-    pthread_mutex_t commit_mutex;
-    pthread_t       commit_worker;
-} *Meta;
+#include <utils/postgres.h>
 
 char *
 _connectinfo(const char *host)
@@ -75,59 +62,6 @@ _cpycmd(const char *host, const char *generation)
     return cpycmd;
 }
 
-static void
-_commit(Meta *m)
-{
-    PQputCopyEnd((*m)->conn_master, NULL);
-    if ((*m)->conninfo_replica)
-        PQputCopyEnd((*m)->conn_replica, NULL);
-
-    (*m)->count = 0;
-    (*m)->copy  = 0;
-    (*m)->commit_iter = 0;
-}
-
-static void
-_commit_worker_cleanup(void *mutex)
-{
-    pthread_mutex_unlock((pthread_mutex_t*) mutex);
-    return;
-}
-
-static void *
-_commit_worker(void *meta)
-{
-    Meta *m = (Meta *) meta;
-
-    #ifdef PR_SET_NAME
-    prctl(PR_SET_NAME, "commit_worker");
-    #endif
-
-
-    while(42)
-    {
-        sleep(1);
-
-        pthread_mutex_lock(&((*m)->commit_mutex));
-        pthread_cleanup_push(_commit_worker_cleanup, &(*m)->commit_mutex);
-
-        (*m)->commit_iter++;
-        (*m)->commit_iter &= 0xF;
-
-        /* if count > 0 it implies that copy == 1,
-         * therefore it is safe to commit data */
-        if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
-            logger_log("%s %d: Autocommiting %d entries",
-                __FILE__, __LINE__, (*m)->count);
-            _commit(m);
-        }
-
-        pthread_cleanup_pop(0);
-        pthread_mutex_unlock(&((*m)->commit_mutex));
-        pthread_testcancel();
-    }
-
-}
 
 Meta
 postgres_meta_init(const char *host, const char *host_replica, const char *generation)
@@ -203,7 +137,7 @@ postgres_producer_init(config_setting_t *config)
 
     if (pthread_create(&((Meta)(postgres->meta))->commit_worker,
         NULL,
-        _commit_worker,
+        commit_worker,
         (void *)&(postgres->meta))) {
         logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
         abort();
@@ -283,7 +217,7 @@ postgres_producer_produce(Producer p, Message msg)
     m->count = m->count + 1;
     if (m->count == 2000)
     {
-        _commit(&m);
+        commit(&m);
     }
     pthread_mutex_unlock(&m->commit_mutex);
 
@@ -301,7 +235,7 @@ postgres_producer_free(Producer *p)
 
     if (m->copy != 0)
     {
-        _commit(&m);
+        commit(&m);
     }
 
     postgres_meta_free(&m);
