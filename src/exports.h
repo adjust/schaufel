@@ -10,6 +10,7 @@
 #include <json-c/json.h>
 #include <queue.h>
 #include <sys/prctl.h>
+#include <endian.h>
 
 typedef struct Producer *Producer;
 
