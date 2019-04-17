@@ -63,6 +63,7 @@ _connectinfo(const char *host)
     }
     snprintf(conninfo, len, "dbname=bagger_exports"
         " user=postgres host=%s port=%d", hostname, port);
+    free(hostname);
     return conninfo;
 }
 
@@ -108,7 +109,7 @@ static void _obj_free(void **obj)
         return;
     if(!*obj)
         return;
-    free(obj);
+    free(*obj);
     *obj = NULL;
 }
 
@@ -304,6 +305,7 @@ _cpycmd(const char *host, const char *table)
         abort();
     }
     snprintf(cpycmd, len, fmtstring, table);
+    free(hostname);
     return cpycmd;
 }
 
@@ -350,6 +352,7 @@ exports_meta_free(Meta *m)
     pthread_mutex_destroy(&(*m)->commit_mutex);
 
     free((*m)->conninfo);
+    free((*m)->cpycmd);
     PQfinish((*m)->conn_master);
 
     Needles last;
@@ -360,6 +363,7 @@ exports_meta_free(Meta *m)
             free(last);
             break;
         }
+        free((*m)->internal->needles->jpointer);
         (*m)->internal->needles->free(
             &(*m)->internal->needles->result);
         if((*m)->internal->needles->leapyear != NULL)
