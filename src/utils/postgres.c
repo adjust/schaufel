@@ -3,6 +3,8 @@
 void
 commit(Meta *m)
 {
+    if((*m)->cpyfmt == PQ_COPY_BINARY)
+        PQputCopyData((*m)->conn_master, "\377\377", 2);
     PQputCopyEnd((*m)->conn_master, NULL);
     if ((*m)->conninfo_replica)
         PQputCopyEnd((*m)->conn_replica, NULL);

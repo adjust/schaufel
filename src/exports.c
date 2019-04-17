@@ -3,17 +3,41 @@
 
 typedef struct Needles *Needles;
 typedef struct Needles {
-    char*           jpointer;
-    void*           to_binary;
+    char           *jpointer;
+    bool          (*format) (json_object *, Needles);
+    void          (*free) (void **);
     Needles         next;
-    size_t          maxlength;
-    size_t          length;
-    char*           result;
+    uint32_t        length;
+    void           *result;
+    uint32_t       *leapyear;
 } *Needles;
 
 typedef struct Internal {
     Needles         needles;
+    uint16_t        ncount;
 } *Internal;
+
+static bool _json_to_pqtext (json_object *needle, Needles current);
+static bool _json_to_pqtimestamp (json_object *needle, Needles current);
+static void _obj_noop(UNUSED void **obj);
+static void _obj_free(void **obj);
+
+typedef enum {
+    undef,
+    text,
+    timestamp,
+} PqTypes;
+
+static const struct {
+    PqTypes type;
+    const char *pq_type;
+    bool  (*format) (json_object *, Needles);
+    void  (*free) (void **obj);
+}  pq_types [] = {
+        {undef, "undef", NULL, NULL},
+        {text, "text", &_json_to_pqtext, &_obj_noop},
+        {timestamp, "timestamp", &_json_to_pqtimestamp, &_obj_free},
+};
 
 static char *
 _connectinfo(const char *host)
@@ -42,19 +66,177 @@ _connectinfo(const char *host)
     return conninfo;
 }
 
+static PqTypes
+_pqtype_enum(const char *pqtype)
+{
+    uint32_t j;
+    for (j = 1; j < sizeof(pq_types) / sizeof(pq_types[0]); j++)
+        if (!strcmp(pqtype, pq_types[j].pq_type))
+            return pq_types[j].type;
+    return undef;
+}
+
+static uint32_t *
+_leapyear()
+{
+    // 2048 years ought to be enough
+    uint32_t *l = calloc(2048,sizeof(int*));
+    uint32_t a = 0;
+
+    for (uint32_t i = 0; i < 2047; i++) {
+        if ((i % 4 == 0 && i % 100 != 0) || (i % 400 == 0)) {
+            a += 1;
+        }
+        //The array starts with 0 accumulated days
+        *(l+i+1) = a;
+    }
+
+    return l;
+}
+
+
+static void _obj_noop(UNUSED void **obj)
+{
+    //noop; object is managed by json-c
+    return;
+}
+
+static void _obj_free(void **obj)
+{
+    // this function is supposed to be idempotent
+    if(!obj)
+        return;
+    if(!*obj)
+        return;
+    free(obj);
+    *obj = NULL;
+}
+
+static bool
+_json_to_pqtext(json_object *needle, Needles current)
+{
+    // Any json type can be cast to string
+    current->result = (char *)json_object_get_string(needle);
+    current->length = strlen(current->result);
+    return true;
+}
+
+static bool
+_json_to_pqtimestamp(json_object *needle, Needles current)
+{
+    const char *ts = json_object_get_string(needle);
+    uint64_t epoch;
+    size_t len = strlen(ts);
+
+    struct {
+        uint32_t year;
+        uint32_t month;
+        uint32_t day;
+        uint32_t yday;
+        uint32_t hour;
+        uint32_t minute;
+        uint32_t second;
+        uint64_t micro;
+    } tm;
+
+    memset(&tm,0,sizeof(tm));
+
+    if (len < 21 || len > 31) {
+        logger_log("%s %d: Datestring %s not supported",
+            __FILE__, __LINE__, ts);
+        goto error;
+    }
+
+    // If a timestamp is not like 2000-01-01T00:00:01.000000Z
+    // it's considered invalid. Z stands for Zulu/UTC
+    if (ts[4] != '-' || ts[7] != '-' || ts[10] != 'T'
+            || ts[13] != ':' || ts[16] != ':' || ts[19] != '.'
+            || ts[len-1] != 'Z') {
+        logger_log("%s %d: Datestring %s not supported",
+            __FILE__, __LINE__, ts);
+        goto error;
+    }
+
+    errno = 0;
+    tm.year = strtoul(ts,NULL,10);
+    tm.month = strtoul(ts+5,NULL,10);
+    tm.day = strtoul(ts+8,NULL,10);
+    tm.hour = strtoul(ts+11,NULL,10);
+    tm.minute = strtoul(ts+14,NULL,10);
+    tm.second = strtoul(ts+17,NULL,10);
+    if(ts[20] != 'Z')
+        tm.micro = strtoull(ts+20,NULL,10);
+
+    if(errno) {
+        logger_log("%s %d: Error %s in date conversion",
+            __FILE__, __LINE__, strerror(errno));
+        goto error;
+    }
+
+    if(len-21 > 6) {
+        for (uint8_t i = 0; i < (len-21-6); i++)
+            tm.micro /= 10;
+    } else if(len-21 < 6) {
+        for (uint8_t i = 0; i < (6-(len-21)); i++)
+            tm.micro *= 10;
+    }
+
+    if(tm.year < 2000 || tm.year > 4027) {
+        logger_log("%s %d: Date %s out of range",
+            __FILE__, __LINE__, ts);
+        goto error;
+    }
+    if(tm.month < 1 || tm.month > 12 || tm.day >31
+        || tm.hour > 23 || tm.minute > 59 || tm.second > 59) {
+        logger_log("%s %d: Datestring %s not a date",
+            __FILE__, __LINE__, ts);
+        goto error;
+    }
+    if(tm.month == 2 && tm.day > 29) {
+        logger_log("%s %d: Datestring %s not a date",
+            __FILE__, __LINE__, ts);
+        goto error;
+    }
+
+    // postgres starts at 2000-01-01
+    tm.year -= 2000;
+
+    // day of year
+    for (uint8_t i = 1; i < tm.month; i++) {
+        if(i == 2) {
+            if ((tm.year % 4 == 0 && tm.year % 100 != 0) || (tm.year % 400 == 0))
+                tm.yday += 29;
+            else
+                tm.yday += 28;
+        } else {
+            tm.yday += 30 + (i%2);
+        }
+    }
+
+    tm.yday += tm.day;
+
+    epoch = tm.second + tm.minute*60 + tm.hour*3600 + (tm.yday-1)*86400
+    + *(current->leapyear+(tm.year))*86400 + tm.year*31536000;
+
+    epoch *= 1000000;
+    epoch += tm.micro;
+
+    epoch = htobe64(epoch);
+
+    current->result = calloc(1,9);
+    memcpy(current->result, &epoch, 8);
+    current->length = 8;
+
+    return true;
+    error:
+    return false;
+}
+
 Needles
 _needle_alloc()
 {
     Needles needle = calloc(1,sizeof(*needle));
     if (!needle) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
-        strerror(errno));
-        abort();
-    }
-
-    needle->maxlength = 2048;
-    needle->result = calloc(1, needle->maxlength);
-    if(!needle->result) {
         logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
         strerror(errno));
         abort();
@@ -66,17 +248,32 @@ _needle_alloc()
 Needles
 _needles(config_setting_t *needlestack)
 {
-    config_setting_t *setting;
-    const char *jpointer = NULL;
-    int list;
+    config_setting_t *setting = NULL, *member= NULL;
+    int list = 0, pqtype = 0;
     list = config_setting_length(needlestack);
 
     Needles first = _needle_alloc();
     Needles needle = first;
     for(int i = 0; i < list; i++) {
         setting = config_setting_get_elem(needlestack, i);
-        jpointer = config_setting_get_string(setting);
-        needle->jpointer = strdup(jpointer);
+
+        if (config_setting_type(setting) == CONFIG_TYPE_STRING) {
+            pqtype = _pqtype_enum("text");
+            needle->jpointer = strdup(config_setting_get_string(setting));
+            needle->format = pq_types[pqtype].format;
+            needle->free = pq_types[pqtype].free;
+        } else if (config_setting_type(setting) == CONFIG_TYPE_ARRAY) {
+            member = config_setting_get_elem(setting, 0);
+            needle->jpointer = strdup(config_setting_get_string(member));
+            member = config_setting_get_elem(setting, 1);
+            pqtype = _pqtype_enum(config_setting_get_string(member));
+            needle->format = pq_types[pqtype].format;
+            needle->free = pq_types[pqtype].free;
+        }
+
+        // Leapyears in every needle to save on infrastructure
+        needle->leapyear = _leapyear();
+
         needle->next = _needle_alloc();
         needle = needle->next;
     }
@@ -95,7 +292,7 @@ _cpycmd(const char *host, const char *table)
     if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
-    const char *fmtstring = "COPY %s FROM STDIN ( FORMAT csv, QUOTE '\"')";
+    const char *fmtstring = "COPY %s FROM STDIN ( FORMAT binary )";
 
     int len = strlen(table)
             + strlen(fmtstring);
@@ -125,10 +322,12 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
         abort();
     }
 
+    m->cpyfmt = PQ_COPY_BINARY;
     m->internal = i;
     m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
     m->internal->needles = _needles(needlestack);
+    m->internal->ncount = config_setting_length(needlestack);
 
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
@@ -157,7 +356,14 @@ exports_meta_free(Meta *m)
 
     while((*m)->internal->needles != NULL) {
         last = (*m)->internal->needles;
-        free((*m)->internal->needles->result);
+        if(last->jpointer == NULL) {
+            free(last);
+            break;
+        }
+        (*m)->internal->needles->free(
+            &(*m)->internal->needles->result);
+        if((*m)->internal->needles->leapyear != NULL)
+            free((*m)->internal->needles->leapyear);
         (*m)->internal->needles = (*m)->internal->needles->next;
         free(last);
     }
@@ -196,44 +402,28 @@ exports_producer_init(config_setting_t *config)
     return exports;
 }
 
-int
-_deref(char* data, Needles needles)
+bool
+_deref(json_object *haystack, Needles needles)
 {
-    char* jstring;
-    struct json_object* haystack;
-    struct json_object* needle;
-
-    haystack = json_tokener_parse(data);
-    if(!haystack)
-        return -1;
+    json_object *needle;
 
     while(needles->next) {
         if(json_pointer_get(haystack, needles->jpointer, &needle)) {
-            strlcpy(needles->result, "\0", 1);
-            needles->length = 0;
+            needles->result = NULL;
+            // complement of 0 is uint32_t max
+            // int max is postgres NULL;
+            needles->length = (uint32_t)~0;
         } else {
-            jstring = (char*) json_object_to_json_string_length(
-                needle, JSON_C_TO_STRING_NOSLASHESCAPE, &(needles->length));
-
-            // grow buffer if needed
-            if(needles->length >= needles->maxlength) {
-                needles->result = realloc(needles->result, needles->length+1);
-                if(!needles->result) {
-                    logger_log("%s %d: Failed to realloc!", __FILE__, __LINE__);
-                    abort();
-                }
-                needles->maxlength = needles->length+1;
-                logger_log("%s %d: Reallocating result buffer"
-                    " (consider increasing)!",
-                    __FILE__, __LINE__);
+            if(!needles->format(needle,needles)) {
+                logger_log("%s %d: Failed jpointer deref %s",
+                    __FILE__, __LINE__, needles->jpointer);
+                return false;
             }
-            strlcpy(needles->result, jstring, (needles->length+1));
         }
         needles = needles->next;
     }
 
-    json_object_put(haystack);
-    return 0;
+    return true;
 }
 
 void
@@ -241,12 +431,12 @@ exports_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
     Needles needles = m->internal->needles;
+    json_object *haystack = NULL;
 
     size_t len = message_get_len(msg);
     char* data = message_get_data(msg);
-    // Make buffer larger than message
-    char *buf = calloc(2,len);
-    char *newline = "\n";
+
+    uint16_t ncount = htons(m->internal->ncount);
 
     if (data[len] != '\0')
     {
@@ -254,20 +444,6 @@ exports_producer_produce(Producer p, Message msg)
         return;
     }
 
-    if(_deref(data, needles)) {
-        logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
-        return;
-    }
-    needles = m->internal->needles;
-
-    while(needles->next) {
-        strcat(buf, needles->result);
-
-        needles = needles->next;
-        // Setting the comma depends on there being an element after
-        if(needles->next)
-            strcat(buf, ",");
-    }
 
     pthread_mutex_lock(&m->commit_mutex);
     if (m->copy == 0)
@@ -280,21 +456,59 @@ exports_producer_produce(Producer p, Message msg)
             abort();
         }
         PQclear(m->res);
-
+        PQputCopyData(m->conn_master,
+            "PGCOPY\n\377\r\n\0" //postgres magic
+            "\0\0\0\0"  // flags field (only bit 16 relevant)
+            "\0\0\0\0"  // Header extension area
+            , 19);
         m->copy = 1;
     }
 
-    PQputCopyData(m->conn_master, buf, strlen(buf));
-    PQputCopyData(m->conn_master, newline, 1);
+    haystack = json_tokener_parse(data);
+    if(!haystack) {
+        logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
+        goto error;
+    }
+
+    if(!_deref(haystack, needles)) {
+        logger_log("%s %d: Failed to dereference json!\n %s",
+            __FILE__, __LINE__, data);
+        while(needles->next) {
+            if(!needles->jpointer)
+                break;
+            needles->free(&needles->result);
+            needles = needles->next;
+        }
+        goto error;
+    }
+
+    needles = m->internal->needles;
+    PQputCopyData(m->conn_master, (char *) &ncount, 2);
+
+    while(needles->next) {
+        if(!needles->jpointer)
+            break;
+
+        uint32_t length =  htobe32(needles->length);
+        PQputCopyData(m->conn_master, (void *) &length, 4);
+
+        if(needles->result) {
+            PQputCopyData(m->conn_master, needles->result, needles->length);
+            needles->free(&needles->result);
+        }
+
+        needles = needles->next;
+    }
 
     m->count = m->count + 1;
     if (m->count == 2000)
     {
         commit(&m);
     }
-    pthread_mutex_unlock(&m->commit_mutex);
 
-    free(buf);
+    error:
+    json_object_put(haystack);
+    pthread_mutex_unlock(&m->commit_mutex);
 }
 
 void
@@ -354,8 +568,10 @@ exports_consumer_free(Consumer *c)
 bool
 exporter_validate(UNUSED config_setting_t *config)
 {
-    config_setting_t *setting = NULL;
-    const char *host = NULL, *topic = NULL, *jpointer = NULL;
+    config_setting_t *setting = NULL, *member = NULL, *child = NULL;
+    const char *conf = NULL;
+
+    const char *host = NULL, *topic = NULL;
     if(config_setting_lookup_string(config, "host", &host) != CONFIG_TRUE) {
         fprintf(stderr, "%s %d: require host string!\n",
             __FILE__, __LINE__);
@@ -377,6 +593,37 @@ exporter_validate(UNUSED config_setting_t *config)
             __FILE__, __LINE__);
         goto error;
     }
+
+    // Check jpointers for validity
+    for (int i = 0; i < config_setting_length(setting); i++) {
+        child = config_setting_get_elem(setting, i);
+        if (child == NULL) {
+            fprintf(stderr, "%s %d: failed to read jpointer list elem %d\n",
+            __FILE__, __LINE__, i);
+            goto error;
+        }
+
+        if (config_setting_is_array(child) == CONFIG_TRUE) {
+            member = config_setting_get_elem(child, 1);
+            if(member == NULL) {
+                fprintf(stderr, "%s %d: failed to read jpointer array %d\n",
+                __FILE__, __LINE__, i);
+                goto error;
+            }
+
+            conf = config_setting_get_string(member);
+            if(conf == NULL || !_pqtype_enum(conf) ) {
+                fprintf(stderr, "%s %d: not a valid type transformation %s",
+                __FILE__, __LINE__, conf);
+                goto error;
+            }
+            printf("Type %d\n", _pqtype_enum(conf));
+        } else if (config_setting_is_scalar(child) != CONFIG_TRUE)  {
+            fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
+            __FILE__, __LINE__);
+        }
+    }
+
     return true;
     error:
     return false;

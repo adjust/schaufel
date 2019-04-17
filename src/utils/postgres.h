@@ -4,6 +4,11 @@
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <utils/logger.h>
+#include <arpa/inet.h>
+
+#define PQ_COPY_TEXT   0
+#define PQ_COPY_CSV    1
+#define PQ_COPY_BINARY 2
 
 typedef struct Internal *Internal;
 
@@ -14,6 +19,7 @@ typedef struct Meta {
     char            *conninfo;
     char            *conninfo_replica;
     char            *cpycmd;
+    int             cpyfmt;
     int             count;
     int             copy;
     int             commit_iter;
