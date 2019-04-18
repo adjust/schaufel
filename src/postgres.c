@@ -23,6 +23,7 @@ _connectinfo(const char *host)
         abort();
     }
     snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
+    free(hostname);
     return conninfo;
 }
 
@@ -59,6 +60,7 @@ _cpycmd(const char *host, const char *generation)
         abort();
     }
     snprintf(cpycmd, len, fmtstring, hostname, port, generation);
+    free(hostname);
     return cpycmd;
 }
 

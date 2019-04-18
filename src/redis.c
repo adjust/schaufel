@@ -44,6 +44,7 @@ redis_meta_init(const char *host, const char *topic, size_t pipe_max)
     }
 
     m->topic =  topic;
+    free(hostname);
     return m;
 }
 
