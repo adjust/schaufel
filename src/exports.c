@@ -621,7 +621,6 @@ exporter_validate(UNUSED config_setting_t *config)
                 __FILE__, __LINE__, conf);
                 goto error;
             }
-            printf("Type %d\n", _pqtype_enum(conf));
         } else if (config_setting_is_scalar(child) != CONFIG_TRUE)  {
             fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
             __FILE__, __LINE__);
