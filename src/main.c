@@ -365,5 +365,6 @@ main(int argc, char **argv)
     queue_free(&q);
     config_destroy(&config);
     logger_log("done");
+    logger_free();
     return 0;
 }
