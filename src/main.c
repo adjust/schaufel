@@ -182,7 +182,7 @@ produce(void *config)
 void
 init_threads(config_t* config, int type, pthread_t *threads)
 {
-    uint64_t list, thread_index;
+    uint64_t list, thread_index = 0;
     void *(*function)(void *);
     config_setting_t *croot = NULL, *parent = NULL, *instance = NULL;
     croot = config_root_setting(config);
