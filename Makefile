@@ -63,7 +63,7 @@ $(OBJDIR)/%.o: t/%.c
 	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIB) -o bin/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
-install: all doc
+install: all docs
 	$(INSTALL) bin/schaufel $(DESTDIR)$(BINDIR)/schaufel
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(DOCDIR) doc/*
 	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(MAN1DIR)/schaufel.1
