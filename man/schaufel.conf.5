@@ -1,0 +1,171 @@
+.TH SCHAUFEL.CONF 5
+.SH NAME
+schaufel.conf \(em configuration file for schaufel
+.SH SYNOPSIS
+.B /etc/schaufel/schaufel.conf
+.SH DESCRIPTION
+schaufel.conf uses libconfig syntax, which is well structured data which
+also allows for comments. Definition of syntax is to be found within
+libconfigs own documentation.
+.PP
+Every section may be overwritten by the command line and can therefore be
+missing from your config file.
+.SH CONFIG SECTIONS
+Schaufel expects three sections: \fBlogger\fR, \fBconsumers\fR and
+\fBproducers\fR.
+.SS logger
+The logger section defines the workings of schaufels logging.
+.PP
+It expects you to set a \fItype\fR, which at the moment only supports
+logging to \fIfile\fR.
+.RS
+.PP
+ logger =
+ {
+    file = "/var/log/schaufel/schaufel.log";
+    type = "file";
+ };
+.RE
+.PP
+.SS consumers
+Consumers are of the libconfig list type as there may be multiple
+consumers defined. The necessary minimum configuration is a \fItype\fR
+and the amount of \fIthreads\fR to be spawned.
+.RS
+.PP
+consumers = (
+    {
+        type = "dummy";
+        threads = 1;
+    }
+);
+.RE
+.PP
+Most consumer types take extra configuration. What follows is an improbable
+example of all types combined.
+.RS
+.PP
+consumers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        groupid = "schaufel";
+        topic = "schaufel_queue";
+    },
+    {
+        type = "file";
+        threads = 1;
+        file = "/tmp/data.json"
+    },
+    {
+        type = "redis";
+        threads = 5;
+        # optional pipeline size
+        pipeline = 5000;
+        host = "localhost:6379";
+        topic = "data";
+    }
+);
+.RE
+.PP
+.SS producers
+Producers are, like consumers, a list of items which require a \fItype\fR
+and \fIthreads\fR defined.
+.RS
+.PP
+producers = (
+    {
+        type = "dummy";
+        threads = 1;
+    }
+);
+.RE
+.PP
+Most producers take extra configuration. Here's an example list of the inane
+kind. Usually, you wouldn't want to produce to different data sinks.
+Having a list is handy if you want to produce to a cluster.
+.RS
+.PP
+producers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        topic = "schaufel_queue";
+    },
+    {
+        type = "file";
+        threads = 1;
+        file = "/tmp/data.json"
+    },
+    {
+        type = "redis";
+        threads = 5;
+        # optional pipeline size
+        pipeline = 5000;
+        host = "localhost:6379";
+        topic = "data";
+    },
+    {
+        type = "postgres";
+        threads = 1;
+        # topic and hostname are mangled
+        # into the table to be inserted to.
+        # In this case that would be:
+        # bagger_1_5432_test.data
+        topic = "test";
+        host = "bagger-1:5432";
+    } );
+.RE
+.PP
+Next to the standard producers, there are two special kinds. The postgres
+with replication (\fBbagger\fR) kind, and the \fBexports\fR type.
+.SS bagger
+Bagger is essentially a producer of the \fIpostgres\fR type. Through the
+\fIhost\fR string one can define a list of postgres databases and message
+replication.
+.PP
+The table of the postgres producer is called \fIdata\fR and only has single
+column. This needs to be able to store text (\fItext\fR and \fIjsonb\fR will
+do).
+.RS
+.PP
+producers = (
+    {
+        type = "postgres";
+        threads = 5;
+        topic = "15";
+        host = "bagger-1:5432,bagger-1:5433,bagger-1:5434;bagger-2:5432,bagger-2:5433,bagger-2:5434";
+    } );
+.RE
+.PP
+This configuration creates 5 threads per host specified. Hosts are seperated
+by commas. Hosts before the semicolon are masters, whereas the others
+receive replicas of messages. Messages are distributed in no particular
+order.
+
+.SS exports
+Exports is also a producer to postgres. Unlike bagger, it takes json data
+and dereferences it into columns of a type. At the moment only
+\fItext\fR and \fItimestamp\fR are supported. Feel free to add more types.
+.PP
+Dereferencing is done via a list of json pointers called \fIjpointers\fR.
+These pointers confirm to \fIRFC 6901\fR. If a type other than text is
+required, an array can be used to specify a type.
+.RS
+.PP
+producers = (
+    {
+        type = "exports"
+        threads = 1;
+        topic = "data";
+        jpointers = (
+            "/data/customer",
+            "/data/request/http_response",
+            "/data/request/body/0",
+            ["/timestamp", "timestamp"]
+        );
+    } );
+.RE
+.PP
