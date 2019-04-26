@@ -97,5 +97,6 @@ main(void)
     if(!lookup_str(&config, "producers.[0].topic", "testtopic2"))
         return 1;
 
+    config_destroy(&config);
     return 0;
 }
