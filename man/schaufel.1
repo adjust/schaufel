@@ -1,0 +1,122 @@
+.TH SCHAUFEL 1
+.SH NAME
+schaufel \- shovel data around
+.SH SYNOPSIS
+.B schaufel
+[\fIOPTIONS...\fR]
+.SH DESCRIPTION
+.B schaufel
+moves data from sources to destinations without guaranteeing strict order.
+.LP
+Schaufel is designed to be a simple command line tool, but supports a
+libconfig based file format for complex configurations.
+.LP
+Lack of order requirements allow schaufel to work with high parallelity,
+as the only shared state is the message queue. Gains from parallelity
+therefore are limited by Amdahl's law.
+.LP
+Be aware that schaufel supports no encryption whatsoever. Please only use
+it in trusted environments.
+.SH OPTIONS
+Schaufel needs a certain amount of configuration. You always need to tell
+where it should log to, what it should read from, where it should write to,
+the amount of threads for consuming/producing, and the configuration
+necessary for said producers/consumers.
+.PP
+Since the set of features may become unwieldy (or configuration just plain
+will not fit), schaufel supports a config file format. Command line
+options always overwrite sections of the config file.
+.TP
+.B \-C \fIschaufel.conf\fR
+Set configuration file path See \fBschaufel.conf\fP(8).
+.TP
+.B \-i \fR[\fId\fR|\fIf\fR|\fIk\fR|\fIr\fR]
+Set consumer (input) kind. See the \fBPRODUCERS/CONSUMERS\fR section for
+a description.
+.TP
+.B \-o \fR[\fId\fR|\fIf\fR|\fIk\fR|\fIr\fR|\fIp\fR]
+Set producer (output) kind. See the \fBPRODUCERS/CONSUMERS\fR section for
+a description.
+.TP
+.B \-c \fIinteger\fR
+Consumer thread count: 1-n
+.TP
+.B \-p \fIinteger\fR
+Producer thread count: 1-n
+.TP
+.B \-b|\-B \fIbrokername\fR
+Broker name/address (kafka consumer/producer only)
+.TP
+.B \-g|\-G \fIgroupid\fR
+Kafka group ID. Setting a producer groupid has no effect and is only
+supported for symmetry reasons.
+.TP
+.B \-h|\-H \fIhostname\fR
+Set hostname for redis/postgres.
+Format is a comma separated list of <host>:<port>. For postgres, replicas
+may be submitted as a secondary list in the same format. Two lists must
+be separated by a semicolon.
+.TP
+.B \-t|\-T \fItopic\fR
+Set internal data for kafka/redis/postgres. For kafka, this sets the
+topic name. For redis this specifies a list name. For postgres, this
+dynamically sets a value in the schema used for inserting.
+.TP
+.B \-f|\-F \fIfilename\fR
+File consumer/producer filename.
+.TP
+.B \-s|\-S \fIinteger\fR
+Redis consumer/producer pipelining. Batch n commands before inspecting
+the result. Upstream recommends no more than 10000 commands be batched.
+This feature is purely optional.
+.TP
+.B \-l \fIfilename
+Set the logger output filename
+.TP
+.B \-V
+Print schaufel version
+.SH PRODUCERS/CONSUMERS
+.SS dummy
+As a consumer, schaufel produces test messages. As a producer it simply
+outputs every message that it reads to stdout.
+.SS file
+As a consumer, schaufel reads linewise (preserving the newline). As a
+producer it writes the messages as they are.
+.SS kafka
+As a consumer, schaufel joines a consumer group. As a producer it'll
+simply write to a topic.
+.SS redis
+As a consumer, schaufel will LPUSH from a list. As a producer it'll BLPOP.
+.SS postgres
+Postgres has no consumer. As a producer schaufel will write messages to a
+table called \fIschema\fR.data. Schema depends on hostname, port and topic
+(generation id). The table may only contain a single jsonb tuple. If the
+list of hostnames contains a semicolon, schaufel will replicate messages
+to the hostnames listed after the semicolon.
+.SS exports
+The exporter is also a postgres producer. It has no consumer. It takes a
+json message and dereferences elements (using json pointers) into postgres
+tuples which it then copies in binary. It is not invokable by command line
+because it requires a config file.
+.SH EXAMPLES
+.TP
+Read from file, output to redis:
+$ schaufel -l /tmp/schaufel.log -i f -c 1 -f /tmp/file -o r -p 1 -T test -H localhost:6379
+.TP
+Read from redis, output to postgres (with replication):
+$ schaufel -l /tmp/bagger.log -i r -c 1 -t bagger -h localhost:6379 -o p -p 2 -T 14 -H bagger-1:5432,bagger-1:5433;bagger-2:5432,bagger-2:5433
+.TP
+Read from kafka, output to stdout:
+$ schaufel -l /tmp/bagger.log -i k -c 1 -g test -b kafka-1.domain.top -o d -p 1
+.SH EXIT STATUS
+Schaufel shall return 1 on error while starting and 0 on succesful
+termination. For errors at runtime, schaufel calls \fIabort()\fR. In
+this case, the return value is undefined.
+.SH BUGS
+Using the postgres producer can cause a deadlock condition. The cause
+is unknown. This can be unhinged by attaching strace (or any ptrace) to
+the running process.
+.SH NOTES
+Schaufel is german for shovel.
+.SH SEE ALSO
+.BR schaufel.conf (5)

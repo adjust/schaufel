@@ -32,6 +32,9 @@
 *.dSYM/
 *.su
 
+# Generated documentation
+/doc/*.pdf
+
 bin/
 *.swp
 log/
