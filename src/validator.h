@@ -10,8 +10,6 @@
 #include <utils/helper.h>
 #include <stdbool.h>
 
-typedef struct Validator *Validator;
-
 typedef struct Validator {
     bool (*validate_consumer) (config_setting_t* config);
     bool (*validate_producer) (config_setting_t* config);
