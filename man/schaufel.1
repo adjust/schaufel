@@ -52,7 +52,7 @@ Kafka group ID. Setting a producer groupid has no effect and is only
 supported for symmetry reasons.
 .TP
 .B \-h|\-H \fIhostname\fR
-Set hostname for redis/postgres.
+Set host name for redis/postgres.
 Format is a comma separated list of <host>:<port>. For postgres, replicas
 may be submitted as a secondary list in the same format. Two lists must
 be separated by a semicolon.
@@ -80,19 +80,19 @@ Print schaufel version
 As a consumer, schaufel produces test messages. As a producer it simply
 outputs every message that it reads to stdout.
 .SS file
-As a consumer, schaufel reads linewise (preserving the newline). As a
+As a consumer, schaufel reads line-wise (preserving the newline). As a
 producer it writes the messages as they are.
 .SS kafka
-As a consumer, schaufel joines a consumer group. As a producer it'll
+As a consumer, schaufel joins a consumer group. As a producer it'll
 simply write to a topic.
 .SS redis
 As a consumer, schaufel will LPUSH from a list. As a producer it'll BLPOP.
 .SS postgres
 Postgres has no consumer. As a producer schaufel will write messages to a
-table called \fIschema\fR.data. Schema depends on hostname, port and topic
+table called \fIschema\fR.data. Schema depends on host name, port and topic
 (generation id). The table may only contain a single jsonb tuple. If the
-list of hostnames contains a semicolon, schaufel will replicate messages
-to the hostnames listed after the semicolon.
+list of host names contains a semicolon, schaufel will replicate messages
+to the host names listed after the semicolon.
 .SS exports
 The exporter is also a postgres producer. It has no consumer. It takes a
 json message and dereferences elements (using json pointers) into postgres
@@ -109,14 +109,14 @@ $ schaufel -l /tmp/bagger.log -i r -c 1 -t bagger -h localhost:6379 -o p -p 2 -T
 Read from kafka, output to stdout:
 $ schaufel -l /tmp/bagger.log -i k -c 1 -g test -b kafka-1.domain.top -o d -p 1
 .SH EXIT STATUS
-Schaufel shall return 1 on error while starting and 0 on succesful
-termination. For errors at runtime, schaufel calls \fIabort()\fR. In
+Schaufel shall return 1 on error while starting and 0 on successful
+termination. For errors at run time, schaufel calls \fIabort()\fR. In
 this case, the return value is undefined.
 .SH BUGS
 Using the postgres producer can cause a deadlock condition. The cause
 is unknown. This can be unhinged by attaching strace (or any ptrace) to
 the running process.
 .SH NOTES
-Schaufel is german for shovel.
+Schaufel is German for shovel.
 .SH SEE ALSO
 .BR schaufel.conf (5)
