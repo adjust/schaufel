@@ -110,7 +110,7 @@ producers = (
     {
         type = "postgres";
         threads = 1;
-        # topic and hostname are mangled
+        # topic and host name are mangled
         # into the table to be inserted to.
         # In this case that would be:
         # bagger_1_5432_test.data
@@ -140,7 +140,7 @@ producers = (
     } );
 .RE
 .PP
-This configuration creates 5 threads per host specified. Hosts are seperated
+This configuration creates 5 threads per host specified. Hosts are separated
 by commas. Hosts before the semicolon are masters, whereas the others
 receive replicas of messages. Messages are distributed in no particular
 order.
