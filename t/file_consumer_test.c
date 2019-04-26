@@ -50,6 +50,7 @@ main(void)
 
     message_free(&msg);
     consumer_free(&c);
+    config_destroy(&config);
     logger_free();
     return 0;
 }
