@@ -81,7 +81,7 @@ static uint32_t *
 _leapyear()
 {
     // 2048 years ought to be enough
-    uint32_t *l = calloc(2048,sizeof(int*));
+    uint32_t *l = calloc(2048,sizeof(uint32_t));
     uint32_t a = 0;
 
     for (uint32_t i = 0; i < 2047; i++) {
