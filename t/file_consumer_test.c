@@ -1,11 +1,12 @@
-#include <queue.h>
-#include <consumer.h>
 #include <stdio.h>
-#include <test/test.h>
-#include <utils/logger.h>
-#include <utils/helper.h>
-#include <utils/config.h>
-#include <utils/options.h>
+
+#include "consumer.h"
+#include "queue.h"
+#include "test/test.h"
+#include "utils/config.h"
+#include "utils/helper.h"
+#include "utils/logger.h"
+#include "utils/options.h"
 
 int
 main(void)

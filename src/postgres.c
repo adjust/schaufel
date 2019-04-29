@@ -1,8 +1,13 @@
+#include <errno.h>
 #include <libpq-fe.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "postgres.h"
+#include "utils/array.h"
+#include "utils/config.h"
 #include "utils/helper.h"
+#include "utils/logger.h"
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
 

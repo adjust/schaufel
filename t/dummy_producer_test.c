@@ -1,6 +1,8 @@
-#include <queue.h>
-#include <producer.h>
 #include <stdio.h>
+
+#include "queue.h"
+#include "producer.h"
+
 
 int
 main(void)

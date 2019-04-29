@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "dummy.h"
 #include "utils/helper.h"
+#include "utils/logger.h"
 #include "utils/scalloc.h"
 
 

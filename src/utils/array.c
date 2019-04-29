@@ -1,12 +1,18 @@
-#include <utils/array.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "utils/array.h"
+#include "utils/logger.h"
 #include "utils/scalloc.h"
 
-typedef struct Array
+
+struct Array
 {
     char   **payload;
     size_t   len;
     size_t   used;
-} *Array;
+};
 
 Array
 array_init(size_t len)

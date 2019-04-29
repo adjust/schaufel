@@ -1,8 +1,12 @@
+#include <errno.h>
 #include <librdkafka/rdkafka.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "kafka.h"
+#include "utils/config.h"
 #include "utils/helper.h"
+#include "utils/logger.h"
 #include "utils/scalloc.h"
 
 

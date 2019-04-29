@@ -1,9 +1,9 @@
 #include <stdio.h>
-#include <test/test.h>
 #include <string.h>
 
-#include "queue.h"
 #include "consumer.h"
+#include "queue.h"
+#include "test/test.h"
 
 
 int

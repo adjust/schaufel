@@ -1,4 +1,10 @@
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "utils/logger.h"
 #include "utils/scalloc.h"
+
 
 void *
 scalloc(size_t n, size_t s, char *file, size_t line)

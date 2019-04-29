@@ -6,11 +6,13 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "consumer.h"
 #include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
+#include "utils/logger.h"
 #include "utils/options.h"
 #include "utils/scalloc.h"
 

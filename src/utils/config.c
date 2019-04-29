@@ -1,4 +1,10 @@
-#include <utils/config.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "utils/config.h"
+#include "utils/logger.h"
+#include "validator.h"
+
 
 int get_thread_count(config_t* config, int type)
 {

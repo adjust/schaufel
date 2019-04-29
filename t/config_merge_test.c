@@ -1,8 +1,10 @@
 #include <stdio.h>
-#include <test/test.h>
-#include <utils/config.h>
-#include <utils/options.h>
 #include <stdbool.h>
+
+#include "test/test.h"
+#include "utils/config.h"
+#include "utils/options.h"
+
 
 bool lookup_str(config_t* config, const char *string, const char *test)
 {

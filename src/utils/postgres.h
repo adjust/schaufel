@@ -3,8 +3,6 @@
 
 #include <libpq-fe.h>
 #include <pthread.h>
-#include <utils/logger.h>
-#include <arpa/inet.h>
 
 #define PQ_COPY_TEXT   0
 #define PQ_COPY_CSV    1

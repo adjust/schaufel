@@ -1,4 +1,9 @@
-#include <utils/helper.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "utils/array.h"
+#include "utils/helper.h"
+
 
 size_t number_length(long number)
 {

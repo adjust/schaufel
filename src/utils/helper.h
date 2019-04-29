@@ -1,13 +1,10 @@
 #ifndef _SCHAUFEL_UTILS_HELPER_H_
 #define _SCHAUFEL_UTILS_HELPER_H_
 
-#include <utils/options.h>
-#include <utils/logger.h>
-#include <utils/array.h>
-#include <search.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-#include <stdio.h>
+
+#include "utils/options.h"
 
 
 int options_validate(Options o);

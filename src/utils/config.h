@@ -4,15 +4,11 @@
 #define SCHAUFEL_TYPE_CONSUMER 1
 #define SCHAUFEL_TYPE_PRODUCER 2
 
-
 #include <libconfig.h>
-#include <search.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
-#include <utils/options.h>
-#include <utils/logger.h>
-#include <validator.h>
+
+#include "utils/options.h"
+
 
 void read_config(config_t *config, char *cfile);
 

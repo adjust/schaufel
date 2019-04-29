@@ -1,10 +1,15 @@
+#include <errno.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include <json-c/json.h>
+#include <arpa/inet.h>
 
 #include "exports.h"
+#include "utils/config.h"
 #include "utils/helper.h"
+#include "utils/logger.h"
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
 
