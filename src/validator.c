@@ -1,4 +1,10 @@
-#include <validator.h>
+#include "dummy.h"
+#include "exports.h"
+#include "file.h"
+#include "kafka.h"
+#include "postgres.h"
+#include "redis.h"
+#include "validator.h"
 
 Validator
 validator_init(const char* kind)

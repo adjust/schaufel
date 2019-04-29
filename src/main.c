@@ -1,14 +1,19 @@
-#include <utils/logger.h>
-#include <queue.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
-#include <producer.h>
-#include <utils/helper.h>
-#include <version.h>
-#include <utils/scalloc.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/time.h>
+
+#include "consumer.h"
+#include "producer.h"
+#include "utils/config.h"
+#include "utils/helper.h"
+#include "utils/options.h"
+#include "utils/scalloc.h"
+
 
 /* Schaufel keeps track of consume and produce states.
  *

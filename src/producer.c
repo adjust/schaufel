@@ -1,4 +1,11 @@
-#include <producer.h>
+#include "dummy.h"
+#include "exports.h"
+#include "file.h"
+#include "kafka.h"
+#include "postgres.h"
+#include "producer.h"
+#include "redis.h"
+
 
 Producer
 producer_init(char kind, config_setting_t *config)

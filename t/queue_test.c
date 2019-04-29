@@ -1,5 +1,8 @@
 #include <test/test.h>
-#include <queue.h>
+#include <string.h>
+
+#include "queue.h"
+
 
 int
 main(void)

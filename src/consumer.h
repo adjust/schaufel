@@ -1,13 +1,10 @@
 #ifndef _SCHAUFEL_CONSUMER_H_
 #define _SCHAUFEL_CONSUMER_H_
 
-#include <dummy.h>
-#include <file.h>
-#include <kafka.h>
-#include <queue.h>
-#include <redis.h>
-#include <utils/helper.h>
-#include <utils/scalloc.h>
+#include <libconfig.h>
+
+#include "queue.h"
+
 
 typedef struct Consumer *Consumer;
 

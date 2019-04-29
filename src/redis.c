@@ -1,4 +1,13 @@
-#include <redis.h>
+#include <errno.h>
+#include <hiredis/hiredis.h>
+#include <stdbool.h>
+#include <string.h>
+
+#include "redis.h"
+#include "utils/logger.h"
+#include "utils/helper.h"
+#include "utils/scalloc.h"
+
 
 typedef struct Meta {
     redisContext *c;

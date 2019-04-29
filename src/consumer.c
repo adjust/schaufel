@@ -1,4 +1,9 @@
-#include <consumer.h>
+#include "consumer.h"
+#include "dummy.h"
+#include "file.h"
+#include "kafka.h"
+#include "redis.h"
+
 
 Consumer
 consumer_init(char kind, config_setting_t *config)

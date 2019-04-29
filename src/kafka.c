@@ -1,5 +1,10 @@
-#include <kafka.h>
-#include <errno.h>
+#include <librdkafka/rdkafka.h>
+#include <stdbool.h>
+
+#include "kafka.h"
+#include "utils/helper.h"
+#include "utils/scalloc.h"
+
 
 static void
 dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, UNUSED void *opaque)

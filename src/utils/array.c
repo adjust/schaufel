@@ -1,4 +1,5 @@
 #include <utils/array.h>
+#include "utils/scalloc.h"
 
 typedef struct Array
 {

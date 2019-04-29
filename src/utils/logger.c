@@ -1,4 +1,8 @@
-#include <utils/logger.h>
+#include <stdatomic.h>
+
+#include "utils/helper.h"
+#include "utils/logger.h"
+
 
 static int log_fd;
 static char *log_fname;

@@ -1,5 +1,11 @@
-#include <postgres.h>
-#include <utils/postgres.h>
+#include <libpq-fe.h>
+#include <pthread.h>
+
+#include "postgres.h"
+#include "utils/helper.h"
+#include "utils/postgres.h"
+#include "utils/scalloc.h"
+
 
 char *
 _connectinfo(const char *host)

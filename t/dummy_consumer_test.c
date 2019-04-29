@@ -1,7 +1,10 @@
-#include <queue.h>
-#include <consumer.h>
 #include <stdio.h>
 #include <test/test.h>
+#include <string.h>
+
+#include "queue.h"
+#include "consumer.h"
+
 
 int
 main(void)

@@ -1,12 +1,7 @@
 #ifndef _SCHAUFEL_QUEUE_H_
 #define _SCHAUFEL_QUEUE_H_
 
-#include <pthread.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/time.h>
 
 #define MAX_QUEUE_SIZE 100000
 

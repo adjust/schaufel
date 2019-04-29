@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+
 int options_validate(Options o);
 
 size_t number_length(long number);

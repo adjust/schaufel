@@ -1,4 +1,9 @@
-#include <queue.h>
+#include <errno.h>
+#include <pthread.h>
+#include <sys/time.h>
+
+#include "queue.h"
+
 
 typedef struct Message
 {
