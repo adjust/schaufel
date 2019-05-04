@@ -2,6 +2,7 @@
 
 static int log_fd;
 static char *log_fname;
+static volatile atomic_bool logger_state = false;
 static _Thread_local char log_buffer[LOG_BUFFER_SIZE + 2];
 
 bool logger_validate(config_setting_t *config)
@@ -31,6 +32,11 @@ bool logger_validate(config_setting_t *config)
     return false;
 }
 
+bool get_logger_state()
+{
+    return logger_state;
+}
+
 void logger_init(config_setting_t *config)
 {
     const char *fname;
@@ -48,6 +54,7 @@ void logger_init(config_setting_t *config)
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
         exit(1);
     }
+    logger_state = true;
 
     logger_log("logger initialized");
 }
