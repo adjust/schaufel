@@ -162,7 +162,7 @@ kafka_consumer_meta_init(char *broker, char *topic, char *groupid)
     rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk)
     {
-        logger_log("%s %d: Failed to create new producer: %s\n", __FILE__, __LINE__, errstr);
+        logger_log("%s %d: Failed to create new consumer: %s\n", __FILE__, __LINE__, errstr);
         abort();
     }
 
