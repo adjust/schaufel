@@ -333,6 +333,7 @@ exports_meta_free(Meta *m)
         free(internal->needles[i]->jpointer);
         internal->needles[i]->free(
             &(internal->needles[i]->result));
+        free(internal->needles[i]);
     }
     free(internal->needles);
     free(internal->leapyears);
