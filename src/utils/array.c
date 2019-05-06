@@ -10,21 +10,13 @@ typedef struct Array
 Array
 array_init(size_t len)
 {
-    Array array = calloc(1, sizeof(*array));
-    if (!array) {
-        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
+    Array array = SCALLOC(1, sizeof(*array));
     if (len == 0)
         array->len = 1;
     else
         array->len = len;
 
-    array->payload = calloc(len, sizeof(*(array->payload)));
-    if (!array->payload) {
-        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
+    array->payload = SCALLOC(len, sizeof(*(array->payload)));
     return array;
 }
 
