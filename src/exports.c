@@ -6,7 +6,6 @@ typedef struct Needles {
     char           *jpointer;
     bool          (*format) (json_object *, Needles);
     void          (*free) (void **);
-    Needles         next;
     uint32_t       *leapyears;
     uint32_t        length;
     void           *result;
