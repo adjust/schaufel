@@ -3,11 +3,8 @@
 Producer
 dummy_producer_init(UNUSED config_setting_t *config)
 {
-    Producer dummy = calloc(1, sizeof(*dummy));
-    if (!dummy) {
-        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
+    Producer dummy = SCALLOC(1, sizeof(*dummy));
+
     dummy->producer_free = dummy_producer_free;
     dummy->produce       = dummy_producer_produce;
     return dummy;
@@ -29,11 +26,8 @@ dummy_producer_free(Producer *p)
 Consumer
 dummy_consumer_init(UNUSED config_setting_t *config)
 {
-    Consumer dummy = calloc(1, sizeof(*dummy));
-    if (!dummy) {
-        logger_log("%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
+    Consumer dummy = SCALLOC(1, sizeof(*dummy));
+
     dummy->consumer_free = dummy_consumer_free;
     dummy->consume       = dummy_consumer_consume;
     return dummy;
@@ -65,11 +59,8 @@ dummy_validator(UNUSED config_setting_t *config)
 Validator
 dummy_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if(!v) {
-        fprintf(stderr,"%s %d calloc failed\n", __FILE__, __LINE__);
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
+
     v->validate_consumer = &dummy_validator;
     v->validate_producer = &dummy_validator;
     return v;
