@@ -8,6 +8,7 @@
 #include <producer.h>
 #include <utils/helper.h>
 #include <version.h>
+#include <utils/scalloc.h>
 
 /* Schaufel keeps track of consume and produce states.
  *
@@ -333,20 +334,12 @@ main(int argc, char **argv)
     }
 
     r_c_threads = get_thread_count(&config, SCHAUFEL_TYPE_CONSUMER);
-    c_thread = calloc(r_c_threads, sizeof(*c_thread));
-    if (!c_thread) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    c_thread = SCALLOC(r_c_threads, sizeof(*c_thread));
 
     init_threads(&config, SCHAUFEL_TYPE_CONSUMER, c_thread);
 
     r_p_threads = get_thread_count(&config, SCHAUFEL_TYPE_PRODUCER);
-    p_thread = calloc(r_p_threads, sizeof(*p_thread));
-    if (!p_thread) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    p_thread = SCALLOC(r_p_threads, sizeof(*p_thread));
 
     init_threads(&config, SCHAUFEL_TYPE_PRODUCER, p_thread);
     pthread_create(&stat_thread, NULL, stats, NULL);
