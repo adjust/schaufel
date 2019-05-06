@@ -231,22 +231,14 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
     return false;
 }
 
-Needles
-_needle_alloc()
-{
-    Needles needle = SCALLOC(1,sizeof(*needle));
-
-    return needle;
-}
-
-Needles
+static Needles
 _needles(config_setting_t *needlestack)
 {
     config_setting_t *setting = NULL, *member= NULL;
     int list = 0, pqtype = 0;
     list = config_setting_length(needlestack);
 
-    Needles first = _needle_alloc();
+    Needles first = SCALLOC(1,sizeof(*first));
     Needles needle = first;
     for(int i = 0; i < list; i++) {
         setting = config_setting_get_elem(needlestack, i);
@@ -268,7 +260,7 @@ _needles(config_setting_t *needlestack)
         // Leapyears in every needle to save on infrastructure
         needle->leapyear = _leapyear();
 
-        needle->next = _needle_alloc();
+        needle->next = SCALLOC(1,sizeof(*needle));
         needle = needle->next;
     }
 
