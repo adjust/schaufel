@@ -12,12 +12,7 @@ typedef struct Meta {
 Meta
 redis_meta_init(const char *host, const char *topic, size_t pipe_max)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (m == NULL)
-    {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
 
     char *hostname = NULL;
     int   port = 0;
@@ -98,7 +93,7 @@ redis_producer_init(config_setting_t *config)
     config_setting_lookup_string(config, "topic", &topic);
     config_setting_lookup_int(config, "pipeline", &pipeline);
 
-    Producer redis = calloc(1, sizeof(*redis));
+    Producer redis = SCALLOC(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
     redis->producer_free = redis_producer_free;
@@ -142,7 +137,7 @@ redis_consumer_init(config_setting_t *config)
     config_setting_lookup_string(config, "topic", &topic);
     config_setting_lookup_int(config, "pipeline", &pipeline);
 
-    Consumer redis = calloc(1, sizeof(*redis));
+    Consumer redis = SCALLOC(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
     redis->consumer_free = redis_consumer_free;
@@ -230,11 +225,8 @@ redis_validator(config_setting_t *config)
 Validator
 redis_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if (v == NULL) {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
+
     v->validate_consumer = &redis_validator;
     v->validate_producer = &redis_validator;
     return v;
