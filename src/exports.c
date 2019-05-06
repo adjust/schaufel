@@ -55,12 +55,8 @@ _connectinfo(const char *host)
             + strlen(" dbname=bagger_exports user=postgres ")
             + strlen(" host= ")
             + strlen(" port= ");
-    char *conninfo = calloc(len + 1, sizeof(*conninfo));
-    if (!conninfo) {
-        logger_log("%s %d: Failed to calloc: %s\n",
-            __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    char *conninfo = SCALLOC(len + 1, sizeof(*conninfo));
+
     snprintf(conninfo, len, "dbname=bagger_exports"
         " user=postgres host=%s port=%d", hostname, port);
     free(hostname);
@@ -81,7 +77,7 @@ static uint32_t *
 _leapyear()
 {
     // 2048 years ought to be enough
-    uint32_t *l = calloc(2048,sizeof(uint32_t));
+    uint32_t *l = SCALLOC(2048,sizeof(uint32_t));
     uint32_t a = 0;
 
     for (uint32_t i = 0; i < 2047; i++) {
@@ -236,12 +232,7 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
 Needles
 _needle_alloc()
 {
-    Needles needle = calloc(1,sizeof(*needle));
-    if (!needle) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__,
-        strerror(errno));
-        abort();
-    }
+    Needles needle = SCALLOC(1,sizeof(*needle));
 
     return needle;
 }
@@ -298,12 +289,8 @@ _cpycmd(const char *host, const char *table)
     int len = strlen(table)
             + strlen(fmtstring);
 
-    char *cpycmd = calloc(len + 1, sizeof(*cpycmd));
-    if (!cpycmd) {
-        logger_log("%s %d: Failed to calloc: %s\n",
-        __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    char *cpycmd = SCALLOC(len + 1, sizeof(*cpycmd));
+
     snprintf(cpycmd, len, fmtstring, table);
     free(hostname);
     return cpycmd;
@@ -313,16 +300,8 @@ _cpycmd(const char *host, const char *table)
 Meta
 exports_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (!m) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
-    Internal i = calloc(1,sizeof(*i));
-    if (!i) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
+    Internal i = SCALLOC(1,sizeof(*i));
 
     m->cpyfmt = PQ_COPY_BINARY;
     m->internal = i;
@@ -385,11 +364,7 @@ exports_producer_init(config_setting_t *config)
     config_setting_lookup_string(config, "host", &host);
     config_setting_lookup_string(config, "topic", &topic);
     needlestack = config_setting_get_member(config, "jpointers");
-    Producer exports = calloc(1, sizeof(*exports));
-    if (!exports) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Producer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, topic, needlestack);
     exports->producer_free = exports_producer_free;
@@ -540,11 +515,7 @@ exports_consumer_init(config_setting_t *config)
     const char *host = NULL;
     config_setting_t *needles = NULL;
     config_setting_lookup_string(config, "host", &host);
-    Consumer exports = calloc(1, sizeof(*exports));
-    if (!exports) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Consumer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, NULL, needles);
     exports->consumer_free = exports_consumer_free;
@@ -636,11 +607,7 @@ exporter_validate(UNUSED config_setting_t *config)
 Validator
 exports_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if(!v) {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
 
     v->validate_consumer = &exporter_validate;
     v->validate_producer = &exporter_validate;
