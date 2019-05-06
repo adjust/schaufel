@@ -7,13 +7,14 @@ typedef struct Needles {
     bool          (*format) (json_object *, Needles);
     void          (*free) (void **);
     Needles         next;
+    uint32_t       *leapyears;
     uint32_t        length;
     void           *result;
-    uint32_t       *leapyear;
 } *Needles;
 
 typedef struct Internal {
-    Needles         needles;
+    Needles        *needles;
+    uint32_t       *leapyears;
     uint16_t        ncount;
 } *Internal;
 
@@ -110,18 +111,18 @@ static void _obj_free(void **obj)
 }
 
 static bool
-_json_to_pqtext(json_object *needle, Needles current)
+_json_to_pqtext(json_object *found, Needles current)
 {
     // Any json type can be cast to string
-    current->result = (char *)json_object_get_string(needle);
+    current->result = (char *)json_object_get_string(found);
     current->length = strlen(current->result);
     return true;
 }
 
 static bool
-_json_to_pqtimestamp(json_object *needle, Needles current)
+_json_to_pqtimestamp(json_object *found, Needles current)
 {
-    const char *ts = json_object_get_string(needle);
+    const char *ts = json_object_get_string(found);
     uint64_t epoch;
     size_t len = strlen(ts);
 
@@ -218,7 +219,7 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
     tm.yday += tm.day;
 
     epoch = tm.second + tm.minute*60 + tm.hour*3600 + (tm.yday-1)*86400
-    + *(current->leapyear+(tm.year))*86400 + tm.year*31536000;
+    + *(current->leapyears+(tm.year))*86400 + tm.year*31536000;
 
     epoch *= 1000000;
     epoch += tm.micro;
@@ -231,40 +232,39 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
     return false;
 }
 
-static Needles
-_needles(config_setting_t *needlestack)
+static Needles *
+_needles(config_setting_t *needlestack, Internal internal)
 {
     config_setting_t *setting = NULL, *member= NULL;
     int list = 0, pqtype = 0;
     list = config_setting_length(needlestack);
 
-    Needles first = SCALLOC(1,sizeof(*first));
-    Needles needle = first;
-    for(int i = 0; i < list; i++) {
-        setting = config_setting_get_elem(needlestack, i);
+    Needles *needles = SCALLOC(list,sizeof(*needles));
+    internal->leapyears = _leapyear();
 
+    for(int i = 0; i < list; i++) {
+        Needles current = SCALLOC(list,sizeof(*current));
+        needles[i] = current;
+        // Alias should a needle need data
+        needles[i]->leapyears = internal->leapyears;
+
+        setting = config_setting_get_elem(needlestack, i);
         if (config_setting_type(setting) == CONFIG_TYPE_STRING) {
             pqtype = _pqtype_enum("text");
-            needle->jpointer = strdup(config_setting_get_string(setting));
-            needle->format = pq_types[pqtype].format;
-            needle->free = pq_types[pqtype].free;
+            current->jpointer = strdup(config_setting_get_string(setting));
+            current->format = pq_types[pqtype].format;
+            current->free = pq_types[pqtype].free;
         } else if (config_setting_type(setting) == CONFIG_TYPE_ARRAY) {
             member = config_setting_get_elem(setting, 0);
-            needle->jpointer = strdup(config_setting_get_string(member));
+            current->jpointer = strdup(config_setting_get_string(member));
             member = config_setting_get_elem(setting, 1);
             pqtype = _pqtype_enum(config_setting_get_string(member));
-            needle->format = pq_types[pqtype].format;
-            needle->free = pq_types[pqtype].free;
+            current->format = pq_types[pqtype].format;
+            current->free = pq_types[pqtype].free;
         }
-
-        // Leapyears in every needle to save on infrastructure
-        needle->leapyear = _leapyear();
-
-        needle->next = SCALLOC(1,sizeof(*needle));
-        needle = needle->next;
     }
 
-    return(first);
+    return needles;
 }
 
 static char *
@@ -298,10 +298,10 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
     Internal i = SCALLOC(1,sizeof(*i));
 
     m->cpyfmt = PQ_COPY_BINARY;
-    m->internal = i;
     m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
-    m->internal->needles = _needles(needlestack);
+    m->internal = i;
+    m->internal->needles = _needles(needlestack, i);
     m->internal->ncount = config_setting_length(needlestack);
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -322,29 +322,21 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
 void
 exports_meta_free(Meta *m)
 {
+    Internal internal = (*m)->internal;
     pthread_mutex_destroy(&(*m)->commit_mutex);
 
     free((*m)->conninfo);
     free((*m)->cpycmd);
     PQfinish((*m)->conn_master);
 
-    Needles last;
-
-    while((*m)->internal->needles != NULL) {
-        last = (*m)->internal->needles;
-        if(last->jpointer == NULL) {
-            free(last);
-            break;
-        }
-        free((*m)->internal->needles->jpointer);
-        (*m)->internal->needles->free(
-            &(*m)->internal->needles->result);
-        if((*m)->internal->needles->leapyear != NULL)
-            free((*m)->internal->needles->leapyear);
-        (*m)->internal->needles = (*m)->internal->needles->next;
-        free(last);
+    for (int i = 0; i < internal->ncount; i++ ) {
+        free(internal->needles[i]->jpointer);
+        internal->needles[i]->free(
+            &(internal->needles[i]->result));
     }
-    free((*m)->internal);
+    free(internal->needles);
+    free(internal->leapyears);
+    free(internal);
 
     free(*m);
     *m = NULL;
@@ -376,24 +368,24 @@ exports_producer_init(config_setting_t *config)
 }
 
 bool
-_deref(json_object *haystack, Needles needles)
+_deref(json_object *haystack, Internal internal)
 {
-    json_object *needle;
+    json_object *found;
 
-    while(needles->next) {
-        if(json_pointer_get(haystack, needles->jpointer, &needle)) {
-            needles->result = NULL;
+    Needles *needles = internal->needles;
+    for (int i = 0; i < internal->ncount; i++) {
+        if(json_pointer_get(haystack, needles[i]->jpointer, &found)) {
+            needles[i]->result = NULL;
             // complement of 0 is uint32_t max
             // int max is postgres NULL;
-            needles->length = (uint32_t)~0;
+            needles[i]->length = (uint32_t)~0;
         } else {
-            if(!needles->format(needle,needles)) {
+            if(!needles[i]->format(found,needles[i])) {
                 logger_log("%s %d: Failed jpointer deref %s",
-                    __FILE__, __LINE__, needles->jpointer);
+                    __FILE__, __LINE__, needles[i]->jpointer);
                 return false;
             }
         }
-        needles = needles->next;
     }
 
     return true;
@@ -403,7 +395,8 @@ void
 exports_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
-    Needles needles = m->internal->needles;
+    Needles *needles = m->internal->needles;
+    Internal internal = m->internal;
     json_object *haystack = NULL;
 
     size_t len = message_get_len(msg);
@@ -443,34 +436,25 @@ exports_producer_produce(Producer p, Message msg)
         goto error;
     }
 
-    if(!_deref(haystack, needles)) {
+    if(!_deref(haystack, internal)) {
         logger_log("%s %d: Failed to dereference json!\n %s",
             __FILE__, __LINE__, data);
-        while(needles->next) {
-            if(!needles->jpointer)
-                break;
-            needles->free(&needles->result);
-            needles = needles->next;
+        for (int i = 0; i < internal->ncount; i++) {
+            needles[i]->free(&needles[i]->result);
         }
         goto error;
     }
 
-    needles = m->internal->needles;
     PQputCopyData(m->conn_master, (char *) &ncount, 2);
 
-    while(needles->next) {
-        if(!needles->jpointer)
-            break;
-
-        uint32_t length =  htobe32(needles->length);
+    for (int i = 0; i < internal->ncount; i++) {
+        uint32_t length =  htobe32(needles[i]->length);
         PQputCopyData(m->conn_master, (void *) &length, 4);
 
-        if(needles->result) {
-            PQputCopyData(m->conn_master, needles->result, needles->length);
-            needles->free(&needles->result);
+        if(needles[i]->result) {
+            PQputCopyData(m->conn_master, needles[i]->result, needles[i]->length);
+            needles[i]->free(&needles[i]->result);
         }
-
-        needles = needles->next;
     }
 
     m->count = m->count + 1;
