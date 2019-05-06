@@ -7,6 +7,7 @@
 #include <queue.h>
 #include <redis.h>
 #include <utils/helper.h>
+#include <utils/scalloc.h>
 
 typedef struct Consumer *Consumer;
 
