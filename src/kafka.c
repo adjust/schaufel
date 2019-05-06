@@ -55,11 +55,8 @@ typedef struct Meta {
 Meta
 kafka_producer_meta_init(const char *broker, const char *topic)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (!m) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
+
     char errstr[512];
     rd_kafka_t *rk;
     rd_kafka_topic_t *rkt;
@@ -113,11 +110,8 @@ kafka_producer_meta_init(const char *broker, const char *topic)
 Meta
 kafka_consumer_meta_init(const char *broker, const char *topic, const char *groupid)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (!m) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
+
     rd_kafka_resp_err_t err;
     char errstr[512];
     rd_kafka_t *rk;
@@ -228,11 +222,7 @@ kafka_producer_init(config_setting_t *config)
     const char *broker = NULL, *topic = NULL;
     config_setting_lookup_string(config, "broker", &broker);
     config_setting_lookup_string(config, "topic", &topic);
-    Producer kafka = calloc(1, sizeof(*kafka));
-    if (!kafka) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Producer kafka = SCALLOC(1, sizeof(*kafka));
 
     kafka->meta          = kafka_producer_meta_init(broker, topic);
     kafka->producer_free = kafka_producer_free;
@@ -291,11 +281,7 @@ kafka_consumer_init(config_setting_t *config)
     config_setting_lookup_string(config, "broker", &broker);
     config_setting_lookup_string(config, "topic", &topic);
     config_setting_lookup_string(config, "groupid", &groupid);
-    Consumer kafka = calloc(1, sizeof(*kafka));
-    if (!kafka) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Consumer kafka = SCALLOC(1, sizeof(*kafka));
 
     kafka->meta          = kafka_consumer_meta_init(broker, topic, groupid);
     kafka->consumer_free = kafka_consumer_free;
@@ -354,11 +340,7 @@ kafka_consumer_consume(Consumer c, Message msg)
         return 0;
     }
 
-    char *cpy = calloc((int)rkmessage->len + 1, sizeof(*cpy));
-    if (!cpy) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    char *cpy = SCALLOC((int)rkmessage->len + 1, sizeof(*cpy));
     memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
     message_set_data(msg, cpy);
     message_set_len(msg, (size_t)rkmessage->len);
@@ -415,11 +397,8 @@ kafka_consumer_validator(config_setting_t *config)
 Validator
 kafka_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if(!v) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
+
     v->validate_consumer = &kafka_producer_validator;
     v->validate_producer = &kafka_consumer_validator;
 
