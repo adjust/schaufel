@@ -6,7 +6,7 @@ int get_thread_count(config_t* config, int type)
     int list = 0, j = 0, result = 0;
 
     char *typestr;
-    char *buf = malloc(1024);
+    char buf[1024];
 
     switch(type)
     {
@@ -28,7 +28,6 @@ int get_thread_count(config_t* config, int type)
         result += j;
     }
 
-    free(buf);
     return result;
 }
 
@@ -84,7 +83,8 @@ module_to_string(int module)
 
 static bool _thread_validate(config_t* config, int type)
 {
-    char* buf = calloc(1,1024);
+    char buf[1024];
+
     config_setting_t *setting = NULL, *child = NULL;
 
     unsigned int i, list;
@@ -150,7 +150,6 @@ static bool _thread_validate(config_t* config, int type)
             goto error;
         }
 
-
         if(type == SCHAUFEL_TYPE_CONSUMER) {
             if(!v->validate_consumer(child)) {
                 ret = false;
@@ -167,7 +166,6 @@ static bool _thread_validate(config_t* config, int type)
     }
 
     error:
-    free(buf);
     return(ret);
 }
 
