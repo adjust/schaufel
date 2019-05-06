@@ -17,11 +17,8 @@ _connectinfo(const char *host)
             + strlen(" dbname=data user=postgres ")
             + strlen(" host= ")
             + strlen(" port= ");
-    char *conninfo = calloc(len + 1, sizeof(*conninfo));
-    if (!conninfo) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    char *conninfo = SCALLOC(len + 1, sizeof(*conninfo));
+
     snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
     free(hostname);
     return conninfo;
@@ -54,11 +51,8 @@ _cpycmd(const char *host, const char *generation)
             + number_length(port)
             + strlen(fmtstring);
 
-    char *cpycmd = calloc(len + 1, sizeof(*cpycmd));
-    if (!cpycmd) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    char *cpycmd = SCALLOC(len + 1, sizeof(*cpycmd));
+
     snprintf(cpycmd, len, fmtstring, hostname, port, generation);
     free(hostname);
     return cpycmd;
@@ -68,11 +62,7 @@ _cpycmd(const char *host, const char *generation)
 Meta
 postgres_meta_init(const char *host, const char *host_replica, const char *generation)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (!m) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
 
     m->cpycmd = _cpycmd(host, generation);
     m->conninfo = _connectinfo(host);
@@ -127,11 +117,7 @@ postgres_producer_init(config_setting_t *config)
     config_setting_lookup_string(config,"replica",&host_replica);
     config_setting_lookup_string(config,"topic", &generation);
 
-    Producer postgres = calloc(1, sizeof(*postgres));
-    if (!postgres) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Producer postgres = SCALLOC(1, sizeof(*postgres));
 
     postgres->meta          = postgres_meta_init(host, host_replica, generation);
     postgres->producer_free = postgres_producer_free;
@@ -248,11 +234,7 @@ postgres_producer_free(Producer *p)
 Consumer
 postgres_consumer_init(char *host)
 {
-    Consumer postgres = calloc(1, sizeof(*postgres));
-    if (!postgres) {
-        logger_log("%s %d: Failed to calloc: %s\n", __FILE__, __LINE__, strerror(errno));
-        abort();
-    }
+    Consumer postgres = SCALLOC(1, sizeof(*postgres));
 
     postgres->meta          = postgres_meta_init(host, NULL, NULL);
     postgres->consumer_free = postgres_consumer_free;
@@ -379,11 +361,7 @@ postgres_validate(config_setting_t *config)
 Validator
 postgres_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if(v == NULL) {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
 
     v->validate_consumer = postgres_validate;
     v->validate_producer = postgres_validate;
