@@ -13,12 +13,8 @@ typedef struct Meta {
 Meta
 file_meta_init(const char *fname, char *options)
 {
-    Meta m = calloc(1, sizeof(*m));
-    if (m == NULL)
-    {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Meta m = SCALLOC(1, sizeof(*m));
+
     m->fp = fopen(fname, options);
     if (m->fp == NULL)
     {
@@ -40,12 +36,9 @@ file_meta_free(Meta *m)
 Producer
 file_producer_init(config_setting_t *config)
 {
-    Producer file = calloc(1, sizeof(*file));
+    Producer file = SCALLOC(1, sizeof(*file));
     const char *fname = NULL;
     config_setting_lookup_string(config, "file", &fname);
-
-    if (file == NULL)
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
     file->meta          = file_meta_init(fname, "a");
     file->producer_free = file_producer_free;
@@ -75,11 +68,9 @@ file_producer_free(Producer *p)
 Consumer
 file_consumer_init(config_setting_t *config)
 {
-    Consumer file = calloc(1, sizeof(*file));
+    Consumer file = SCALLOC(1, sizeof(*file));
     const char *fname = NULL;
     config_setting_lookup_string(config, "file", &fname);
-    if (file == NULL)
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
 
     file->meta          = file_meta_init(fname, "r");
     file->consumer_free = file_consumer_free;
@@ -130,11 +121,7 @@ file_validate(config_setting_t* config)
 Validator
 file_validator_init()
 {
-    Validator v = calloc(1,sizeof(*v));
-    if (v == NULL) {
-        logger_log("%s %d: allocate failed", __FILE__, __LINE__);
-        abort();
-    }
+    Validator v = SCALLOC(1,sizeof(*v));
 
     v->validate_producer = file_validate;
     v->validate_consumer = file_validate;
