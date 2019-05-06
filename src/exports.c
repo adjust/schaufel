@@ -138,6 +138,11 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
 
     memset(&tm,0,sizeof(tm));
 
+    // todo: static memory allocation in internal?
+    current->result = malloc(sizeof(uint64_t));
+    if(!current->result)
+        goto error;
+
     if (len < 21 || len > 31) {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
@@ -218,11 +223,8 @@ _json_to_pqtimestamp(json_object *needle, Needles current)
     epoch *= 1000000;
     epoch += tm.micro;
 
-    epoch = htobe64(epoch);
-
-    current->result = calloc(1,9);
-    memcpy(current->result, &epoch, 8);
-    current->length = 8;
+    *((uint64_t *) current->result) = htobe64(epoch);
+    current->length = sizeof(uint64_t);
 
     return true;
     error:
