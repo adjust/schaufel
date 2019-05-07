@@ -37,7 +37,7 @@ int
 dummy_consumer_consume(UNUSED Consumer c, Message msg)
 {
     char dummy_string_src[] = "{\"type\":\"dummy\"}";
-    char *dummy_string = calloc(sizeof(dummy_string_src), sizeof(*dummy_string));
+    char *dummy_string = SCALLOC(sizeof(dummy_string_src), sizeof(*dummy_string));
     memcpy(dummy_string, dummy_string_src, sizeof(dummy_string_src));
     message_set_data(msg, dummy_string);
     return 0;
