@@ -306,3 +306,48 @@ void read_config(config_t* config,char* cfile)
         exit(1);
     }
 }
+
+/* These functions are only to be called through their corresponding macros */
+bool conf_lookup_is_string(config_setting_t *conf, const char *path, const char **res,
+    const char *file, size_t line, const char *err)
+{
+    if(config_setting_lookup_string(conf, path, res) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %lu: %s\n",
+            file, line, err);
+        return false;
+    }
+    return true;
+}
+
+bool conf_lookup_is_int(config_setting_t *conf, const char *path, int *res,
+    const char *file, size_t line, const char *err)
+{
+    if(config_setting_lookup_int(conf, path, res) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %lu: %s\n",
+            file, line, err);
+        return false;
+    }
+    return true;
+}
+
+config_setting_t *conf_get_member(config_setting_t *conf, const char *name,
+    const char *file, size_t line, const char *err)
+{
+    config_setting_t *setting = NULL;
+    if(!(setting = config_setting_get_member(conf,name))) {
+        fprintf(stderr, "%s %lu: %s\n",
+            file, line, err);
+    }
+    return setting;
+}
+
+bool conf_is_list(config_setting_t *conf, const char *file, size_t line,
+    const char *err)
+{
+    if (config_setting_is_list(conf) != CONFIG_TRUE) {
+        fprintf(stderr, "%s %lu: %s\n",
+            file, line, err);
+        return false;
+    }
+    return true;
+}

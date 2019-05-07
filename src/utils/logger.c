@@ -10,19 +10,18 @@ bool logger_validate(config_setting_t *config)
     const char *retval = NULL;
 
     // this check is a mere placeholder
-    if(config_setting_lookup_string(config, "type", &retval) != CONFIG_TRUE) {
-        fprintf(stderr, "logger needs a type (file only atm)\n");
+    if(!CONF_L_IS_STRING(config, "type", &retval,
+        "logger: need a type (file only atm)"))
         goto error;
-    }
     if(strlen(retval) < 4 || strncmp(retval, "file", strlen("file"))) {
-        fprintf(stderr, "logger needs a type (file only atm)\n");
+        fprintf(stderr, "logger: need a type (file only atm)\n");
         goto error;
     }
 
     retval = NULL;
     if(config_setting_lookup_string(config, "file", &retval)
         != CONFIG_TRUE) {
-        fprintf(stderr, "missing configuration for logger type: %s\n", "file");
+        fprintf(stderr, "logger: missing configuration for type: %s\n", "file");
         goto error;
     }
 

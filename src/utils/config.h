@@ -24,4 +24,24 @@ bool config_validate(config_t *config);
 
 char* module_to_string(int module);
 
+
+/* Macros to abstract config parsing
+ * Check for existance of a config item */
+bool conf_lookup_is_string(config_setting_t *conf, const char *path, const char **res,
+    const char *file, size_t line, const char *err);
+bool conf_lookup_is_int(config_setting_t *conf, const char *path, int *res,
+    const char *file, size_t line, const char *err);
+config_setting_t *conf_get_member(config_setting_t *conf, const char *name,
+    const char *file, size_t line, const char *err);
+bool conf_is_list(config_setting_t *conf,
+    const char *file, size_t line, const char *err);
+#define CONF_L_IS_STRING(conf, path, res, err) \
+    conf_lookup_is_string(conf, path, res, __FILE__, __LINE__, err)
+#define CONF_L_IS_INT(conf, path, res, err) \
+    conf_lookup_is_int(conf, path, res, __FILE__, __LINE__, err)
+#define CONF_GET_MEM(conf, name, err) \
+    conf_get_member(conf, name, __FILE__, __LINE__, err)
+#define CONF_IS_LIST(conf, err) \
+    conf_is_list(conf, __FILE__, __LINE__, err)
+
 #endif

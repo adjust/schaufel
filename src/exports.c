@@ -525,27 +525,17 @@ exporter_validate(UNUSED config_setting_t *config)
     const char *conf = NULL;
 
     const char *host = NULL, *topic = NULL;
-    if(config_setting_lookup_string(config, "host", &host) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: require host string!\n",
-            __FILE__, __LINE__);
+    if(!CONF_L_IS_STRING(config, "host", &host, "require host string!"))
         goto error;
-    }
 
-    if(config_setting_lookup_string(config, "topic", &topic) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: require topic string!\n",
-            __FILE__, __LINE__);
+    if(!CONF_L_IS_STRING(config, "topic", &topic, "require topic string!"))
         goto error;
-    }
-    if(!(setting = config_setting_get_member(config,"jpointers"))) {
-        fprintf(stderr, "%s %d: require jpointers!\n",
-            __FILE__, __LINE__);
+
+    if(!(setting = CONF_GET_MEM(config,"jpointers", "require jpointers!")))
         goto error;
-    }
-    if (config_setting_is_list(setting) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: require jpointer must be a list\n",
-            __FILE__, __LINE__);
+
+    if(!CONF_IS_LIST(setting, "require jpointers to be a list!"))
         goto error;
-    }
 
     // Check jpointers for validity
     for (int i = 0; i < config_setting_length(setting); i++) {

@@ -265,7 +265,8 @@ postgres_validate(config_setting_t *config)
     config_setting_t *parent = NULL, *instance = NULL, *setting = NULL;
     const char *hosts = NULL, *replicas = NULL, *topic = NULL;
 
-    Array master,replica;
+    Array master = NULL,replica = NULL;
+
     int m, r, threads;
     bool ret = true;
 
@@ -273,19 +274,11 @@ postgres_validate(config_setting_t *config)
     // consumer may add further consumers to the list.
     parent = config_setting_parent(config);
 
-    if(config_setting_lookup_string(config, "host", &hosts) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: require host string!\n",
-            __FILE__, __LINE__);
+    if(!CONF_L_IS_STRING(config, "host", &hosts, "require host string!"))
         ret = false;
-        goto error;
-    }
-
-    if(config_setting_lookup_int(config, "threads", &threads) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: require threads integer!\n",
-            __FILE__, __LINE__);
+    if(!CONF_L_IS_INT(config, "threads", &threads, "require a threads integer"))
         ret = false;
-        goto error;
-    }
+    if(!ret) goto error;
 
     master = parse_hostinfo_master((char*) hosts);
     replica = parse_hostinfo_replica((char*) hosts);
@@ -298,15 +291,10 @@ postgres_validate(config_setting_t *config)
         fprintf(stderr, "%s %d: replica %s conflicts with host list!\n",
             __FILE__, __LINE__, replicas);
         ret = false;
-        goto error;
     }
-
-    if(config_setting_lookup_string(config, "topic", &topic) != CONFIG_TRUE) {
-        fprintf(stderr, "%s %d: need a topic/generation!\n",
-            __FILE__, __LINE__);
+    if(!CONF_L_IS_STRING(config, "topic", &topic, "need a topic/generation!"))
         ret = false;
-        goto error;
-    }
+    if(!ret) goto error;
 
     if(m == 0) {
         fprintf(stderr, "%s %d: I require at least one host!\n",

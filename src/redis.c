@@ -206,17 +206,12 @@ bool
 redis_validator(config_setting_t *config)
 {
     const char *result = NULL;
-    config_setting_lookup_string(config, "host", &result);
-    if(!result) {
-        fprintf(stderr, "redis: need host!\n");
+
+    if(!CONF_L_IS_STRING(config, "host", &result, "redis: need host!"))
         return false;
-    }
     result = NULL;
-    config_setting_lookup_string(config, "topic", &result);
-    if(!result) {
-        fprintf(stderr, "redis: need a topic!\n");
+    if(!CONF_L_IS_STRING(config, "topic", &result, "redis: need a topic!"))
         return false;
-    }
 
     return true;
 }
