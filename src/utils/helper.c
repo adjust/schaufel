@@ -37,7 +37,11 @@ parse_connstring(const char *conninfo, char **hostname, int *port)
 
 bool get_state(const volatile atomic_bool *state)
 {
+    #ifdef __clang__ // accomodate clangs opinionated stance on the spec
+    return atomic_load((volatile atomic_bool *) state);
+    #else
     return atomic_load(state);
+    #endif
 }
 
 bool set_state(volatile atomic_bool *state, bool value)
