@@ -152,6 +152,10 @@ redis_consumer_handle_reply(const redisReply *reply, Message msg)
     if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2)
     {
         char *result = calloc(reply->element[1]->len + 1, sizeof(*result));
+        if(!result) {
+            logger_log("%s %d: Failed to calloc!", __FILE__, __LINE__);
+            abort();
+        }
         memcpy(result, reply->element[1]->str, reply->element[1]->len);
         message_set_data(msg, result);
         message_set_len(msg, reply->element[1]->len);
