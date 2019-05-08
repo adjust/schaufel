@@ -33,7 +33,7 @@ bool logger_validate(config_setting_t *config)
 
 bool get_logger_state()
 {
-    return logger_state;
+    return get_state(&logger_state);
 }
 
 void logger_init(config_setting_t *config)
@@ -53,7 +53,7 @@ void logger_init(config_setting_t *config)
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
         exit(1);
     }
-    logger_state = true;
+    set_state(&logger_state, true);
 
     logger_log("logger initialized");
 }
