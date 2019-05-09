@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <string.h>

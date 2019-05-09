@@ -1,7 +1,8 @@
 #ifndef _SCHAUFEL_UTILS_OPTIONS_H
 #define _SCHAUFEL_UTILS_OPTIONS_H
 
-typedef struct Array *Array;
+#include "utils/array.h"
+
 
 typedef struct Options {
     char *config;
