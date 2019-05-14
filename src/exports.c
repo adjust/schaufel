@@ -5,6 +5,7 @@
 #include <string.h>
 #include <json-c/json.h>
 #include <arpa/inet.h>
+#include <endian.h>
 
 #include "exports.h"
 #include "utils/config.h"
