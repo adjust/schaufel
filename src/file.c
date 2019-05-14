@@ -122,17 +122,8 @@ file_validate(config_setting_t* config)
     return true;
 }
 
-static Validator
-file_validator_init()
-{
-    Validator v = SCALLOC(1,sizeof(*v));
-
-    v->validate_producer = file_validate;
-    v->validate_consumer = file_validate;
-    return v;
-}
-
-void register_file_module(void)
+void
+register_file_module(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 
@@ -142,7 +133,8 @@ void register_file_module(void)
     handler->producer_init = file_producer_init;
     handler->produce = file_producer_produce;
     handler->producer_free = file_producer_free;
-    handler->validator_init = file_validator_init;
+    handler->validate_consumer = file_validate;
+    handler->validate_producer = file_validate;
 
     register_module("file", handler);
 }

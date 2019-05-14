@@ -227,18 +227,8 @@ redis_validator(config_setting_t *config)
     return true;
 }
 
-
-Validator
-redis_validator_init()
-{
-    Validator v = SCALLOC(1,sizeof(*v));
-
-    v->validate_consumer = &redis_validator;
-    v->validate_producer = &redis_validator;
-    return v;
-}
-
-void register_redis_module(void)
+void
+register_redis_module(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 
@@ -248,7 +238,8 @@ void register_redis_module(void)
     handler->producer_init = redis_producer_init;
     handler->produce = redis_producer_produce;
     handler->producer_free = redis_producer_free;
-    handler->validator_init = redis_validator_init;
+    handler->validate_consumer = redis_validator;
+    handler->validate_producer = redis_validator;
 
     register_module("redis", handler);
 }

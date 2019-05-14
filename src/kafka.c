@@ -4,15 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "consumer.h"
 #include "kafka.h"
 #include "modules.h"
-#include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
-#include "validator.h"
 
 
 static void
@@ -398,17 +395,6 @@ kafka_consumer_validator(config_setting_t *config)
     return kafka_validator(config);
 }
 
-Validator
-kafka_validator_init()
-{
-    Validator v = SCALLOC(1,sizeof(*v));
-
-    v->validate_consumer = &kafka_consumer_validator;
-    v->validate_producer = &kafka_producer_validator;
-
-    return(v);
-}
-
 void
 register_kafka_module(void)
 {
@@ -420,7 +406,8 @@ register_kafka_module(void)
     handler->producer_init = kafka_producer_init;
     handler->produce = kafka_producer_produce;
     handler->producer_free = kafka_producer_free;
-    handler->validator_init = kafka_validator_init;
+    handler->validate_consumer = kafka_consumer_validator;
+    handler->validate_producer = kafka_producer_validator;
 
     register_module("kafka", handler);
 }

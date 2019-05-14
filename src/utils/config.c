@@ -4,7 +4,6 @@
 #include "modules.h"
 #include "utils/config.h"
 #include "utils/logger.h"
-#include "validator.h"
 
 
 int get_thread_count(config_t* config, int type)
@@ -100,7 +99,6 @@ static bool _thread_validate(config_t* config, int type)
     const char *conf_str = NULL;
     char *typestr;
 
-    Validator v;
     bool ret = true;
 
     switch(type)
@@ -157,26 +155,34 @@ static bool _thread_validate(config_t* config, int type)
             return NULL;
         }
 
-        v = handler->validator_init();
-        if(!v) {
-            fprintf(stderr, "Type %s has no validator!\n", conf_str);
-            ret = false;
-            goto error;
-        }
-
-        if(type == SCHAUFEL_TYPE_CONSUMER) {
-            if(!v->validate_consumer(child)) {
+        if(type == SCHAUFEL_TYPE_CONSUMER)
+        {
+            if (!handler->validate_consumer)
+            {
+                fprintf(stderr, "Type %s has no consumer validator!\n", conf_str);
+                ret = false;
+                goto error;
+            }
+            if(!handler->validate_consumer(child))
+            {
                 ret = false;
                 goto error;
             }
         }
-        if(type == SCHAUFEL_TYPE_PRODUCER) {
-            if(!v->validate_producer(child)) {
+        else if(type == SCHAUFEL_TYPE_PRODUCER)
+        {
+            if (!handler->validate_producer)
+            {
+                fprintf(stderr, "Type %s has no producer validator!\n", conf_str);
+                ret = false;
+                goto error;
+            }
+            if(!handler->validate_producer(child))
+            {
                 ret = false;
                 goto error;
             }
         }
-        free(v);
     }
 
     error:

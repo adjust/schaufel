@@ -2,10 +2,10 @@
 #define MODULES_H
 
 #include <libconfig.h>
+#include <stdbool.h>
 
 #include "consumer.h"
 #include "producer.h"
-#include "validator.h"
 
 
 typedef struct ModuleHandler
@@ -20,8 +20,9 @@ typedef struct ModuleHandler
     void      (*produce) (Producer p, Message msg);
     void      (*producer_free) (Producer *p);
 
-    /* validator routine */
-    Validator (*validator_init) (void);
+    /* validator routines */
+    bool      (*validate_consumer) (config_setting_t* config);
+    bool      (*validate_producer) (config_setting_t* config);
 } ModuleHandler;
 
 extern void register_module(const char *name, ModuleHandler *handler);

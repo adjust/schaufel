@@ -356,16 +356,6 @@ postgres_validate(config_setting_t *config)
     return ret;
 }
 
-Validator
-postgres_validator_init()
-{
-    Validator v = SCALLOC(1,sizeof(*v));
-
-    v->validate_consumer = postgres_validate;
-    v->validate_producer = postgres_validate;
-    return v;
-}
-
 void
 register_postgres_module(void)
 {
@@ -377,7 +367,8 @@ register_postgres_module(void)
     handler->producer_init = postgres_producer_init;
     handler->produce = postgres_producer_produce;
     handler->producer_free = postgres_producer_free;
-    handler->validator_init = postgres_validator_init;
+    handler->validate_consumer = postgres_validate;
+    handler->validate_producer = postgres_validate;
 
     register_module("postgres", handler);
 }

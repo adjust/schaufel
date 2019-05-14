@@ -1,24 +1,26 @@
 #include <stdio.h>
 
+#include "dummy.h"
+#include "modules.h"
 #include "queue.h"
-#include "producer.h"
 
 
 int
 main(void)
 {
-    Message msg = message_init();
-    char *test = malloc(5);
-    test[0] = 'm';
-    test[1] = 'o';
-    test[2] = 'e';
-    test[3] = 'p';
-    test[4] = '\0';
+    ModuleHandler *dummy;
+    Producer    p;
+    Message     msg = message_init();
+    char        test[] = "moep";
+
     message_set_data(msg, test);
-    Producer p = producer_init('d', NULL);
-    producer_produce(p, msg);
+
+    register_dummy_module();
+    dummy = lookup_module("dummy");
+    p = dummy->producer_init(NULL);
+    dummy->produce(p, msg);
+
     message_free(&msg);
-    producer_free(&p);
-    free(test);
+    dummy->producer_free(&p);
     return 0;
 }

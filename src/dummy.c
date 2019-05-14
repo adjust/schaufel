@@ -61,17 +61,8 @@ dummy_validator(UNUSED config_setting_t *config)
     return true;
 }
 
-Validator
-dummy_validator_init()
-{
-    Validator v = SCALLOC(1,sizeof(*v));
-
-    v->validate_consumer = &dummy_validator;
-    v->validate_producer = &dummy_validator;
-    return v;
-}
-
-void register_dummy_module(void)
+void
+register_dummy_module(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 
@@ -81,7 +72,8 @@ void register_dummy_module(void)
     handler->producer_init = dummy_producer_init;
     handler->produce = dummy_producer_produce;
     handler->producer_free = dummy_producer_free;
-    handler->validator_init = dummy_validator_init;
+    handler->validate_consumer = dummy_validator;
+    handler->validate_producer = dummy_validator;
 
     register_module("dummy", handler);
 }
