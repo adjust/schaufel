@@ -27,6 +27,7 @@ typedef struct ModuleHandler
 
 extern void register_module(const char *name, ModuleHandler *handler);
 ModuleHandler *lookup_module(const char *name);
+bool load_module(const char *sopath);
 
 /* TODO: temporary */
 void register_builtin_modules(void);
