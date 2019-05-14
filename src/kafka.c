@@ -1,13 +1,18 @@
 #include <errno.h>
 #include <librdkafka/rdkafka.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "consumer.h"
 #include "kafka.h"
+#include "modules.h"
+#include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
+#include "validator.h"
 
 
 static void
@@ -234,8 +239,6 @@ kafka_producer_init(config_setting_t *config)
     Producer kafka = SCALLOC(1, sizeof(*kafka));
 
     kafka->meta          = kafka_producer_meta_init(broker, topic);
-    kafka->producer_free = kafka_producer_free;
-    kafka->produce       = kafka_producer_produce;
 
     return kafka;
 }
@@ -293,8 +296,6 @@ kafka_consumer_init(config_setting_t *config)
     Consumer kafka = SCALLOC(1, sizeof(*kafka));
 
     kafka->meta          = kafka_consumer_meta_init(broker, topic, groupid);
-    kafka->consumer_free = kafka_consumer_free;
-    kafka->consume       = kafka_consumer_consume;
 
     return kafka;
 }
@@ -407,3 +408,20 @@ kafka_validator_init()
 
     return(v);
 }
+
+void
+register_kafka_module(void)
+{
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
+
+    handler->consumer_init = kafka_consumer_init;
+    handler->consume = kafka_consumer_consume;
+    handler->consumer_free = kafka_consumer_free;
+    handler->producer_init = kafka_producer_init;
+    handler->produce = kafka_producer_produce;
+    handler->producer_free = kafka_producer_free;
+    handler->validator_init = kafka_validator_init;
+
+    register_module("kafka", handler);
+}
+

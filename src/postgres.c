@@ -1,7 +1,9 @@
 #include <libpq-fe.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "modules.h"
 #include "postgres.h"
 #include "utils/array.h"
 #include "utils/config.h"
@@ -128,10 +130,7 @@ postgres_producer_init(config_setting_t *config)
     config_setting_lookup_string(config,"topic", &generation);
 
     Producer postgres = SCALLOC(1, sizeof(*postgres));
-
-    postgres->meta          = postgres_meta_init(host, host_replica, generation);
-    postgres->producer_free = postgres_producer_free;
-    postgres->produce       = postgres_producer_produce;
+    postgres->meta = postgres_meta_init(host, host_replica, generation);
 
     if (pthread_create(&((Meta)(postgres->meta))->commit_worker,
         NULL,
@@ -242,13 +241,14 @@ postgres_producer_free(Producer *p)
 }
 
 Consumer
-postgres_consumer_init(char *host)
+postgres_consumer_init(config_setting_t *config)
 {
     Consumer postgres = SCALLOC(1, sizeof(*postgres));
+    const char *host;
 
-    postgres->meta          = postgres_meta_init(host, NULL, NULL);
-    postgres->consumer_free = postgres_consumer_free;
-    postgres->consume       = postgres_consumer_consume;
+    config_setting_lookup_string(config, "host", &host);
+
+    postgres->meta = postgres_meta_init(host, NULL, NULL);
 
     return postgres;
 }
@@ -365,3 +365,20 @@ postgres_validator_init()
     v->validate_producer = postgres_validate;
     return v;
 }
+
+void
+register_postgres_module(void)
+{
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
+
+    handler->consumer_init = postgres_consumer_init;
+    handler->consume = postgres_consumer_consume;
+    handler->consumer_free = postgres_consumer_free;
+    handler->producer_init = postgres_producer_init;
+    handler->produce = postgres_producer_produce;
+    handler->producer_free = postgres_producer_free;
+    handler->validator_init = postgres_validator_init;
+
+    register_module("postgres", handler);
+}
+

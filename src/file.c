@@ -1,8 +1,10 @@
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "file.h"
+#include "modules.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
 
@@ -38,21 +40,19 @@ file_meta_free(Meta *m)
     *m = NULL;
 }
 
-Producer
+static Producer
 file_producer_init(config_setting_t *config)
 {
     Producer file = SCALLOC(1, sizeof(*file));
     const char *fname = NULL;
-    config_setting_lookup_string(config, "file", &fname);
 
-    file->meta          = file_meta_init(fname, "a");
-    file->producer_free = file_producer_free;
-    file->produce       = file_producer_produce;
+    config_setting_lookup_string(config, "file", &fname);
+    file->meta = file_meta_init(fname, "a");
 
     return file;
 }
 
-void
+static void
 file_producer_produce(Producer p, Message msg)
 {
     char *line = message_get_data(msg);
@@ -61,7 +61,7 @@ file_producer_produce(Producer p, Message msg)
     fwrite(line, len, sizeof(*line),((Meta) p->meta)->fp);
 }
 
-void
+static void
 file_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
@@ -70,20 +70,19 @@ file_producer_free(Producer *p)
     *p = NULL;
 }
 
-Consumer
+static Consumer
 file_consumer_init(config_setting_t *config)
 {
     Consumer file = SCALLOC(1, sizeof(*file));
     const char *fname = NULL;
-    config_setting_lookup_string(config, "file", &fname);
 
-    file->meta          = file_meta_init(fname, "r");
-    file->consumer_free = file_consumer_free;
-    file->consume       = file_consumer_consume;
+    config_setting_lookup_string(config, "file", &fname);
+    file->meta = file_meta_init(fname, "r");
+
     return file;
 }
 
-int
+static int
 file_consumer_consume(Consumer c, Message msg)
 {
     char   *line = NULL;
@@ -100,7 +99,7 @@ file_consumer_consume(Consumer c, Message msg)
     return 0;
 }
 
-void
+static void
 file_consumer_free(Consumer *c)
 {
     Meta m = (Meta) ((*c)->meta);
@@ -109,7 +108,7 @@ file_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-bool
+static bool
 file_validate(config_setting_t* config)
 {
     int t = 0;
@@ -123,7 +122,7 @@ file_validate(config_setting_t* config)
     return true;
 }
 
-Validator
+static Validator
 file_validator_init()
 {
     Validator v = SCALLOC(1,sizeof(*v));
@@ -132,3 +131,19 @@ file_validator_init()
     v->validate_consumer = file_validate;
     return v;
 }
+
+void register_file_module(void)
+{
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
+
+    handler->consumer_init = file_consumer_init;
+    handler->consume = file_consumer_consume;
+    handler->consumer_free = file_consumer_free;
+    handler->producer_init = file_producer_init;
+    handler->produce = file_producer_produce;
+    handler->producer_free = file_producer_free;
+    handler->validator_init = file_validator_init;
+
+    register_module("file", handler);
+}
+

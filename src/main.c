@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "consumer.h"
+#include "modules.h"
 #include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
@@ -117,8 +118,17 @@ consume(void *config)
         logger_log("%s %d: could not init message", __FILE__, __LINE__);
         return NULL;
     }
-    Consumer c = consumer_init(*consumer_type,
-        (config_setting_t *) config);
+
+    ModuleHandler *handler = lookup_module(consumer_type);
+    if (!handler)
+    {
+        logger_log("%s %d: module %s is not found", __FILE__, __LINE__, consumer_type);
+        return NULL;
+    }
+
+    /* TODO: check that consumer_init routine is not NULL */
+
+    Consumer c = handler->consumer_init((config_setting_t *) config);
     if (c == NULL)
     {
         logger_log("%s %d: could not init consumer", __FILE__, __LINE__);
@@ -132,7 +142,7 @@ consume(void *config)
 
     while (get_state(&consume_state))
     {
-        if (consumer_consume(c, msg) == -1)
+        if (handler->consume(c, msg) == -1)
             break;
         if (message_get_data(msg) != NULL)
         {
@@ -142,7 +152,7 @@ consume(void *config)
         }
     }
     message_free(&msg);
-    consumer_free(&c);
+    handler->consumer_free(&c);
     return NULL;
 }
 
@@ -153,8 +163,15 @@ produce(void *config)
     const char *producer_type = NULL;
     config_setting_lookup_string((config_setting_t *) config,
         "type", &producer_type);
-    Producer p = producer_init(*producer_type,
-        (config_setting_t *) config);
+
+    ModuleHandler *handler = lookup_module(producer_type);
+    if (!handler)
+    {
+        logger_log("%s %d: module %s is not found", __FILE__, __LINE__, producer_type);
+        return NULL;
+    }
+
+    Producer p = handler->producer_init((config_setting_t *) config);
     if (p == NULL)
     {
         logger_log("%s %d: could not init producer", __FILE__, __LINE__);
@@ -177,14 +194,14 @@ produce(void *config)
         if (message_get_data(msg) != NULL)
         {
             //TODO: check success
-            producer_produce(p, msg);
+            handler->produce(p, msg);
             //message was handled: free it
             free(message_get_data(msg));
             message_set_data(msg, NULL);
         }
     }
     message_free(&msg);
-    producer_free(&p);
+    handler->producer_free(&p);
     return NULL;
 }
 
@@ -239,6 +256,8 @@ main(int argc, char **argv)
         r_p_threads   = 0;
 
     void *res;
+
+    register_builtin_modules();
 
     pthread_t *c_thread;
     pthread_t *p_thread;

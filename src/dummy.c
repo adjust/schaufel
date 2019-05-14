@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "dummy.h"
+#include "modules.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
@@ -13,8 +14,6 @@ dummy_producer_init(UNUSED config_setting_t *config)
 {
     Producer dummy = SCALLOC(1, sizeof(*dummy));
 
-    dummy->producer_free = dummy_producer_free;
-    dummy->produce       = dummy_producer_produce;
     return dummy;
 }
 
@@ -36,8 +35,6 @@ dummy_consumer_init(UNUSED config_setting_t *config)
 {
     Consumer dummy = SCALLOC(1, sizeof(*dummy));
 
-    dummy->consumer_free = dummy_consumer_free;
-    dummy->consume       = dummy_consumer_consume;
     return dummy;
 }
 
@@ -73,3 +70,19 @@ dummy_validator_init()
     v->validate_producer = &dummy_validator;
     return v;
 }
+
+void register_dummy_module(void)
+{
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
+
+    handler->consumer_init = dummy_consumer_init;
+    handler->consume = dummy_consumer_consume;
+    handler->consumer_free = dummy_consumer_free;
+    handler->producer_init = dummy_producer_init;
+    handler->produce = dummy_producer_produce;
+    handler->producer_free = dummy_producer_free;
+    handler->validator_init = dummy_validator_init;
+
+    register_module("dummy", handler);
+}
+

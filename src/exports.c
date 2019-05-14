@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 
 #include "exports.h"
+#include "modules.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
@@ -366,8 +367,6 @@ exports_producer_init(config_setting_t *config)
     Producer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, topic, needlestack);
-    exports->producer_free = exports_producer_free;
-    exports->produce       = exports_producer_produce;
 
     if (pthread_create(&((Meta)(exports->meta))->commit_worker,
         NULL,
@@ -509,8 +508,6 @@ exports_consumer_init(config_setting_t *config)
     Consumer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, NULL, needles);
-    exports->consumer_free = exports_consumer_free;
-    exports->consume       = exports_consumer_consume;
 
     return exports;
 }
@@ -594,3 +591,19 @@ exports_validator_init()
     v->validate_producer = &exporter_validate;
     return v;
 }
+
+void register_exports_module(void)
+{
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
+
+    handler->consumer_init = exports_consumer_init;
+    handler->consume = exports_consumer_consume;
+    handler->consumer_free = exports_consumer_free;
+    handler->producer_init = exports_producer_init;
+    handler->produce = exports_producer_produce;
+    handler->producer_free = exports_producer_free;
+    handler->validator_init = exports_validator_init;
+
+    register_module("exports", handler);
+}
+

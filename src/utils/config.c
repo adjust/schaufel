@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "modules.h"
 #include "utils/config.h"
 #include "utils/logger.h"
 #include "validator.h"
@@ -149,7 +150,14 @@ static bool _thread_validate(config_t* config, int type)
         child = config_setting_get_elem(setting, i);
         config_setting_lookup_string(child, "type", &conf_str);
 
-        v = validator_init(conf_str);
+        ModuleHandler *handler = lookup_module(conf_str);
+        if (!handler)
+        {
+            logger_log("%s %d: module %s is not found", __FILE__, __LINE__, conf_str);
+            return NULL;
+        }
+
+        v = handler->validator_init();
         if(!v) {
             fprintf(stderr, "Type %s has no validator!\n", conf_str);
             ret = false;
