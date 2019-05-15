@@ -582,7 +582,7 @@ exports_validate(UNUSED config_setting_t *config)
 }
 
 void
-register_exports_module(void)
+schaufel_init(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 

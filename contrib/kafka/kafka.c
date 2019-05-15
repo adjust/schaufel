@@ -396,7 +396,7 @@ kafka_consumer_validator(config_setting_t *config)
 }
 
 void
-register_kafka_module(void)
+schaufel_init(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 

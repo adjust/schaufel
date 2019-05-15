@@ -341,6 +341,12 @@ main(int argc, char **argv)
 
     config_merge(&config, o);
 
+    if (!load_libraries(&config))
+    {
+        logger_log("%s %d: Failed to load libraries\n", __FILE__, __LINE__);
+        abort();
+    }
+
     if(!config_validate(&config)) {
         if(!o.config)
             print_usage();
@@ -349,12 +355,6 @@ main(int argc, char **argv)
     }
 
     logger_init(config_lookup(&config, "logger"));
-
-    if (!load_libraries(&config))
-    {
-        logger_log("%s %d: Failed to load libraries\n", __FILE__, __LINE__);
-        abort();
-    }
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
