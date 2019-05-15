@@ -1,19 +1,6 @@
-PREFIX ?= /usr/local
-BINDIR ?= $(PREFIX)/bin
-MANDIR ?= $(PREFIX)/share/man
-MAN1DIR = $(MANDIR)/man1
-MAN5DIR = $(MANDIR)/man5
-DOCDIR ?= $(PREFIX)/share/doc/schaufel
-INSTALL ?= install -D
+include Makefile.global
 
-CC ?= gcc
-LD = $(CC)
-CFLAGS += -Wall -Wextra -pedantic
-CFLAGS += -std=c11
-CFLAGS += -D_POSIX_C_SOURCE=200809L
-CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
-CFLAGS += -D_BSD_SOURCE
-LIB = -lpthread -ldl -lhiredis -lrdkafka -lpq -lconfig -ljson-c
+LIB = -lpthread -ldl -lpq -lconfig
 INC = -Isrc/
 LDFLAGS += -Wl,-E
 
@@ -28,8 +15,6 @@ OBJ_TEST = $(patsubst $(OBJDIR)/main.o, ,$(OBJ))
 OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR)/%.o, $(TEST_SOURCES))
 
 DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
-
-SCHAUFEL_VERSION ?= 0.5
 
 all: release
 

@@ -350,6 +350,12 @@ main(int argc, char **argv)
 
     logger_init(config_lookup(&config, "logger"));
 
+    if (!load_libraries(&config))
+    {
+        logger_log("%s %d: Failed to load libraries\n", __FILE__, __LINE__);
+        abort();
+    }
+
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
 

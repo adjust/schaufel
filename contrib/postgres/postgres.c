@@ -356,8 +356,8 @@ postgres_validate(config_setting_t *config)
     return ret;
 }
 
-extern void
-schaufel_module_init(void)
+void
+schaufel_init(void)
 {
     ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 

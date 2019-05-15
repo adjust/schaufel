@@ -1,11 +1,11 @@
 include ../../Makefile.global
 
 CFLAGS += -fPIC
-CFLAGS += -lpq -lconfig -lpthread
+CFLAGS += -lrdkafka -lconfig -lpthread
 CFLAGS += -I../../src/
 
-OBJ = postgres.o
-LIB = postgres.so
+OBJ = kafka.o
+LIB = kafka.so
 
 all: remove_obj link
 

@@ -1,16 +1,11 @@
 #include <string.h>
 #include <dlfcn.h>
 
+#include "dummy.h"
+#include "file.h"
 #include "modules.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
-
-/* TODO: temporary */
-#include "dummy.h"
-#include "exports.h"
-#include "file.h"
-#include "kafka.h"
-#include "redis.h"
 
 
 /* modules list struct */
@@ -56,26 +51,22 @@ lookup_module(const char *name)
     return NULL;
 }
 
-/* TODO: temporary */
 void
 register_builtin_modules(void)
 {
     register_file_module();
     register_dummy_module();
-    register_kafka_module();
-    register_redis_module();
-    register_exports_module();
-
-    /* TODO: load only modules listed in config */
-    load_module("./postgres.so");
 }
 
 bool
-load_module(const char *sopath)
+load_library(const char *name)
 {
     void *handle;
+    char sopath[2048];
     void (*init_func)(void);
 
+    snprintf(sopath, 2048, "%s/%s.so", _LIBDIR, name);
+    
     handle = dlopen(sopath, RTLD_NOW);
     if (!handle)
     {
@@ -84,16 +75,52 @@ load_module(const char *sopath)
     }
 
     /* find the address of module initializer function */
-    init_func = (void(*)(void)) dlsym(handle, "schaufel_module_init");
+    init_func = (void(*)(void)) dlsym(handle, "schaufel_init");
     if (!init_func)
     {
-        logger_log("could not find symbol 'schaufel_module_init' in '%s': %s",
+        logger_log("could not find symbol 'schaufel_init' in '%s': %s",
                    sopath, dlerror());
         return false;
     }
 
     /* invoke initializer */
     init_func();
+
+    return true;
+}
+
+bool
+load_libraries(config_t *config)
+{
+    config_setting_t *root;
+    config_setting_t *libs;
+    int nlibs;
+    int i;
+
+    root = config_root_setting(config);
+    libs = config_setting_get_member(root, "libraries");
+    if (!libs)
+    {
+        /* no libraries specified */
+        return true;
+    }
+
+    nlibs = config_setting_length(libs);
+    for (i = 0; i < nlibs; ++i)
+    {
+        config_setting_t *lib = config_setting_get_elem(libs, i);
+        const char *libname;
+
+        if (!lib)
+            return false;
+
+        libname = config_setting_get_string(lib);
+        if (!libname)
+            return false;
+
+        if (!load_library(libname))
+            return false;
+    }
 
     return true;
 }
