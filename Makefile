@@ -10,9 +10,9 @@ CC ?= gcc
 LD = $(CC)
 CFLAGS += -Wall -Wextra -pedantic
 CFLAGS += -std=c11
-CFLAGS += -D_POSIX_C_SOURCE=200809L
+CFLAGS += -D_XOPEN_SOURCE=700
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
-CFLAGS += -D_BSD_SOURCE
+CFLAGS += -D_DEFAULT_SOURCE
 LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
 INC = -Isrc/
 
