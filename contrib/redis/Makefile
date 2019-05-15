@@ -7,12 +7,12 @@ CFLAGS += -I../../src/
 OBJ = redis.o
 LIB = redis.so
 
-all: remove_obj link
+all: clean link
 
 link: $(OBJ)
 	$(LD) $(OBJ) -shared -o $(LIB)
 
-remove_obj:
+clean:
 	rm -f $(OBJ)
 
 %.o: %.c
@@ -21,4 +21,4 @@ remove_obj:
 install: all
 	$(INSTALL) $(LIB) $(DESTDIR)$(INSTALL_LIBDIR)/$(LIB)
 
-.PHONY: all link remove_obj install
+.PHONY: all link clean install
