@@ -1,5 +1,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
 #include "utils/logger.h"
 #include "utils/postgres.h"

@@ -5,7 +5,6 @@
 #include <string.h>
 #include <json-c/json.h>
 #include <arpa/inet.h>
-#include <endian.h>
 
 #include "exports.h"
 #include "utils/config.h"
@@ -13,6 +12,7 @@
 #include "utils/logger.h"
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
+#include "utils/endian.h"
 
 
 typedef struct Needles *Needles;
