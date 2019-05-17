@@ -1,6 +1,17 @@
 include Makefile.global
 
-LIB = -lpthread -ldl -lpq -lconfig
+CC=@CC@
+LD=@CC@
+CFLAGS=@CFLAGS@
+LIBS=@LIBS@
+
+bindir := @bindir@
+includedir := @includedir@
+libdir := @libdir@
+mandir := @mandir@
+docdir := @docdir@
+
+#LIB = -lpthread -ldl -lpq -lconfig
 INC = -Isrc/
 LDFLAGS += -Wl,-E
 
@@ -26,7 +37,7 @@ docs: $(DOCS)
 doc/%.pdf: man/*
 	groff -mandoc -f H -T ps $^ | ps2pdf - $@
 
-release: before_release $(OBJ) out_release
+release: before_release src/config_paths.h $(OBJ) out_release
 
 test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
@@ -41,15 +52,18 @@ clean_release:
 	rm -rf $(OBJDIR)
 	rm -rf doc/*.pdf
 
-out_release: $(OBJ)
-	$(LD) $(LIBDIR) $(LDFLAGS) $(OBJ) $(LIB) -o $(OUT)
+clean_paths:
+	rm -f src/config_paths.h
 
-$(OBJDIR)/%.o: src/%.c
-	$(CC) $(INC) $(CFLAGS) -c $< -o $@
+out_release: $(OBJ)
+	$(LD) $(LIBDIR) $(LDFLAGS) $(OBJ) $(LIBS) -o $(OUT)
+
+$(OBJDIR)/%.o: src/%.c 
+	$(CC) $(INC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: t/%.c
 	$(CC) $(INC) $(CFLAGS) -c $< -o $@
-	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIB) -o bin/$(subst .o, ,$(notdir $@))
+	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
 install: all
@@ -57,5 +71,12 @@ install: all
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(DOCDIR) doc/*
 	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(MAN1DIR)/schaufel.1
 	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(MAN5DIR)/schaufel.conf.5
+
+src/config_paths.h:
+	echo "#define INCLUDEDIR \"$(includedir)\"" >>$@
+	echo "#define LIBDIR \"$(libdir)\"" >>$@
+	echo "#define CONTRIBDIR \"$(libdir)/@PACKAGE_NAME@\"" >>$@
+	echo "#define DOCDIR \"$(docdir)\"" >>$@
+	echo "#define MANDIR \"$(mandir)\"" >>$@
 
 .PHONY: all contrib docs release test clean

@@ -1,6 +1,8 @@
 #include <string.h>
 #include <dlfcn.h>
 
+#include "config.h"
+#include "config_paths.h"
 #include "dummy.h"
 #include "file.h"
 #include "modules.h"
@@ -65,7 +67,7 @@ load_library(const char *name)
     char sopath[2048];
     void (*init_func)(void);
 
-    snprintf(sopath, 2048, "%s/%s.so", _LIBDIR, name);
+    snprintf(sopath, 2048, "%s/%s.so", CONTRIBDIR, name);
     
     handle = dlopen(sopath, RTLD_NOW);
     if (!handle)

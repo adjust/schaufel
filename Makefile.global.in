@@ -1,0 +1,10 @@
+BINDIR ?= @bindir@
+CONTRIB_LIBDIR ?= @libdir@/schaufel
+MANDIR ?= @mandir@
+MAN1DIR = $(MANDIR)/man1
+MAN5DIR = $(MANDIR)/man5
+DOCDIR ?= @docdir@/schaufel
+INSTALL ?= install -D
+
+CC = @CC@
+LD = @CC@

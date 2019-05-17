@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "consumer.h"
 #include "modules.h"
 #include "producer.h"
@@ -79,8 +80,8 @@ NORETURN void
 print_version()
 {
     printf("schaufel version: "
-            _SCHAUFEL_VERSION
-            "\n");
+           VERSION
+           "\n");
     exit(0);
 }
 
