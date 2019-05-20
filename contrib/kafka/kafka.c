@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "kafka.h"
 #include "modules.h"
 #include "utils/config.h"
 #include "utils/helper.h"

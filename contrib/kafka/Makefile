@@ -19,6 +19,6 @@ clean:
 	$(CC) $(CFLAGS) -c $< -o $@
 
 install: all
-	$(INSTALL) $(LIB) $(DESTDIR)$(INSTALL_LIBDIR)/$(LIB)
+	$(INSTALL) $(LIB) $(CONTRIBDIR)/$(LIB)
 
 .PHONY: all link clean install

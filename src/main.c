@@ -80,7 +80,7 @@ NORETURN void
 print_version()
 {
     printf("schaufel version: "
-           VERSION
+           PACKAGE_VERSION
            "\n");
     exit(0);
 }

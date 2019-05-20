@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "modules.h"
-#include "redis.h"
 #include "utils/config.h"
 #include "utils/logger.h"
 #include "utils/helper.h"

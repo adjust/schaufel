@@ -1,10 +1,12 @@
 BINDIR ?= @bindir@
-CONTRIB_LIBDIR ?= @libdir@/schaufel
+CONTRIBDIR ?= @libdir@/schaufel
 MANDIR ?= @mandir@
 MAN1DIR = $(MANDIR)/man1
 MAN5DIR = $(MANDIR)/man5
 DOCDIR ?= @docdir@/schaufel
 INSTALL ?= install -D
+DATAROOTDIR := @datarootdir@
+PTHREAD_LIB = @PTHREAD_LIB@
 
 CC = @CC@
 LD = @CC@

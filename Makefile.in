@@ -5,13 +5,6 @@ LD=@CC@
 CFLAGS=@CFLAGS@
 LIBS=@LIBS@
 
-bindir := @bindir@
-includedir := @includedir@
-libdir := @libdir@
-mandir := @mandir@
-docdir := @docdir@
-
-#LIB = -lpthread -ldl -lpq -lconfig
 INC = -Isrc/
 LDFLAGS += -Wl,-E
 
@@ -44,7 +37,7 @@ test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 before_release:
 	mkdir -p obj/utils bin
 
-clean: clean_release
+clean: clean_release clean_paths
 
 clean_release:
 	rm -f $(OBJ) $(OUT)
