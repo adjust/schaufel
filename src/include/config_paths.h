@@ -1,0 +1,5 @@
+#define INCLUDEDIR ""
+#define LIBDIR "/tmp/schaufel/lib"
+#define CONTRIBDIR "/tmp/schaufel/lib/schaufel"
+#define DOCDIR "/tmp/schaufel/share/doc//schaufel"
+#define MANDIR "/tmp/schaufel/share/man"

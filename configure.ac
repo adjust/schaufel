@@ -32,6 +32,6 @@ CFLAGS+=" -Wall -Wextra -pedantic"
 CFLAGS+=" -D_POSIX_C_SOURCE=200809L"
 CFLAGS+=" -D_BSD_SOURCE"
 
-AC_CONFIG_HEADERS([src/config.h])
+AC_CONFIG_HEADERS([src/include/build.h])
 
 AC_OUTPUT([Makefile Makefile.global])

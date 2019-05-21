@@ -1,11 +1,11 @@
 #include <string.h>
 #include <dlfcn.h>
 
-#include "config.h"
-#include "config_paths.h"
+#include "build.h"
 #include "dummy.h"
 #include "file.h"
 #include "modules.h"
+#include "paths.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
 

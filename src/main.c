@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "config.h"
+#include "build.h"
 #include "consumer.h"
 #include "modules.h"
 #include "producer.h"

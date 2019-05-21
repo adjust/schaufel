@@ -2,7 +2,7 @@ include Makefile.global
 
 LIBS=@LIBS@
 
-INC = -Isrc/
+INC = -Isrc/include
 LDFLAGS += -Wl,-E
 
 OBJDIR = obj
@@ -27,7 +27,7 @@ docs: $(DOCS)
 doc/%.pdf: man/*
 	groff -mandoc -f H -T ps $^ | ps2pdf - $@
 
-release: before_release src/config_paths.h $(OBJ) out_release
+release: before_release src/include/paths.h $(OBJ) out_release
 
 test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
@@ -43,7 +43,7 @@ clean_release:
 	rm -rf doc/*.pdf
 
 clean_paths:
-	rm -f src/config_paths.h
+	rm -f src/include/paths.h
 
 out_release: $(OBJ)
 	$(LD) $(LIBDIR) $(LDFLAGS) $(OBJ) $(LIBS) -o $(OUT)
@@ -62,7 +62,7 @@ install: all
 	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(man1dir)/schaufel.1
 	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(man5dir)/schaufel.conf.5
 
-src/config_paths.h:
+src/include/paths.h:
 	echo "#define INCLUDEDIR \"$(includedir)\"" >>$@
 	echo "#define LIBDIR \"$(libdir)\"" >>$@
 	echo "#define CONTRIBDIR \"$(contribdir)\"" >>$@
