@@ -1,8 +1,5 @@
 include Makefile.global
 
-CC=@CC@
-LD=@CC@
-CFLAGS=@CFLAGS@
 LIBS=@LIBS@
 
 INC = -Isrc/
@@ -56,19 +53,19 @@ $(OBJDIR)/%.o: src/%.c
 
 $(OBJDIR)/%.o: t/%.c
 	$(CC) $(INC) $(CFLAGS) -c $< -o $@
-	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
+	$(LD) $(libdir) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
 install: all
-	$(INSTALL) bin/schaufel $(DESTDIR)$(BINDIR)/schaufel
-	$(INSTALL) -m 0644 -t $(DESTDIR)$(DOCDIR) doc/*
-	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(MAN1DIR)/schaufel.1
-	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(MAN5DIR)/schaufel.conf.5
+	$(INSTALL) bin/schaufel $(DESTDIR)$(bindir)/schaufel
+	$(INSTALL) -m 0644 -t $(DESTDIR)$(docdir) doc/*
+	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(man1dir)/schaufel.1
+	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(man5dir)/schaufel.conf.5
 
 src/config_paths.h:
 	echo "#define INCLUDEDIR \"$(includedir)\"" >>$@
 	echo "#define LIBDIR \"$(libdir)\"" >>$@
-	echo "#define CONTRIBDIR \"$(libdir)/@PACKAGE_NAME@\"" >>$@
+	echo "#define CONTRIBDIR \"$(contribdir)\"" >>$@
 	echo "#define DOCDIR \"$(docdir)\"" >>$@
 	echo "#define MANDIR \"$(mandir)\"" >>$@
 

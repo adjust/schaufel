@@ -76,8 +76,19 @@ load_library(const char *name)
         return false;
     }
 
-    /* find the address of module initializer function */
-    init_func = (void(*)(void)) dlsym(handle, "schaufel_init");
+    /*
+     * find the address of module initializer function
+     *
+     * XXX: ISO C standard does not allow to convert a pointer to data (void *) 
+     * to a function pointer and vice versa (as they can belong to different
+     * address spaces and have different size etc, see Harvard
+     * architecture). For instance, gcc with -pedantic throws a warning. The
+     * conversion below is a workaround recommended by POSIX and its purpose is
+     * to suppress warning message. Strictly speaking it does not follow
+     * the strict aliasing rule and theoretically may cause undefined
+     * behaviour.
+     */
+    *(void**)(&init_func) = dlsym(handle, "schaufel_init");
     if (!init_func)
     {
         logger_log("could not find symbol 'schaufel_init' in '%s': %s",
