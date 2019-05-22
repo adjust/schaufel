@@ -53,18 +53,20 @@ $(OBJDIR)/%.o: src/%.c
 
 $(OBJDIR)/%.o: t/%.c
 	$(CC) $(INC) $(CFLAGS) -c $< -o $@
-	$(LD) $(libdir) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
+	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
 install: all
 	$(INSTALL) bin/schaufel $(DESTDIR)$(bindir)/schaufel
+	cp -a src/include $(DESTDIR)$(includedir)
+	$(INSTALL) -m 0644 contrib.mk $(DESTDIR)$(contribdir)/contrib.mk
+	$(INSTALL) -m 0644 Makefile.global $(DESTDIR)$(contribdir)/Makefile.global
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(docdir) doc/*
 	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(man1dir)/schaufel.1
 	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(man5dir)/schaufel.conf.5
 
 src/include/paths.h:
 	echo "#define INCLUDEDIR \"$(includedir)\"" >>$@
-	echo "#define LIBDIR \"$(libdir)\"" >>$@
 	echo "#define CONTRIBDIR \"$(contribdir)\"" >>$@
 	echo "#define DOCDIR \"$(docdir)\"" >>$@
 	echo "#define MANDIR \"$(mandir)\"" >>$@

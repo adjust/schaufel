@@ -11,6 +11,7 @@
 #include "build.h"
 #include "consumer.h"
 #include "modules.h"
+#include "paths.h"
 #include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
@@ -71,6 +72,8 @@ print_usage()
            "        :       0 disables pipelining\n"
            "        :       Redis: 10k is upstream recommended max\n"
            "-l      : path to the log file\n"
+           "-I      : print include directory path\n"
+           "-L      : print library path\n"
            "-V      : print version\n"
            "\n");
     exit(1);
@@ -82,6 +85,20 @@ print_version()
     printf("schaufel version: "
            PACKAGE_VERSION
            "\n");
+    exit(0);
+}
+
+NORETURN static void
+print_library_path(void)
+{
+    printf(CONTRIBDIR "\n");
+    exit(0);
+}
+
+NORETURN static void
+print_include_path(void)
+{
+    printf(INCLUDEDIR "\n");
     exit(0);
 }
 
@@ -270,7 +287,7 @@ main(int argc, char **argv)
     config_t config;
     config_init(&config);
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:V")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:ILV")) != -1)
     {
         switch (opt)
         {
@@ -321,9 +338,13 @@ main(int argc, char **argv)
                 o.out_hosts =  parse_hostinfo_master(o.out_host);
                 o.out_hosts_replica =  parse_hostinfo_replica(o.out_host);
                 break;
+            case 'I':
+                print_include_path();
             case 'G':
                 o.out_groupid = optarg;
                 break;
+            case 'L':
+                print_library_path();
             case 'T':
                 o.out_topic = optarg;
                 break;

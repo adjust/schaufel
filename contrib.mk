@@ -1,8 +1,15 @@
-include ../../Makefile.global
+SCHAUFEL ?= schaufel
+
+ifdef CONTRIB
+	include ../../Makefile.global
+	CFLAGS += -I../../src/include
+else
+	include $(shell $(SCHAUFEL) -L)/Makefile.global
+	CFLAGS += -I$(shell $(SCHAUFEL) -I)
+endif
 
 CFLAGS += -fPIC
 CFLAGS += $(LIBS)
-CFLAGS += -I../../src/
 
 all: clean link
 
@@ -16,6 +23,6 @@ clean:
 	$(CC) $(CFLAGS) -c $< -o $@
 
 install: all
-	$(INSTALL) $(LIB) $(CONTRIBDIR)/$(LIB)
+	$(INSTALL) $(LIB) $(contribdir)/$(LIB)
 
 .PHONY: all link clean install

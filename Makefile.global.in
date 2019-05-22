@@ -3,7 +3,7 @@ exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
 
 bindir ?= @bindir@
-libdir ?= @libdir@
+includedir ?= @includedir@/@PACKAGE_NAME@
 contribdir ?= @libdir@/@PACKAGE_NAME@
 mandir ?= @mandir@
 man1dir = $(mandir)/man1

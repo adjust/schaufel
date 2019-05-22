@@ -1,4 +1,4 @@
-#define INCLUDEDIR ""
+#define INCLUDEDIR "/usr/local/include/schaufel"
 #define LIBDIR "/usr/local/lib"
 #define CONTRIBDIR "/usr/local/lib/schaufel"
 #define DOCDIR "/usr/local/share/doc//schaufel"
