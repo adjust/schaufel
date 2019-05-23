@@ -1,6 +1,6 @@
-AC_CONFIG_AUX_DIR([build-aux])
-
 AC_INIT(schaufel, 0.5)
+AC_CONFIG_SRCDIR([src/modules.c])
+#AC_CONFIG_AUX_DIR([build-aux])
 
 AC_LANG(C)
 AC_PROG_CC

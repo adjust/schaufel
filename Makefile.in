@@ -2,7 +2,7 @@ include Makefile.global
 
 LIBS=@LIBS@
 
-INC = -Isrc/include
+CPPFLAGS = -Isrc/include
 LDFLAGS += -Wl,-E
 
 OBJDIR = obj
@@ -49,10 +49,10 @@ out_release: $(OBJ)
 	$(LD) $(LIBDIR) $(LDFLAGS) $(OBJ) $(LIBS) -o $(OUT)
 
 $(OBJDIR)/%.o: src/%.c 
-	$(CC) $(INC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: t/%.c
-	$(CC) $(INC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIBS) -o bin/$(subst .o, ,$(notdir $@))
 	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
 
@@ -66,7 +66,7 @@ install: all
 	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(man5dir)/schaufel.conf.5
 
 src/include/paths.h:
-	echo "#define INCLUDEDIR \"$(includedir)\"" >>$@
+	echo "#define INCLUDEDIR \"$(includedir)\"" >$@
 	echo "#define CONTRIBDIR \"$(contribdir)\"" >>$@
 	echo "#define DOCDIR \"$(docdir)\"" >>$@
 	echo "#define MANDIR \"$(mandir)\"" >>$@

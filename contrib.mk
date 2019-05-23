@@ -2,25 +2,26 @@ SCHAUFEL ?= schaufel
 
 ifdef CONTRIB
 	include ../../Makefile.global
-	CFLAGS += -I../../src/include
+	CPPFLAGS += -I../../src/include
 else
 	include $(shell $(SCHAUFEL) -L)/Makefile.global
-	CFLAGS += -I$(shell $(SCHAUFEL) -I)
+	CPPFLAGS += -I$(shell $(SCHAUFEL) -I)
 endif
 
 CFLAGS += -fPIC
-CFLAGS += $(LIBS)
+LDFLAGS += -shared
 
-all: clean link
+all: clean $(LIB)
 
-link: $(OBJ)
-	$(LD) $(OBJ) -shared -o $(LIB)
+$(LIB): $(OBJ)
+	$(LD) $(LDFLAGS) $(LIBS) $< -o $@
 
 clean:
 	rm -f $(OBJ)
+	rm -f $(LIB)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 install: all
 	$(INSTALL) $(LIB) $(contribdir)/$(LIB)

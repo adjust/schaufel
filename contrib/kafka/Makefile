@@ -4,4 +4,4 @@ LIBS := -lrdkafka -lconfig -lpthread
 OBJ := kafka.o
 LIB := kafka.so
 
-include $(shell $(SCHAUFEL) -L)/contrib.mk
+include ../../contrib.mk

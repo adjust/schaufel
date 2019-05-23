@@ -1,13 +1,7 @@
-/* src/config.h.in.  Generated from configure.ac by autoheader.  */
+/* src/include/build.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to 1 if you have the `config' library (-lconfig). */
 #undef HAVE_LIBCONFIG
-
-/* Define to 1 if you have the `pq' library (-lpq). */
-#undef HAVE_LIBPQ
-
-/* Define to 1 if you have the `pthread' library (-lpthread). */
-#undef HAVE_LIBPTHREAD
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -26,6 +20,3 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
-
-/* Numeric version */
-#undef VERSION_NUM

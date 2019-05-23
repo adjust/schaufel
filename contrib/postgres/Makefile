@@ -4,4 +4,4 @@ LIBS := -lpq -lconfig -lpthread
 OBJ := postgres.o
 LIB := postgres.so
 
-include $(shell $(SCHAUFEL) -L)/contrib.mk
+include ../../contrib.mk
