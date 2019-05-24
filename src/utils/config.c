@@ -87,6 +87,34 @@ module_to_string(int module)
     return result;
 }
 
+static bool
+verify_consumer_routines(ModuleHandler *handler)
+{
+    if (handler->consumer_init
+        && handler->consume
+        && handler->consumer_free
+        && handler->validate_producer)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+verify_producer_routines(ModuleHandler *handler)
+{
+    if (handler->producer_init
+        && handler->produce
+        && handler->producer_free
+        && handler->validate_producer)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 static bool _thread_validate(config_t* config, int type)
 {
     char buf[1024];
@@ -157,9 +185,10 @@ static bool _thread_validate(config_t* config, int type)
 
         if(type == SCHAUFEL_TYPE_CONSUMER)
         {
-            if (!handler->validate_consumer)
+            if (!verify_consumer_routines(handler))
             {
-                fprintf(stderr, "Type %s has no consumer validator!\n", conf_str);
+                fprintf(stderr, "%s %d: '%s' module doesn't implement consumer interface\n",
+                        __FILE__, __LINE__, conf_str);
                 ret = false;
                 goto error;
             }
@@ -171,6 +200,13 @@ static bool _thread_validate(config_t* config, int type)
         }
         else if(type == SCHAUFEL_TYPE_PRODUCER)
         {
+            if (!verify_producer_routines(handler))
+            {
+                fprintf(stderr, "%s %d: '%s' module doesn't implement producer interface\n",
+                        __FILE__, __LINE__, conf_str);
+                ret = false;
+                goto error;
+            }
             if (!handler->validate_producer)
             {
                 fprintf(stderr, "Type %s has no producer validator!\n", conf_str);

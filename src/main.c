@@ -144,8 +144,6 @@ consume(void *config)
         return NULL;
     }
 
-    /* TODO: check that consumer_init routine is not NULL */
-
     Consumer c = handler->consumer_init((config_setting_t *) config);
     if (c == NULL)
     {

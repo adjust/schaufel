@@ -14,14 +14,12 @@ typedef struct ModuleHandler
     Consumer  (*consumer_init) (config_setting_t *config);
     int       (*consume) (Consumer c, Message msg);
     void      (*consumer_free) (Consumer *c);
+    bool      (*validate_consumer) (config_setting_t* config);
     
     /* producer routines */
     Producer  (*producer_init) (config_setting_t *config);
     void      (*produce) (Producer p, Message msg);
     void      (*producer_free) (Producer *p);
-
-    /* validator routines */
-    bool      (*validate_consumer) (config_setting_t* config);
     bool      (*validate_producer) (config_setting_t* config);
 } ModuleHandler;
 

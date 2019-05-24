@@ -67,6 +67,9 @@ load_library(const char *name)
     char sopath[2048];
     void (*init_func)(void);
 
+    if (!name)
+        return false;
+
     snprintf(sopath, 2048, "%s/%s.so", CONTRIBDIR, name);
     
     handle = dlopen(sopath, RTLD_NOW);
