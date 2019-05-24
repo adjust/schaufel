@@ -28,8 +28,26 @@ extern void
 register_module(const char *name, ModuleHandler *handler)
 {
     ModuleNode *node = SCALLOC(1, sizeof(ModuleNode));
+    ModuleNode *cur = modules_head;
+    
+    /* check for module names conflicts */
+    while (cur)
+    {
+        if (strcmp(cur->name, name) == 0)
+        {
+            logger_log("module '%s' has already been registered", name);
+            /*
+             * XXX This function is called from extensions and we can't trust
+             * extensions to properly propagate the error back to schaufel.
+             * So we just exit here. Is there a better solution?
+             */
+            exit(1);
+        }
 
-    /* TODO: check that module with the same name already exists */
+        cur = cur->next;
+    }
+
+    /* set up a new node and insert it to the head of the list */
     node->name = name;
     node->handler = handler;
     node->next = modules_head;

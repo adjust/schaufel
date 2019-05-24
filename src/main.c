@@ -364,7 +364,7 @@ main(int argc, char **argv)
     if (!load_libraries(&config))
     {
         logger_log("%s %d: Failed to load libraries\n", __FILE__, __LINE__);
-        abort();
+        exit(1);
     }
 
     if(!config_validate(&config)) {
