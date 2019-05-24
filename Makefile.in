@@ -58,7 +58,7 @@ $(OBJDIR)/%.o: t/%.c
 
 install: all
 	$(INSTALL) bin/schaufel $(DESTDIR)$(bindir)/schaufel
-	cp -a src/include $(DESTDIR)$(includedir)
+	cp -r src/include/ $(DESTDIR)$(includedir)
 	$(INSTALL) -m 0644 contrib.mk $(DESTDIR)$(contribdir)/contrib.mk
 	$(INSTALL) -m 0644 Makefile.global $(DESTDIR)$(contribdir)/Makefile.global
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(docdir) doc/*

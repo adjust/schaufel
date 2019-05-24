@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "modules.h"
 #include "utils/config.h"
@@ -58,6 +59,38 @@ _add_member(config_setting_t* config, char* name, int type)
     if(!child)
         abort();
     return(child);
+}
+
+static void
+_add_list_member_unique(config_setting_t* setting, const char *str)
+{
+    int i;
+    int len;
+
+    /* TODO: check once */
+    if (!config_setting_is_list(setting))
+        exit(1);
+
+    len = config_setting_length(setting);
+    for (i = 0; i < len; ++i)
+    {
+        config_setting_t *elem;
+
+        elem = config_setting_get_elem(setting, i);
+        if (config_setting_type(elem) == CONFIG_TYPE_STRING)
+        {
+            const char *val = config_setting_get_string(elem);
+
+            if (strcmp(val, str) == 0)
+            {
+                /* the list already contains str, skipping */
+                return;
+            }
+
+            elem = _add_member(setting, NULL, CONFIG_TYPE_STRING);
+            config_setting_set_string(elem, str);
+        }
+    }
 }
 
 char *
@@ -263,7 +296,11 @@ config_merge(config_t* config, Options o)
 
     /* Commandline options take precedence over
      * config file parameters. */
-    config_setting_t *croot = NULL, *parent = NULL, *setting = NULL;
+    config_setting_t *croot = NULL,
+                     *parent = NULL,
+                     *setting = NULL,
+                     *libs = NULL;
+
     croot = config_root_setting(config);
 
     setting = config_lookup(config, "logger");
@@ -276,12 +313,27 @@ config_merge(config_t* config, Options o)
         config_setting_set_string(setting, "file");
     } // TODO : default to stderr
 
+    // libraries
+    if ((libs = config_setting_get_member(croot, "libraries")) != NULL) {
+        if (!config_setting_is_list(libs)) {
+            fprintf(stderr, "'libraries' setting must be a list");
+            exit(1);
+        }
+    } else {
+        libs = _add_node(croot, "libraries", CONFIG_TYPE_LIST);
+    }
+
     //consumers
     if (o.input) {
+        const char *module = module_to_string(o.input);
+
         parent = _add_node(croot, "consumers", CONFIG_TYPE_LIST);
         parent = _add_node(parent, NULL, CONFIG_TYPE_GROUP);
         setting = _add_member(parent, "type", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, module_to_string(o.input));
+        config_setting_set_string(setting, module);
+
+        // add library
+        _add_list_member_unique(libs, module);
 
         // threads are initialized to 0, therefore they are safe to add
         setting = _add_member(parent, "threads", CONFIG_TYPE_INT);
@@ -314,10 +366,15 @@ config_merge(config_t* config, Options o)
 
     //producers
     if (o.output) {
+        const char *module = module_to_string(o.output);
+
         parent = _add_node(croot, "producers", CONFIG_TYPE_LIST);
         parent = _add_node(parent, NULL, CONFIG_TYPE_GROUP);
         setting = _add_member(parent, "type", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, module_to_string(o.output));
+        config_setting_set_string(setting, module);
+
+        // add library
+        _add_list_member_unique(libs, module);
 
         // threads are initialized to 0, therefore they are safe to add
         setting = _add_member(parent, "threads", CONFIG_TYPE_INT);
