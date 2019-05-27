@@ -1,4 +1,4 @@
-AC_INIT([schaufel], [0.5])
+AC_INIT([schaufel], [0.6])
 AC_CONFIG_SRCDIR([src/modules.c])
 
 AC_LANG(C)
@@ -28,8 +28,8 @@ AC_SEARCH_LIBS([pthread_create], [pthread], [
 ])
 
 CFLAGS+=" -Wall -Wextra -pedantic"
-CFLAGS+=" -D_POSIX_C_SOURCE=200809L"
-CFLAGS+=" -D_BSD_SOURCE"
+CFLAGS+=" -D_XOPEN_SOURCE=700"
+CFLAGS+=" -D_DEFAULT_SOURCE"
 
 AC_CONFIG_HEADERS([src/include/build.h])
 AC_OUTPUT([Makefile Makefile.global])

@@ -6,12 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
 #include "modules.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
 #include "utils/scalloc.h"
+#include "utils/endian.h"
 
 
 #define PQ_COPY_TEXT   0
