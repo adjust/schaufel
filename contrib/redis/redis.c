@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "redis.h"
+#include "modules.h"
 #include "utils/config.h"
 #include "utils/logger.h"
 #include "utils/helper.h"
@@ -106,8 +106,6 @@ redis_producer_init(config_setting_t *config)
     Producer redis = SCALLOC(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
-    redis->producer_free = redis_producer_free;
-    redis->produce       = redis_producer_produce;
 
     return redis;
 }
@@ -150,8 +148,6 @@ redis_consumer_init(config_setting_t *config)
     Consumer redis = SCALLOC(1, sizeof(*redis));
 
     redis->meta          = redis_meta_init(host, topic, pipeline);
-    redis->consumer_free = redis_consumer_free;
-    redis->consume       = redis_consumer_consume;
 
     return redis;
 }
@@ -230,13 +226,20 @@ redis_validator(config_setting_t *config)
     return true;
 }
 
-
-Validator
-redis_validator_init()
+void
+schaufel_init(void)
 {
-    Validator v = SCALLOC(1,sizeof(*v));
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 
-    v->validate_consumer = &redis_validator;
-    v->validate_producer = &redis_validator;
-    return v;
+    handler->consumer_init = redis_consumer_init;
+    handler->consume = redis_consumer_consume;
+    handler->consumer_free = redis_consumer_free;
+    handler->producer_init = redis_producer_init;
+    handler->produce = redis_producer_produce;
+    handler->producer_free = redis_producer_free;
+    handler->validate_consumer = redis_validator;
+    handler->validate_producer = redis_validator;
+
+    register_module("redis", handler);
 }
+

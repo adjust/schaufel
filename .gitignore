@@ -38,3 +38,12 @@
 bin/
 *.swp
 log/
+
+# Files created by configure
+/config.cache
+/config.log
+/config.status
+/Makefile
+/Makefile.global
+/src/include/paths.h
+/src/include/build.h

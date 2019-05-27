@@ -8,7 +8,10 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "consumer.h"
+#include "modules.h"
+#include "paths.h"
 #include "producer.h"
 #include "utils/config.h"
 #include "utils/helper.h"
@@ -69,6 +72,8 @@ print_usage()
            "        :       0 disables pipelining\n"
            "        :       Redis: 10k is upstream recommended max\n"
            "-l      : path to the log file\n"
+           "-I      : print include directory path\n"
+           "-L      : print library path\n"
            "-V      : print version\n"
            "\n");
     exit(1);
@@ -78,8 +83,22 @@ NORETURN void
 print_version()
 {
     printf("schaufel version: "
-            _SCHAUFEL_VERSION
-            "\n");
+           PACKAGE_VERSION
+           "\n");
+    exit(0);
+}
+
+NORETURN static void
+print_library_path(void)
+{
+    printf(CONTRIBDIR "\n");
+    exit(0);
+}
+
+NORETURN static void
+print_include_path(void)
+{
+    printf(INCLUDEDIR "\n");
     exit(0);
 }
 
@@ -117,8 +136,15 @@ consume(void *config)
         logger_log("%s %d: could not init message", __FILE__, __LINE__);
         return NULL;
     }
-    Consumer c = consumer_init(*consumer_type,
-        (config_setting_t *) config);
+
+    ModuleHandler *handler = lookup_module(consumer_type);
+    if (!handler)
+    {
+        logger_log("%s %d: module %s is not found", __FILE__, __LINE__, consumer_type);
+        return NULL;
+    }
+
+    Consumer c = handler->consumer_init((config_setting_t *) config);
     if (c == NULL)
     {
         logger_log("%s %d: could not init consumer", __FILE__, __LINE__);
@@ -132,7 +158,7 @@ consume(void *config)
 
     while (get_state(&consume_state))
     {
-        if (consumer_consume(c, msg) == -1)
+        if (handler->consume(c, msg) == -1)
             break;
         if (message_get_data(msg) != NULL)
         {
@@ -142,7 +168,7 @@ consume(void *config)
         }
     }
     message_free(&msg);
-    consumer_free(&c);
+    handler->consumer_free(&c);
     return NULL;
 }
 
@@ -153,8 +179,15 @@ produce(void *config)
     const char *producer_type = NULL;
     config_setting_lookup_string((config_setting_t *) config,
         "type", &producer_type);
-    Producer p = producer_init(*producer_type,
-        (config_setting_t *) config);
+
+    ModuleHandler *handler = lookup_module(producer_type);
+    if (!handler)
+    {
+        logger_log("%s %d: module %s is not found", __FILE__, __LINE__, producer_type);
+        return NULL;
+    }
+
+    Producer p = handler->producer_init((config_setting_t *) config);
     if (p == NULL)
     {
         logger_log("%s %d: could not init producer", __FILE__, __LINE__);
@@ -177,14 +210,14 @@ produce(void *config)
         if (message_get_data(msg) != NULL)
         {
             //TODO: check success
-            producer_produce(p, msg);
+            handler->produce(p, msg);
             //message was handled: free it
             free(message_get_data(msg));
             message_set_data(msg, NULL);
         }
     }
     message_free(&msg);
-    producer_free(&p);
+    handler->producer_free(&p);
     return NULL;
 }
 
@@ -240,6 +273,8 @@ main(int argc, char **argv)
 
     void *res;
 
+    register_builtin_modules();
+
     pthread_t *c_thread;
     pthread_t *p_thread;
     pthread_t stat_thread;
@@ -250,7 +285,7 @@ main(int argc, char **argv)
     config_t config;
     config_init(&config);
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:V")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:ILV")) != -1)
     {
         switch (opt)
         {
@@ -301,9 +336,13 @@ main(int argc, char **argv)
                 o.out_hosts =  parse_hostinfo_master(o.out_host);
                 o.out_hosts_replica =  parse_hostinfo_replica(o.out_host);
                 break;
+            case 'I':
+                print_include_path();
             case 'G':
                 o.out_groupid = optarg;
                 break;
+            case 'L':
+                print_library_path();
             case 'T':
                 o.out_topic = optarg;
                 break;
@@ -321,6 +360,12 @@ main(int argc, char **argv)
     }
 
     config_merge(&config, o);
+
+    if (!load_libraries(&config))
+    {
+        logger_log("%s %d: Failed to load libraries\n", __FILE__, __LINE__);
+        exit(1);
+    }
 
     if(!config_validate(&config)) {
         if(!o.config)

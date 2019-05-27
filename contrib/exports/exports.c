@@ -1,19 +1,26 @@
+#include <arpa/inet.h>
 #include <errno.h>
+#include <json-c/json.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <json-c/json.h>
-#include <arpa/inet.h>
+#include <unistd.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
-#include "exports.h"
+#include "modules.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
-#include "utils/postgres.h"
 #include "utils/scalloc.h"
 #include "utils/endian.h"
 
+
+#define PQ_COPY_TEXT   0
+#define PQ_COPY_CSV    1
+#define PQ_COPY_BINARY 2
 
 typedef struct Needles *Needles;
 typedef struct Needles {
@@ -30,6 +37,22 @@ typedef struct Internal {
     uint32_t       *leapyears;
     uint16_t        ncount;
 } *Internal;
+
+typedef struct Meta {
+    PGconn          *conn_master;
+    PGconn          *conn_replica;
+    PGresult        *res;
+    char            *conninfo;
+    char            *conninfo_replica;
+    char            *cpycmd;
+    int             cpyfmt;
+    int             count;
+    int             copy;
+    int             commit_iter;
+    pthread_mutex_t commit_mutex;
+    pthread_t       commit_worker;
+    Internal        internal;
+} *Meta;
 
 static bool _json_to_pqtext (json_object *needle, Needles current);
 static bool _json_to_pqtimestamp (json_object *needle, Needles current);
@@ -75,6 +98,60 @@ _connectinfo(const char *host)
         " user=postgres host=%s port=%d", hostname, port);
     free(hostname);
     return conninfo;
+}
+
+static void
+_commit(Meta *m)
+{
+    if((*m)->cpyfmt == PQ_COPY_BINARY)
+        PQputCopyData((*m)->conn_master, "\377\377", 2);
+    PQputCopyEnd((*m)->conn_master, NULL);
+    if ((*m)->conninfo_replica)
+        PQputCopyEnd((*m)->conn_replica, NULL);
+
+    (*m)->count = 0;
+    (*m)->copy  = 0;
+    (*m)->commit_iter = 0;
+}
+
+static void
+_commit_worker_cleanup(void *mutex)
+{
+    pthread_mutex_unlock((pthread_mutex_t*) mutex);
+    return;
+}
+
+static void *
+_commit_worker(void *meta)
+{
+    Meta *m = (Meta *) meta;
+
+    #ifdef PR_SET_NAME
+    prctl(PR_SET_NAME, "commit_worker");
+    #endif
+
+    while(42)
+    {
+        sleep(1);
+
+        pthread_mutex_lock(&((*m)->commit_mutex));
+        pthread_cleanup_push(_commit_worker_cleanup, &(*m)->commit_mutex);
+
+        (*m)->commit_iter++;
+        (*m)->commit_iter &= 0xF;
+
+        /* if count > 0 it implies that copy == 1,
+         * therefore it is safe to commit data */
+        if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
+            logger_log("%s %d: Autocommiting %d entries",
+                __FILE__, __LINE__, (*m)->count);
+            _commit(m);
+        }
+
+        pthread_cleanup_pop(0);
+        pthread_mutex_unlock(&((*m)->commit_mutex));
+        pthread_testcancel();
+    }
 }
 
 static PqTypes
@@ -304,7 +381,7 @@ _cpycmd(const char *host, const char *table)
 }
 
 
-Meta
+static Meta
 exports_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
 {
     Meta m = SCALLOC(1, sizeof(*m));
@@ -332,7 +409,7 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
     return m;
 }
 
-void
+static void
 exports_meta_free(Meta *m)
 {
     Internal internal = (*m)->internal;
@@ -356,7 +433,7 @@ exports_meta_free(Meta *m)
     *m = NULL;
 }
 
-Producer
+static Producer
 exports_producer_init(config_setting_t *config)
 {
     const char *host = NULL, *topic = NULL;
@@ -367,12 +444,10 @@ exports_producer_init(config_setting_t *config)
     Producer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, topic, needlestack);
-    exports->producer_free = exports_producer_free;
-    exports->produce       = exports_producer_produce;
 
     if (pthread_create(&((Meta)(exports->meta))->commit_worker,
         NULL,
-        commit_worker,
+        _commit_worker,
         (void *)&(exports->meta))) {
         logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
         abort();
@@ -381,7 +456,7 @@ exports_producer_init(config_setting_t *config)
     return exports;
 }
 
-bool
+static bool
 _deref(json_object *haystack, Internal internal)
 {
     json_object *found;
@@ -405,7 +480,7 @@ _deref(json_object *haystack, Internal internal)
     return true;
 }
 
-void
+static void
 exports_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
@@ -474,7 +549,7 @@ exports_producer_produce(Producer p, Message msg)
     m->count = m->count + 1;
     if (m->count == 2000)
     {
-        commit(&m);
+        _commit(&m);
     }
 
     error:
@@ -482,7 +557,7 @@ exports_producer_produce(Producer p, Message msg)
     pthread_mutex_unlock(&m->commit_mutex);
 }
 
-void
+static void
 exports_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
@@ -493,7 +568,7 @@ exports_producer_free(Producer *p)
 
     if (m->copy != 0)
     {
-        commit(&m);
+        _commit(&m);
     }
 
     exports_meta_free(&m);
@@ -501,7 +576,7 @@ exports_producer_free(Producer *p)
     *p = NULL;
 }
 
-Consumer
+static Consumer
 exports_consumer_init(config_setting_t *config)
 {
     const char *host = NULL;
@@ -510,8 +585,6 @@ exports_consumer_init(config_setting_t *config)
     Consumer exports = SCALLOC(1, sizeof(*exports));
 
     exports->meta          = exports_meta_init(host, NULL, needles);
-    exports->consumer_free = exports_consumer_free;
-    exports->consume       = exports_consumer_consume;
 
     return exports;
 }
@@ -523,7 +596,7 @@ exports_consumer_consume(UNUSED Consumer c, UNUSED Message msg)
     return -1;
 }
 
-void
+static void
 exports_consumer_free(Consumer *c)
 {
     Meta m = (Meta) ((*c)->meta);
@@ -532,8 +605,8 @@ exports_consumer_free(Consumer *c)
     *c = NULL;
 }
 
-bool
-exporter_validate(UNUSED config_setting_t *config)
+static bool
+exports_validate(UNUSED config_setting_t *config)
 {
     config_setting_t *setting = NULL, *member = NULL, *child = NULL;
     const char *conf = NULL;
@@ -585,13 +658,20 @@ exporter_validate(UNUSED config_setting_t *config)
     return false;
 }
 
-
-Validator
-exports_validator_init()
+void
+schaufel_init(void)
 {
-    Validator v = SCALLOC(1,sizeof(*v));
+    ModuleHandler *handler = SCALLOC(1, sizeof(ModuleHandler));
 
-    v->validate_consumer = &exporter_validate;
-    v->validate_producer = &exporter_validate;
-    return v;
+    handler->consumer_init = exports_consumer_init;
+    handler->consume = exports_consumer_consume;
+    handler->consumer_free = exports_consumer_free;
+    handler->producer_init = exports_producer_init;
+    handler->produce = exports_producer_produce;
+    handler->producer_free = exports_producer_free;
+    handler->validate_consumer = exports_validate;
+    handler->validate_producer = exports_validate;
+
+    register_module("exports", handler);
 }
+

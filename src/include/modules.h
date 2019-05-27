@@ -1,0 +1,32 @@
+#ifndef MODULES_H
+#define MODULES_H
+
+#include <libconfig.h>
+#include <stdbool.h>
+
+#include "consumer.h"
+#include "producer.h"
+
+
+typedef struct ModuleHandler
+{
+    /* consumer routines */
+    Consumer  (*consumer_init) (config_setting_t *config);
+    int       (*consume) (Consumer c, Message msg);
+    void      (*consumer_free) (Consumer *c);
+    bool      (*validate_consumer) (config_setting_t* config);
+
+    /* producer routines */
+    Producer  (*producer_init) (config_setting_t *config);
+    void      (*produce) (Producer p, Message msg);
+    void      (*producer_free) (Producer *p);
+    bool      (*validate_producer) (config_setting_t* config);
+} ModuleHandler;
+
+extern void register_module(const char *name, ModuleHandler *handler);
+ModuleHandler *lookup_module(const char *name);
+void register_builtin_modules(void);
+bool load_library(const char *name);
+bool load_libraries(config_t *config);
+
+#endif
