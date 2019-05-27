@@ -68,7 +68,5 @@ install: all
 src/include/paths.h:
 	echo "#define INCLUDEDIR \"$(includedir)\"" >$@
 	echo "#define CONTRIBDIR \"$(contribdir)\"" >>$@
-	echo "#define DOCDIR \"$(docdir)\"" >>$@
-	echo "#define MANDIR \"$(mandir)\"" >>$@
 
 .PHONY: all contrib docs release test clean

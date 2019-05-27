@@ -1,6 +1,5 @@
-AC_INIT(schaufel, 0.5)
+AC_INIT([schaufel], [0.5])
 AC_CONFIG_SRCDIR([src/modules.c])
-#AC_CONFIG_AUX_DIR([build-aux])
 
 AC_LANG(C)
 AC_PROG_CC
@@ -33,5 +32,4 @@ CFLAGS+=" -D_POSIX_C_SOURCE=200809L"
 CFLAGS+=" -D_BSD_SOURCE"
 
 AC_CONFIG_HEADERS([src/include/build.h])
-
 AC_OUTPUT([Makefile Makefile.global])

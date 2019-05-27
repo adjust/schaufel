@@ -15,7 +15,7 @@ typedef struct ModuleHandler
     int       (*consume) (Consumer c, Message msg);
     void      (*consumer_free) (Consumer *c);
     bool      (*validate_consumer) (config_setting_t* config);
-    
+
     /* producer routines */
     Producer  (*producer_init) (config_setting_t *config);
     void      (*produce) (Producer p, Message msg);
