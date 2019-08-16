@@ -423,13 +423,16 @@ config_setting_t *config_create_path(config_setting_t *parent,
             /* not a group? */
             if (config_setting_type(found) != CONFIG_TYPE_GROUP)
             {
-                /*
-                 * Currently by the time when this function is used the logger
-                 * is already initialized. When it's not the case anymore
-                 * the way of logging error here must be changed.
-                 */
-                logger_log("%s %d: `%s` is not a settings group",
-                           __FILE__, __LINE__, prefix);
+                if(get_logger_state())
+                {
+                    logger_log("%s %d: `%s` is not a settings group",
+                               __FILE__, __LINE__, prefix);
+                }
+                else
+                {
+                    fprintf(stderr,"%s %d: `%s` is not a settings group",
+                            __FILE__, __LINE__, prefix);
+                }
                 abort();
             }
 

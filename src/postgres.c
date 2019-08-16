@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <string.h>
@@ -11,8 +12,22 @@
 #include "utils/scalloc.h"
 
 
+typedef enum {
+    POSTGRES_JSON,
+    POSTGRES_CSV,
+} postgres_format;
+
+struct pg_parameters {
+    const char     *host;
+    const char     *dbname;
+    const char     *user;
+    const char     *host_replica;
+    const char     *generation;
+    postgres_format fmt;
+};
+
 char *
-_connectinfo(const char *host)
+_connectinfo(const char *host, const char *user, const char *dbname)
 {
     if (host == NULL)
         return NULL;
@@ -22,21 +37,17 @@ _connectinfo(const char *host)
     if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
-    int len = strlen(hostname)
-            + number_length(port)
-            + strlen(" dbname=data user=postgres ")
-            + strlen(" host= ")
-            + strlen(" port= ");
-    char *conninfo = SCALLOC(len + 1, sizeof(*conninfo));
-
-    snprintf(conninfo, len, "dbname=data user=postgres host=%s port=%d", hostname, port);
+    char *conninfo = SSPRINTF("dbname=%s user=%s host=%s port=%d",
+                              dbname, user, hostname, port);
     free(hostname);
     return conninfo;
 }
 
 static char *
-_cpycmd(const char *host, const char *generation)
+_cpycmd(const char *host, const char *generation, postgres_format fmt)
 {
+    char *cpycmd;
+
     if (host == NULL)
         return NULL;
     char *hostname;
@@ -55,27 +66,57 @@ _cpycmd(const char *host, const char *generation)
         ++ptr;
     }
 
-    const char *fmtstring = "COPY %s_%d_%s.data FROM STDIN";
+    if (fmt == POSTGRES_CSV)
+        cpycmd = SSPRINTF("COPY %s FROM STDIN (FORMAT CSV)", generation);
+    else
+    {
+        cpycmd = SSPRINTF("COPY %s_%d_%s.data FROM STDIN (FORMAT CSV)",
+                          hostname, port, generation);
+    }
 
-    int len = strlen(hostname)
-            + number_length(port)
-            + strlen(fmtstring);
-
-    char *cpycmd = SCALLOC(len + 1, sizeof(*cpycmd));
-
-    snprintf(cpycmd, len, fmtstring, hostname, port, generation);
     free(hostname);
     return cpycmd;
 }
 
+static void
+postgres_defaults(config_setting_t *c)
+{
+    config_set_default_string(c, "user", "postgres");
+    config_set_default_string(c, "dbname", "data");
+    config_set_default_string(c, "format", "json");
+}
+
+static void
+read_pg_params(struct pg_parameters *p, config_setting_t *config)
+{
+    const char *format;
+
+    config_setting_lookup_string(config, "host", &p->host);
+    config_setting_lookup_string(config, "dbname", &p->dbname);
+    config_setting_lookup_string(config, "user", &p->user);
+    config_setting_lookup_string(config, "replica", &p->host_replica);
+    config_setting_lookup_string(config, "topic", &p->generation);
+    config_setting_lookup_string(config, "format", &format);
+
+    assert(format != NULL);
+    if (strcmp(format, "csv") == 0)
+        p->fmt = POSTGRES_CSV;
+    else if (strcmp(format, "json") == 0)
+        p->fmt = POSTGRES_JSON;
+    else
+    {
+        logger_log("%s %d: Unknown format: %s", __FILE__, __LINE__, format);
+        abort();
+    }
+}
 
 Meta
-postgres_meta_init(const char *host, const char *host_replica, const char *generation)
+postgres_meta_init(struct pg_parameters *p)
 {
     Meta m = SCALLOC(1, sizeof(*m));
 
-    m->cpycmd = _cpycmd(host, generation);
-    m->conninfo = _connectinfo(host);
+    m->cpycmd = _cpycmd(p->host, p->generation, p->fmt);
+    m->conninfo = _connectinfo(p->host, p->dbname, p->user);
 
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
@@ -84,7 +125,7 @@ postgres_meta_init(const char *host, const char *host_replica, const char *gener
         abort();
     }
 
-    m->conninfo_replica = _connectinfo(host_replica);
+    m->conninfo_replica = _connectinfo(p->host_replica, p->dbname, p->user);
 
     if (m->conninfo_replica == NULL)
         return m;
@@ -121,15 +162,14 @@ postgres_meta_free(Meta *m)
 Producer
 postgres_producer_init(config_setting_t *config)
 {
-    const char *host = NULL, *host_replica = NULL, *generation = NULL;
+    struct pg_parameters params = {0};
 
-    config_setting_lookup_string(config,"host",&host);
-    config_setting_lookup_string(config,"replica",&host_replica);
-    config_setting_lookup_string(config,"topic", &generation);
+    postgres_defaults(config);
+    read_pg_params(&params, config);
 
     Producer postgres = SCALLOC(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host, host_replica, generation);
+    postgres->meta          = postgres_meta_init(&params);
     postgres->producer_free = postgres_producer_free;
     postgres->produce       = postgres_producer_produce;
 
@@ -244,9 +284,11 @@ postgres_producer_free(Producer *p)
 Consumer
 postgres_consumer_init(char *host)
 {
-    Consumer postgres = SCALLOC(1, sizeof(*postgres));
+    struct pg_parameters    params = {0};
+    Consumer                postgres = SCALLOC(1, sizeof(*postgres));
 
-    postgres->meta          = postgres_meta_init(host, NULL, NULL);
+    params.host = host;
+    postgres->meta          = postgres_meta_init(&params);
     postgres->consumer_free = postgres_consumer_free;
     postgres->consume       = postgres_consumer_consume;
 
