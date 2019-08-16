@@ -15,6 +15,7 @@
 #include "utils/logger.h"
 #include "utils/options.h"
 #include "utils/scalloc.h"
+#include "version.h"
 
 
 /* Schaufel keeps track of consume and produce states.
@@ -78,8 +79,8 @@ NORETURN void
 print_version()
 {
     printf("schaufel version: "
-            _SCHAUFEL_VERSION
-            "\n");
+           _SCHAUFEL_VERSION
+           "\n");
     exit(0);
 }
 

@@ -54,6 +54,78 @@ rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err, rd_kafka_topic_partition_
     }
 }
 
+/*
+ * replace_char
+ *      Replace in string `str` character c with character s.
+ */
+static void replace_char(char *str, char c, char s)
+{
+    while (*str)
+    {
+        if (*str == c)
+            *str = s;
+        ++str;
+    }
+}
+
+static void kafka_set_option(const char *key, const char *value, void *arg)
+{
+    char errstr[512];
+    char buf[128];
+    rd_kafka_conf_t    *conf = (rd_kafka_conf_t *) arg;
+    rd_kafka_conf_res_t res;
+
+    strcpy(buf, key);
+    /* kafka options use `.` (dot) as a separator */
+    replace_char(buf, '_', '.');
+
+    res = rd_kafka_conf_set(conf, buf, value, errstr, sizeof(errstr));
+    if (res != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+        abort();
+    }
+}
+
+static void kafka_topic_set_option(const char *key, const char *value, void *arg)
+{
+    char errstr[512];
+    char buf[128];
+    rd_kafka_topic_conf_t  *topic_conf = (rd_kafka_topic_conf_t *) arg;
+    rd_kafka_conf_res_t     res;
+
+    strcpy(buf, key);
+    replace_char(buf, '_', '.');
+
+    res = rd_kafka_topic_conf_set(topic_conf, buf, value, errstr, sizeof(errstr));
+    if (res != RD_KAFKA_CONF_OK)
+    {
+        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+        abort();
+    }
+}
+
+static void kafka_producer_defaults(config_setting_t *c)
+{
+    config_set_default_string(c, "kafka_options/compression_codec", "lz4");
+    config_set_default_string(c, "kafka_options/queue_buffering_max_ms", "1000");
+}
+
+static void kafka_consumer_defaults(config_setting_t *c)
+{
+    config_setting_t *topic_options;
+
+    config_set_default_string(c, "kafka_options/offset_store_method", "broker");
+
+    topic_options = config_create_path(c, "topic_options", CONFIG_TYPE_GROUP);
+    if (topic_options)
+    {
+        config_set_default_string(topic_options, "enable_auto_commit", "true");
+        config_set_default_string(topic_options, "auto_commit_interval_ms", "10");
+        config_set_default_string(topic_options, "auto_offset_reset", "latest");
+    }
+}
+
 typedef struct Meta {
     rd_kafka_t *rk;
     rd_kafka_topic_t *rkt;
@@ -62,28 +134,25 @@ typedef struct Meta {
 } *Meta;
 
 Meta
-kafka_producer_meta_init(const char *broker, const char *topic)
+kafka_producer_meta_init(const char *broker,
+                         const char *topic,
+                         config_setting_t *kafka_options,
+                         config_setting_t *topic_options)
 {
     Meta m = SCALLOC(1, sizeof(*m));
 
-    char errstr[512];
-    rd_kafka_t *rk;
-    rd_kafka_topic_t *rkt;
-    rd_kafka_conf_t *conf;
+    char                    errstr[512];
+    rd_kafka_t             *rk;
+    rd_kafka_topic_t       *rkt;
+    rd_kafka_conf_t        *conf;
+    rd_kafka_topic_conf_t  *topic_conf;
 
     conf = rd_kafka_conf_new();
+    config_group_apply(kafka_options, kafka_set_option, conf);
 
-    if (rd_kafka_conf_set(conf, "compression.codec", "lz4", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
-        abort();
-    }
-
-    if (rd_kafka_conf_set(conf, "queue.buffering.max.ms","1000",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
-        abort();
-    }
+    topic_conf = rd_kafka_topic_conf_new();
+    config_group_apply(topic_options, kafka_topic_set_option, topic_conf);
+    rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
 
     rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
@@ -117,18 +186,22 @@ kafka_producer_meta_init(const char *broker, const char *topic)
 }
 
 Meta
-kafka_consumer_meta_init(const char *broker, const char *topic, const char *groupid)
+kafka_consumer_meta_init(const char *broker,
+                         const char *topic,
+                         const char *groupid,
+                         const config_setting_t *kafka_options,
+                         const config_setting_t *topic_options)
 {
     Meta m = SCALLOC(1, sizeof(*m));
-
-    rd_kafka_resp_err_t err;
     char errstr[512];
-    rd_kafka_t *rk;
-    rd_kafka_topic_t *rkt;
-    rd_kafka_conf_t *conf;
-    rd_kafka_topic_conf_t *topic_conf = rd_kafka_topic_conf_new();
+    rd_kafka_resp_err_t     err;
+    rd_kafka_t             *rk;
+    rd_kafka_topic_t       *rkt;
+    rd_kafka_conf_t        *conf;
+    rd_kafka_topic_conf_t  *topic_conf;
 
     conf = rd_kafka_conf_new();
+    config_group_apply(kafka_options, kafka_set_option, conf);
 
     if (rd_kafka_conf_set(conf, "group.id", groupid, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
@@ -136,29 +209,10 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
         abort();
     }
 
-    if (rd_kafka_topic_conf_set(topic_conf, "offset.store.method","broker",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
-        abort();
-    }
-    if (rd_kafka_topic_conf_set(topic_conf, "enable.auto.commit","true",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
-        abort();
-    }
-    if (rd_kafka_topic_conf_set(topic_conf, "auto.commit.interval.ms","10",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
-        abort();
-    }
-
-    if (rd_kafka_topic_conf_set(topic_conf, "auto.offset.reset","latest",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
-    {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
-        abort();
-    }
-
+    topic_conf = rd_kafka_topic_conf_new();
+    config_group_apply(topic_options, kafka_topic_set_option, topic_conf);
     rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
+
     rd_kafka_conf_set_rebalance_cb(conf, rebalance_cb);
     rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
@@ -173,7 +227,6 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
     {
         abort();
     }
-
 
     rkt = rd_kafka_topic_new(rk, topic, NULL);
     if (!rkt)
@@ -229,13 +282,22 @@ Producer
 kafka_producer_init(config_setting_t *config)
 {
     const char *broker = NULL, *topic = NULL;
+    config_setting_t *kafka_options, *topic_options;
+
+    kafka_producer_defaults(config);
+
     config_setting_lookup_string(config, "broker", &broker);
     config_setting_lookup_string(config, "topic", &topic);
+    kafka_options = config_setting_get_member(config, "kafka_options");
+    topic_options = config_setting_get_member(config, "topic_options");
+
     Producer kafka = SCALLOC(1, sizeof(*kafka));
 
-    kafka->meta          = kafka_producer_meta_init(broker, topic);
+    kafka->meta = kafka_producer_meta_init(broker, topic,
+                                           kafka_options,
+                                           topic_options);
     kafka->producer_free = kafka_producer_free;
-    kafka->produce       = kafka_producer_produce;
+    kafka->produce = kafka_producer_produce;
 
     return kafka;
 }
@@ -287,14 +349,23 @@ Consumer
 kafka_consumer_init(config_setting_t *config)
 {
     const char *broker = NULL, *topic = NULL, *groupid = NULL;
+    config_setting_t *kafka_options, *topic_options;
+
+    kafka_consumer_defaults(config);
+
     config_setting_lookup_string(config, "broker", &broker);
     config_setting_lookup_string(config, "topic", &topic);
     config_setting_lookup_string(config, "groupid", &groupid);
+    kafka_options = config_setting_get_member(config, "kafka_options");
+    topic_options = config_setting_get_member(config, "topic_options");
+
     Consumer kafka = SCALLOC(1, sizeof(*kafka));
 
-    kafka->meta          = kafka_consumer_meta_init(broker, topic, groupid);
+    kafka->meta = kafka_consumer_meta_init(broker, topic, groupid,
+                                           kafka_options,
+                                           topic_options);
     kafka->consumer_free = kafka_consumer_free;
-    kafka->consume       = kafka_consumer_consume;
+    kafka->consume = kafka_consumer_consume;
 
     return kafka;
 }

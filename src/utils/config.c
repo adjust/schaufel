@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "utils/config.h"
 #include "utils/logger.h"
 #include "validator.h"
+
+
+#define PATH_SEPARATOR '/'
 
 
 int get_thread_count(config_t* config, int type)
@@ -357,3 +361,109 @@ bool conf_is_list(config_setting_t *conf, const char *file, size_t line,
     }
     return true;
 }
+
+/*
+ * config_group_apply
+ *      Apply a function to a group. Optional `arg` can be used to pass user
+ *      data into the specified function.
+ */
+void config_group_apply(const config_setting_t *options, group_func func, void *arg)
+{
+    int noptions;
+
+    if (!options)
+        return;
+
+    noptions = config_setting_length(options);
+
+    for (int i = 0; i < noptions; ++i)
+    {
+        config_setting_t *o;
+        const char *key;
+        const char *value;
+
+        o = config_setting_get_elem(options, i);
+        key = config_setting_name(o);
+        value = config_setting_get_string(o);
+
+        func(key, value, arg);
+    }
+}
+
+/*
+ * config_create_path
+ *      Creates path nodes except the leaf one. The path must be specified
+ *      in the form "one/two/three", e.i. path parts are separated with the '/'
+ *      symbol
+ */
+config_setting_t *config_create_path(config_setting_t *parent,
+                                     const char *path,
+                                     int type)
+{
+    char   *sep;
+    config_setting_t *cur = parent;
+    char    buf[512];
+    char   *prefix = buf;
+
+    /* TODO: put an assert on strlen <= 512 */
+    strcpy(buf, path);
+
+    while ((sep = strchr(prefix, PATH_SEPARATOR)) != NULL)
+    {
+        config_setting_t *found;
+        *sep = '\0';
+
+        /* lookup name in the current group */
+        found = config_setting_lookup(cur, prefix);
+
+        if (!found)
+            cur = config_setting_add(cur, prefix, CONFIG_TYPE_GROUP);
+        else
+        {
+            /* not a group? */
+            if (config_setting_type(found) != CONFIG_TYPE_GROUP)
+            {
+                /*
+                 * Currently by the time when this function is used the logger
+                 * is already initialized. When it's not the case anymore
+                 * the way of logging error here must be changed.
+                 */
+                logger_log("%s %d: `%s` is not a settings group",
+                           __FILE__, __LINE__, prefix);
+                abort();
+            }
+
+            cur = found;
+        }
+
+        *sep = PATH_SEPARATOR;
+        prefix = sep + 1;
+    };
+
+    /*
+     * At this point only the leaf part of the path should be left in the
+     * prefix. We either create a new setting with the leaf name or otherwise
+     * get a null meaning the setting already exists.
+     */
+    return config_setting_add(cur, prefix, type);
+}
+
+/*
+ * config_set_default_string
+ *      Sets config setting of string type specified by a path in the form 
+ *      "group1/group2/setting_name". If path (or any its part) doesn't exist
+ *      it is created automatically.
+ */
+void config_set_default_string(config_setting_t *parent,
+                               const char *path,
+                               const char *value)
+{
+    config_setting_t *s = NULL;
+
+    s = config_create_path(parent, path, CONFIG_TYPE_STRING);
+
+    /* if setting wasn't set before set it now */
+    if (s)
+        config_setting_set_string(s, value);
+}
+

@@ -9,6 +9,8 @@
 
 #include "utils/options.h"
 
+typedef void (*group_func)(const char *key, const char *value, void *arg);
+
 
 void read_config(config_t *config, char *cfile);
 
@@ -20,6 +22,14 @@ bool config_validate(config_t *config);
 
 char* module_to_string(int module);
 
+void config_group_apply(const config_setting_t *options, group_func func, void *arg);
+
+config_setting_t *config_create_path(config_setting_t *parent,
+                                     const char *path,
+                                     int type);
+
+void config_set_default_string(config_setting_t *parent, const char *path,
+   const char *value);
 
 /* Macros to abstract config parsing
  * Check for existance of a config item */
@@ -39,5 +49,4 @@ bool conf_is_list(config_setting_t *conf,
     conf_get_member(conf, name, __FILE__, __LINE__, err)
 #define CONF_IS_LIST(conf, err) \
     conf_is_list(conf, __FILE__, __LINE__, err)
-
 #endif
