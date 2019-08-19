@@ -80,15 +80,27 @@ void logger_free()
     log_fd = -1;
 }
 
-static size_t buffer_set_timestamp(char *buf)
+static size_t buffer_set_timestamp(char *buf, size_t bufsize)
 {
     size_t len;
     struct tm *local;
     time_t tm = time(NULL);
     local = localtime(&tm);
-    len = strftime(buf, LOG_BUFFER_SIZE, "%a %b %e %T %Y ", local);
+    len = strftime(buf, bufsize, "%a %b %e %T %Y ", local);
     if (len == 0)
         buf[0] = '\0';
+
+    return len;
+}
+
+static size_t buffer_set_prefix(char *buf, size_t bufsize, const char *file,
+                                long line)
+{
+    size_t len;
+
+    len = buffer_set_timestamp(buf, bufsize);
+    len += snprintf(buf + len, bufsize - len, "%s %d: ", file, line);
+
     return len;
 }
 
@@ -100,10 +112,27 @@ static void logger_write(int fd, char *buf, size_t len)
         fprintf(stderr, "while writing to logfile %s", strerror(errno));
 }
 
+void logger_log_fileinfo(const char *file, size_t line, const char *fmt, ...)
+{
+    va_list args;
+    int     len;
+
+    len = buffer_set_prefix(log_buffer, LOG_BUFFER_SIZE, file, line);
+
+    va_start(args, fmt);
+    len += vsnprintf(log_buffer + len, LOG_BUFFER_SIZE - len, fmt, args);
+    va_end(args);
+    if (len > LOG_BUFFER_SIZE)
+        len = LOG_BUFFER_SIZE;
+    log_buffer[len++] = '\n';
+    log_buffer[len++] = '\0';
+    logger_write(log_fd, log_buffer, len);
+}
+
 void logger_log(const char *fmt, ...)
 {
     va_list args;
-    int len = buffer_set_timestamp(log_buffer);
+    int len = buffer_set_timestamp(log_buffer, LOG_BUFFER_SIZE);
     va_start(args, fmt);
     len += vsnprintf(log_buffer + len, LOG_BUFFER_SIZE - len, fmt, args);
     va_end(args);

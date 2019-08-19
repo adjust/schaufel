@@ -14,7 +14,7 @@ static void
 dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, UNUSED void *opaque)
 {
     if (rkmessage->err)
-        logger_log("%s %d: Message delivery failed: %s\n", __FILE__, __LINE__, rd_kafka_err2str(rkmessage->err));
+        log("Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err));
 }
 
 static void
@@ -75,13 +75,13 @@ kafka_producer_meta_init(const char *broker, const char *topic)
 
     if (rd_kafka_conf_set(conf, "compression.codec", "lz4", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
 
     if (rd_kafka_conf_set(conf, "queue.buffering.max.ms","1000",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
 
@@ -90,12 +90,12 @@ kafka_producer_meta_init(const char *broker, const char *topic)
     rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
     if (!rk)
     {
-        logger_log("%s %d: Failed to create new producer: %s\n", __FILE__, __LINE__, errstr);
+        log("Failed to create new producer: %s", errstr);
         abort();
     }
     if (rd_kafka_brokers_add(rk, broker) == 0)
     {
-        logger_log("%s %d: Failed to add broker: %s\n", __FILE__, __LINE__, broker);
+        log("Failed to add broker: %s", broker);
         abort();
     }
 
@@ -103,9 +103,7 @@ kafka_producer_meta_init(const char *broker, const char *topic)
 
     if (!rkt)
     {
-        logger_log("%s %d: Failed to create topic object: %s\n",
-            __FILE__,
-            __LINE__,
+        log("Failed to create topic object: %s",
             rd_kafka_err2str(rd_kafka_last_error()));
         rd_kafka_destroy(rk);
         abort();
@@ -132,29 +130,29 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
 
     if (rd_kafka_conf_set(conf, "group.id", groupid, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
 
     if (rd_kafka_topic_conf_set(topic_conf, "offset.store.method","broker",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
     if (rd_kafka_topic_conf_set(topic_conf, "enable.auto.commit","true",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
     if (rd_kafka_topic_conf_set(topic_conf, "auto.commit.interval.ms","10",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
 
     if (rd_kafka_topic_conf_set(topic_conf, "auto.offset.reset","latest",errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s\n", __FILE__, __LINE__, errstr);
+        log(errstr);
         abort();
     }
 
@@ -165,7 +163,7 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
     rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk)
     {
-        logger_log("%s %d: Failed to create new consumer: %s\n", __FILE__, __LINE__, errstr);
+        log("Failed to create new consumer: %s", errstr);
         abort();
     }
 
@@ -178,7 +176,8 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
     rkt = rd_kafka_topic_new(rk, topic, NULL);
     if (!rkt)
     {
-        logger_log("%s %d: Failed to create topic object: %s\n", __FILE__, __LINE__, rd_kafka_err2str(rd_kafka_last_error()));
+        log("Failed to create topic object: %s",
+            rd_kafka_err2str(rd_kafka_last_error()));
         rd_kafka_destroy(rk);
         abort();
     }
@@ -190,10 +189,9 @@ kafka_consumer_meta_init(const char *broker, const char *topic, const char *grou
 
     if ((err = rd_kafka_subscribe(rk, topics)))
     {
-            fprintf(stderr,
-                    "%% Failed to start consuming topics: %s\n",
-                    rd_kafka_err2str(err));
-            abort();
+        logger_log("%% Failed to start consuming topics: %s",
+                   rd_kafka_err2str(err));
+        abort();
     }
     m->rk = rk;
     m->rkt = rkt;
@@ -263,12 +261,9 @@ retry:
         }
         else
         {
-            logger_log(
-                "%s %d Failed to produce to topic %s: %s\n",
-                __FILE__, __LINE__,
+            log("Failed to produce to topic %s: %s",
                 rd_kafka_topic_name(rkt),
-                rd_kafka_err2str(rd_kafka_last_error())
-            );
+                rd_kafka_err2str(rd_kafka_last_error()));
         }
     }
     rd_kafka_poll(rk, 0);

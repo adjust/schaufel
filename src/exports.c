@@ -158,8 +158,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
         goto error;
 
     if (len < 21 || len > 31) {
-        logger_log("%s %d: Datestring %s not supported",
-            __FILE__, __LINE__, ts);
+        log("Datestring %s not supported", ts);
         goto error;
     }
 
@@ -168,8 +167,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     if (ts[4] != '-' || ts[7] != '-' || ts[10] != 'T'
             || ts[13] != ':' || ts[16] != ':' || ts[19] != '.'
             || ts[len-1] != 'Z') {
-        logger_log("%s %d: Datestring %s not supported",
-            __FILE__, __LINE__, ts);
+        log("Datestring %s not supported", ts);
         goto error;
     }
 
@@ -184,8 +182,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
         tm.micro = strtoull(ts+20,NULL,10);
 
     if(errno) {
-        logger_log("%s %d: Error %s in date conversion",
-            __FILE__, __LINE__, strerror(errno));
+        log("Error %s in date conversion", strerror(errno));
         goto error;
     }
 
@@ -198,19 +195,16 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     }
 
     if(tm.year < 2000 || tm.year > 4027) {
-        logger_log("%s %d: Date %s out of range",
-            __FILE__, __LINE__, ts);
+        log("Date %s out of range", ts);
         goto error;
     }
     if(tm.month < 1 || tm.month > 12 || tm.day >31
         || tm.hour > 23 || tm.minute > 59 || tm.second > 59) {
-        logger_log("%s %d: Datestring %s not a date",
-            __FILE__, __LINE__, ts);
+        log("Datestring %s not a date", ts);
         goto error;
     }
     if(tm.month == 2 && tm.day > 29) {
-        logger_log("%s %d: Datestring %s not a date",
-            __FILE__, __LINE__, ts);
+        log("Datestring %s not a date", ts);
         goto error;
     }
 
@@ -320,12 +314,12 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
+        log("%s", PQerrorMessage(m->conn_master));
         abort();
     }
 
     if (pthread_mutex_init(&m->commit_mutex, NULL) != 0) {
-        logger_log("%s %d: unable to create mutex", __FILE__, __LINE__ );
+        log("unable to create mutex");
         abort();
     }
 
@@ -374,7 +368,7 @@ exports_producer_init(config_setting_t *config)
         NULL,
         commit_worker,
         (void *)&(exports->meta))) {
-        logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
+        log("Failed to create commit worker!");
         abort();
     }
 
@@ -395,8 +389,7 @@ _deref(json_object *haystack, Internal internal)
             needles[i]->length = (uint32_t)~0;
         } else {
             if(!needles[i]->format(found,needles[i])) {
-                logger_log("%s %d: Failed jpointer deref %s",
-                    __FILE__, __LINE__, needles[i]->jpointer);
+                log("Failed jpointer deref %s", needles[i]->jpointer);
                 return false;
             }
         }
@@ -431,8 +424,7 @@ exports_producer_produce(Producer p, Message msg)
         m->res = PQexec(m->conn_master, m->cpycmd);
         if (PQresultStatus(m->res) != PGRES_COPY_IN)
         {
-            logger_log("%s %d: %s", __FILE__, __LINE__,
-                PQerrorMessage(m->conn_master));
+            log(PQerrorMessage(m->conn_master));
             abort();
         }
         PQclear(m->res);
@@ -446,13 +438,12 @@ exports_producer_produce(Producer p, Message msg)
 
     haystack = json_tokener_parse(data);
     if(!haystack) {
-        logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
+        log("Failed to tokenize json!");
         goto error;
     }
 
     if(!_deref(haystack, internal)) {
-        logger_log("%s %d: Failed to dereference json!\n %s",
-            __FILE__, __LINE__, data);
+        log("Failed to dereference json!\n %s", data);
         for (int i = 0; i < internal->ncount; i++) {
             needles[i]->free(&needles[i]->result);
         }

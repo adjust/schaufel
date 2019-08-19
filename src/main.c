@@ -15,6 +15,7 @@
 #include "utils/logger.h"
 #include "utils/options.h"
 #include "utils/scalloc.h"
+#include "version.h"
 
 
 /* Schaufel keeps track of consume and produce states.
@@ -114,14 +115,14 @@ consume(void *config)
 
     if (msg == NULL)
     {
-        logger_log("%s %d: could not init message", __FILE__, __LINE__);
+        log("could not init message");
         return NULL;
     }
     Consumer c = consumer_init(*consumer_type,
         (config_setting_t *) config);
     if (c == NULL)
     {
-        logger_log("%s %d: could not init consumer", __FILE__, __LINE__);
+        log("could not init consumer");
         return NULL;
     }
 
@@ -157,7 +158,7 @@ produce(void *config)
         (config_setting_t *) config);
     if (p == NULL)
     {
-        logger_log("%s %d: could not init producer", __FILE__, __LINE__);
+        log("could not init producer");
         return NULL;
     }
 
@@ -336,7 +337,7 @@ main(int argc, char **argv)
 
     q = queue_init();
     if (!q) {
-        logger_log("%s %d: Failed to init queue\n", __FILE__, __LINE__);
+        log("Failed to init queue");
         abort();
     }
 
