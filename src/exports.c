@@ -224,9 +224,13 @@ _json_to_pqtimestamp(json_object *found, Needles current)
                 tm.yday += 29;
             else
                 tm.yday += 28;
-        } else {
+        } else if (i < 8) {
             tm.yday += 30 + (i%2);
+        } else {
+            // 31sts occure on even months from august on. I curse you pope gregory XIII.
+            tm.yday += 30 + ((i+1)%2);
         }
+
     }
 
     tm.yday += tm.day;
