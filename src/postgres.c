@@ -48,7 +48,7 @@ _cpycmd(const char *host, const char *generation)
     char *ptr = hostname;
     while(*ptr)
     {
-        if(*ptr == '-')
+        if((*ptr == '-') || (*ptr == '.'))
         {
             *ptr = '_';
         }
