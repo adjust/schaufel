@@ -27,7 +27,7 @@ struct pg_parameters {
 };
 
 char *
-_connectinfo(const char *host, const char *user, const char *dbname)
+_connectinfo(const char *host, const char *dbname, const char *user)
 {
     if (host == NULL)
         return NULL;
