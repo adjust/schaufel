@@ -80,7 +80,7 @@ postgres_meta_init(const char *host, const char *host_replica, const char *gener
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
+        log(PQerrorMessage(m->conn_master));
         abort();
     }
 
@@ -92,12 +92,12 @@ postgres_meta_init(const char *host, const char *host_replica, const char *gener
     m->conn_replica = PQconnectdb(m->conninfo_replica);
     if (PQstatus(m->conn_replica) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_replica));
+        log(PQerrorMessage(m->conn_replica));
         abort();
     }
 
     if (pthread_mutex_init(&m->commit_mutex, NULL) != 0) {
-        logger_log("%s %d: unable to create mutex", __FILE__, __LINE__ );
+        log("unable to create mutex");
         abort();
     }
 
@@ -137,7 +137,7 @@ postgres_producer_init(config_setting_t *config)
         NULL,
         commit_worker,
         (void *)&(postgres->meta))) {
-        logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
+        log("Failed to create commit worker!");
         abort();
     }
 
@@ -155,14 +155,14 @@ postgres_producer_produce(Producer p, Message msg)
 
     if (buf[len] != '\0')
     {
-        logger_log("payload doesn't end on null terminator");
+        log("payload doesn't end on null terminator");
         return;
     }
 
     char *s = strstr(buf, "\\u0000");
     if (s != NULL)
     {
-        logger_log("found invalid unicode byte sequence: %s", buf);
+        log("found invalid unicode byte sequence: %s", buf);
         return;
     }
 
@@ -174,7 +174,7 @@ postgres_producer_produce(Producer p, Message msg)
         m->res = PQexec(m->conn_master, m->cpycmd);
         if (PQresultStatus(m->res) != PGRES_COPY_IN)
         {
-            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
+            log(PQerrorMessage(m->conn_master));
             abort();
         }
         PQclear(m->res);
@@ -184,7 +184,7 @@ postgres_producer_produce(Producer p, Message msg)
             m->res = PQexec(m->conn_replica, m->cpycmd);
             if (PQresultStatus(m->res) != PGRES_COPY_IN)
             {
-                logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_replica));
+                log(PQerrorMessage(m->conn_replica));
                 abort();
             }
             PQclear(m->res);

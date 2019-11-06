@@ -38,13 +38,13 @@ redis_meta_init(const char *host, const char *topic, size_t pipe_max)
     {
         if (m->c)
         {
-            logger_log("%s %d: redis connection failed: %s", __FILE__, __LINE__, m->c->errstr);
+            log("redis connection failed: %s", m->c->errstr);
             redisFree(m->c);
             abort();
         }
         else
         {
-            logger_log("%s %d: allocate failed", __FILE__, __LINE__);
+            log("allocate failed");
         }
     }
 
@@ -70,8 +70,8 @@ redis_meta_get_reply(Meta m)
     if ((ret = redisGetReply(m->c, (void *)&reply)) == REDIS_OK)
         m->reply = reply;
     else
-        logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
-                   m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+        log("%s %s", m->c->errstr,
+            m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
     return ret;
 }
 
@@ -163,7 +163,7 @@ redis_consumer_handle_reply(const redisReply *reply, Message msg)
     {
         char *result = calloc(reply->element[1]->len + 1, sizeof(*result));
         if(!result) {
-            logger_log("%s %d: Failed to calloc!", __FILE__, __LINE__);
+            logger_log("Failed to calloc!");
             abort();
         }
         memcpy(result, reply->element[1]->str, reply->element[1]->len);

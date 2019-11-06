@@ -23,7 +23,7 @@ file_meta_init(const char *fname, char *options)
     m->fp = fopen(fname, options);
     if (m->fp == NULL)
     {
-        logger_log("%s %d: %s %s", __FILE__, __LINE__, fname, strerror(errno));
+        log("%s %s", fname, strerror(errno));
         abort();
     }
     return m;
@@ -33,7 +33,7 @@ void
 file_meta_free(Meta *m)
 {
     if ( fclose((*m)->fp) != 0)
-        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+        log(strerror(errno));
     free(*m);
     *m = NULL;
 }
@@ -91,7 +91,7 @@ file_consumer_consume(Consumer c, Message msg)
     ssize_t read;
     if ((read = getline(&line, &bufsize, ((Meta) c->meta)->fp)) == -1)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+        log(strerror(errno));
         return -1;
     }
 
