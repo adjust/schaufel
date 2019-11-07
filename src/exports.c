@@ -43,10 +43,13 @@ static void _obj_free(void **obj);
 
 static bool _filter_match (int jpointer, json_object *found, Needles current);
 static bool _filter_noop (int jpointer, json_object *found, Needles current);
+static bool _filter_substr (int jpointer, json_object *found, Needles current);
 static bool _filter_exists (int jpointer, json_object *found, Needles current);
 
-static bool _action_store (bool filter, json_object *found, Needles current);
-static bool _action_discard (bool filter, json_object *found, Needles current);
+static bool _action_store (bool filter_ret, json_object *found, Needles current);
+static bool _action_store_true (bool filter_ret, json_object *found, Needles current);
+static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
+static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
 
 // Types of postgres fields
 typedef enum {  // todo: add jsonb, int.
@@ -69,9 +72,11 @@ static const struct {
 
 // Types of actions available for data
 typedef enum {
-    action_undef,  // invalid conf
-    action_store,  // store the message/null whatever happens
-    action_discard, // discard the message if filter false
+    action_undef,           // invalid conf
+    action_store,           // store the field/null whatever happens
+    action_store_true,      // store field if filter returns true
+    action_discard_false,   // discard the message if filter returns false
+    action_discard_true,    // discard the message if filter returns true
 } ActionTypes;
 
 static const struct {
@@ -82,16 +87,19 @@ static const struct {
 }  action_types [] = {
         {action_undef, "undef", NULL, false},
         {action_store, "store", &_action_store, true},
-        {action_discard, "discard", &_action_discard, false}
+        {action_store_true, "store_true", &_action_store_true, true},
+        {action_discard_false, "discard_false", &_action_discard_false, false},
+        {action_discard_true, "discard_true", &_action_discard_true, false}
 };
 
 // Types of filters to be applied on data
 typedef enum {
     filter_undef,
-    filter_noop, // returns true, default
-    filter_match, // match string
-    filter_exists,
-    filter_pcrematch,
+    filter_noop,        // returns true, default
+    filter_match,       // match string
+    filter_substr,      // match substring
+    filter_exists,      // json key exists
+    filter_pcrematch,   // pcre match
 } FilterTypes;
 
 static const struct {
@@ -103,6 +111,7 @@ static const struct {
         {filter_undef, "undef", NULL, false},
         {filter_noop, "noop", &_filter_noop, false},
         {filter_match, "match", &_filter_match, true},
+        {filter_substr, "substr", &_filter_substr, true},
         {filter_exists, "exists", &_filter_exists, false},
         {filter_pcrematch, "pcrematch", NULL, true},
 };
@@ -199,20 +208,37 @@ static void _obj_free(void **obj)
 }
 
 static bool
-_action_store(UNUSED bool ret, UNUSED json_object *found,
+_action_store(UNUSED bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
     return true;
 }
 
 static bool
-_action_discard(bool ret, UNUSED json_object *found,
+_action_store_true(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
-    if(ret)
+    if(filter_ret)
+        return true;
+    return false;
+}
+
+static bool
+_action_discard_false(bool filter_ret, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    if(filter_ret)
+        return true;
+    return false;
+}
+
+static bool
+_action_discard_true(bool filter_ret, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    if(filter_ret)
         return false;
     return true;
-
 }
 
 static bool
@@ -221,7 +247,18 @@ _filter_match(int jpointer, json_object *found,
 {
     if(jpointer != 0) // no data to match against
         return false;
-    if(strcmp(json_object_get_string(found),current->filter_data) == 0)
+    if(strcmp(json_object_get_string(found), current->filter_data) == 0)
+        return true;
+    return false;
+}
+
+static bool
+_filter_substr(int jpointer, json_object *found,
+    UNUSED Needles current)
+{
+    if(jpointer != 0) // no data to match against
+        return false;
+    if(strstr(json_object_get_string(found), current->filter_data))
         return true;
     return false;
 }
@@ -614,8 +651,6 @@ exports_producer_produce(Producer p, Message msg)
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
                 __FILE__, __LINE__, data);
-        else
-            logger_log("%s %d: Skipping!", __FILE__, __LINE__);
         for (int i = 0; i < internal->ncount; i++) {
             needles[i]->free(&needles[i]->result);
         }
