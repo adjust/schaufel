@@ -22,13 +22,18 @@ typedef struct Needles {
     void          (*free) (void **);
     uint32_t       *leapyears;
     uint32_t        length;
-    void           *result;
+    void           *result; // output
+    bool          (*action) (bool, json_object *, Needles);
+    bool          (*filter) (int, json_object *, Needles);
+    bool            store;
+    const char     *filter_data;
 } *Needles;
 
 typedef struct Internal {
     Needles        *needles;
-    uint32_t       *leapyears;
-    uint16_t        ncount;
+    uint32_t       *leapyears;  // leapyears are globally shared
+    uint16_t        ncount; // count of needles
+    uint16_t        rows; // number of rows inserted into postgres
 } *Internal;
 
 static bool _json_to_pqtext (json_object *needle, Needles current);
@@ -36,10 +41,18 @@ static bool _json_to_pqtimestamp (json_object *needle, Needles current);
 static void _obj_noop(UNUSED void **obj);
 static void _obj_free(void **obj);
 
-typedef enum {
-    undef,
-    text,
-    timestamp,
+static bool _filter_match (int jpointer, json_object *found, Needles current);
+static bool _filter_noop (int jpointer, json_object *found, Needles current);
+static bool _filter_exists (int jpointer, json_object *found, Needles current);
+
+static bool _action_store (bool filter, json_object *found, Needles current);
+static bool _action_discard (bool filter, json_object *found, Needles current);
+
+// Types of postgres fields
+typedef enum {  // todo: add jsonb, int.
+    pqtype_undef,
+    pqtype_text,
+    pqtype_timestamp,
 } PqTypes;
 
 static const struct {
@@ -48,9 +61,50 @@ static const struct {
     bool  (*format) (json_object *, Needles);
     void  (*free) (void **obj);
 }  pq_types [] = {
-        {undef, "undef", NULL, NULL},
-        {text, "text", &_json_to_pqtext, &_obj_noop},
-        {timestamp, "timestamp", &_json_to_pqtimestamp, &_obj_free},
+        {pqtype_undef, "undef", NULL, NULL},
+        {pqtype_text, "text", &_json_to_pqtext, &_obj_noop},
+        {pqtype_timestamp, "timestamp", &_json_to_pqtimestamp, &_obj_free},
+};
+
+
+// Types of actions available for data
+typedef enum {
+    action_undef,  // invalid conf
+    action_store,  // store the message/null whatever happens
+    action_discard, // discard the message if filter false
+} ActionTypes;
+
+static const struct {
+    ActionTypes type;
+    const char *action_type;
+    bool  (*action) (bool, json_object *, Needles);
+    bool store;
+}  action_types [] = {
+        {action_undef, "undef", NULL, false},
+        {action_store, "store", &_action_store, true},
+        {action_discard, "discard", &_action_discard, false}
+};
+
+// Types of filters to be applied on data
+typedef enum {
+    filter_undef,
+    filter_noop, // returns true, default
+    filter_match, // match string
+    filter_exists,
+    filter_pcrematch,
+} FilterTypes;
+
+static const struct {
+    FilterTypes type;
+    const char *filter_type;
+    bool (*filter) (int, json_object *, Needles);
+    bool needs_data;
+}  filter_types [] = {
+        {filter_undef, "undef", NULL, false},
+        {filter_noop, "noop", &_filter_noop, false},
+        {filter_match, "match", &_filter_match, true},
+        {filter_exists, "exists", &_filter_exists, false},
+        {filter_pcrematch, "pcrematch", NULL, true},
 };
 
 static char *
@@ -77,6 +131,27 @@ _connectinfo(const char *host)
     return conninfo;
 }
 
+static ActionTypes
+_actiontype_enum(const char *action_type)
+{
+    uint32_t j;
+    for (j = 1; j < sizeof(action_types) / sizeof(action_types[0]); j++)
+        if (!strcmp(action_type, action_types[j].action_type))
+            return action_types[j].type;
+    return action_undef;
+}
+
+
+static FilterTypes
+_filtertype_enum(const char *filter_type)
+{
+    uint32_t j;
+    for (j = 1; j < sizeof(filter_types) / sizeof(filter_types[0]); j++)
+        if (!strcmp(filter_type, filter_types[j].filter_type))
+            return filter_types[j].type;
+    return filter_undef;
+}
+
 static PqTypes
 _pqtype_enum(const char *pqtype)
 {
@@ -84,7 +159,7 @@ _pqtype_enum(const char *pqtype)
     for (j = 1; j < sizeof(pq_types) / sizeof(pq_types[0]); j++)
         if (!strcmp(pqtype, pq_types[j].pq_type))
             return pq_types[j].type;
-    return undef;
+    return pqtype_undef;
 }
 
 static uint32_t *
@@ -121,6 +196,50 @@ static void _obj_free(void **obj)
         return;
     free(*obj);
     *obj = NULL;
+}
+
+static bool
+_action_store(UNUSED bool ret, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    return true;
+}
+
+static bool
+_action_discard(bool ret, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    if(ret)
+        return false;
+    return true;
+
+}
+
+static bool
+_filter_match(int jpointer, json_object *found,
+    UNUSED Needles current)
+{
+    if(jpointer != 0) // no data to match against
+        return false;
+    if(strcmp(json_object_get_string(found),current->filter_data) == 0)
+        return true;
+    return false;
+}
+
+static bool
+_filter_noop(UNUSED int jpointer, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    return true;
+}
+
+static bool
+_filter_exists(int jpointer, UNUSED json_object *found,
+    UNUSED Needles current)
+{
+    if(jpointer != 0) // anything but 0 indicates error
+        return false;
+    return true;
 }
 
 static bool
@@ -253,32 +372,48 @@ static Needles *
 _needles(config_setting_t *needlestack, Internal internal)
 {
     config_setting_t *setting = NULL, *member= NULL;
-    int list = 0, pqtype = 0;
+    int list = 0, pqtype = 0, actiontype = 0, filtertype = 0;
     list = config_setting_length(needlestack);
 
     Needles *needles = SCALLOC(list,sizeof(*needles));
     internal->leapyears = _leapyear();
 
+    internal->rows = 0;
+
     for(int i = 0; i < list; i++) {
         Needles current = SCALLOC(list,sizeof(*current));
         needles[i] = current;
-        // Alias should a needle need data
+        // Alias should a needle need leapyear data
         needles[i]->leapyears = internal->leapyears;
 
         setting = config_setting_get_elem(needlestack, i);
-        if (config_setting_type(setting) == CONFIG_TYPE_STRING) {
-            pqtype = _pqtype_enum("text");
-            current->jpointer = strdup(config_setting_get_string(setting));
-            current->format = pq_types[pqtype].format;
-            current->free = pq_types[pqtype].free;
-        } else if (config_setting_type(setting) == CONFIG_TYPE_ARRAY) {
-            member = config_setting_get_elem(setting, 0);
-            current->jpointer = strdup(config_setting_get_string(member));
-            member = config_setting_get_elem(setting, 1);
-            pqtype = _pqtype_enum(config_setting_get_string(member));
-            current->format = pq_types[pqtype].format;
-            current->free = pq_types[pqtype].free;
+        if (config_setting_type(setting) != CONFIG_TYPE_ARRAY) {
+            logger_log("%s %d: data structure not an array", __FILE__, __LINE__);
+            abort();
         }
+
+        member = config_setting_get_elem(setting, 0);
+        current->jpointer = strdup(config_setting_get_string(member));
+
+        member = config_setting_get_elem(setting, 1);
+        pqtype = _pqtype_enum(config_setting_get_string(member));
+        current->format = pq_types[pqtype].format;
+        current->free = pq_types[pqtype].free;
+
+        member = config_setting_get_elem(setting, 2);
+        actiontype = _actiontype_enum(config_setting_get_string(member));
+        current->action = action_types[actiontype].action;
+        current->store = action_types[actiontype].store;
+        if (current->store)
+            (internal->rows)++;
+
+        member = config_setting_get_elem(setting, 3);
+        filtertype = _filtertype_enum(config_setting_get_string(member));
+        current->filter = filter_types[filtertype].filter;
+        if(filter_types[filtertype].needs_data)
+            current->filter_data =
+            config_setting_get_string(config_setting_get_elem(setting, 4));
+
     }
 
     return needles;
@@ -385,14 +520,32 @@ exports_producer_init(config_setting_t *config)
     return exports;
 }
 
-bool
+int
 _deref(json_object *haystack, Internal internal)
 {
     json_object *found;
+    int ret = 0;
 
     Needles *needles = internal->needles;
     for (int i = 0; i < internal->ncount; i++) {
-        if(json_pointer_get(haystack, needles[i]->jpointer, &found)) {
+        ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
+
+        if (!
+            (
+                needles[i]->action
+                (
+                    (
+                        needles[i]->filter(ret,found,needles[i])
+                    ),
+                    found,
+                    needles[i]
+                )
+            )
+        )
+            return 1;
+
+        if(ret) {
+            // if json_pointer returned null
             needles[i]->result = NULL;
             // complement of 0 is uint32_t max
             // int max is postgres NULL;
@@ -401,12 +554,12 @@ _deref(json_object *haystack, Internal internal)
             if(!needles[i]->format(found,needles[i])) {
                 logger_log("%s %d: Failed jpointer deref %s",
                     __FILE__, __LINE__, needles[i]->jpointer);
-                return false;
+                return -1;
             }
         }
     }
 
-    return true;
+    return 0;
 }
 
 void
@@ -416,11 +569,13 @@ exports_producer_produce(Producer p, Message msg)
     Needles *needles = m->internal->needles;
     Internal internal = m->internal;
     json_object *haystack = NULL;
+    int ret = 0;
 
     size_t len = message_get_len(msg);
     char* data = message_get_data(msg);
 
-    uint16_t ncount = htons(m->internal->ncount);
+    // postgres is big endian internally
+    uint16_t rows = htons(m->internal->rows);
 
     if (data[len] != '\0')
     {
@@ -454,18 +609,24 @@ exports_producer_produce(Producer p, Message msg)
         goto error;
     }
 
-    if(!_deref(haystack, internal)) {
-        logger_log("%s %d: Failed to dereference json!\n %s",
-            __FILE__, __LINE__, data);
+    // get value from json, apply transformation
+    if((ret = _deref(haystack, internal) != 0)) {
+        if(ret == -1)
+            logger_log("%s %d: Failed to dereference json!\n %s",
+                __FILE__, __LINE__, data);
+        else
+            logger_log("%s %d: Skipping!", __FILE__, __LINE__);
         for (int i = 0; i < internal->ncount; i++) {
             needles[i]->free(&needles[i]->result);
         }
-        goto error;
+        goto fail;
     }
 
-    PQputCopyData(m->conn_master, (char *) &ncount, 2);
+    PQputCopyData(m->conn_master, (char *) &rows, 2);
 
     for (int i = 0; i < internal->ncount; i++) {
+        if(!(needles[i]->store))
+            continue;
         uint32_t length =  htobe32(needles[i]->length);
         PQputCopyData(m->conn_master, (void *) &length, 4);
 
@@ -482,6 +643,7 @@ exports_producer_produce(Producer p, Message msg)
     }
 
     error:
+    fail:
     json_object_put(haystack);
     pthread_mutex_unlock(&m->commit_mutex);
 }
@@ -539,7 +701,10 @@ exports_consumer_free(Consumer *c)
 bool
 exporter_validate(UNUSED config_setting_t *config)
 {
-    config_setting_t *setting = NULL, *member = NULL, *child = NULL;
+    config_setting_t *setting = NULL, *member = NULL, *child = NULL,
+        *new = NULL;
+    char *jpointer = NULL, *pqtype = NULL, *action = NULL, *filter = NULL,
+        *data = NULL;;
     const char *conf = NULL;
 
     const char *host = NULL, *topic = NULL;
@@ -555,33 +720,122 @@ exporter_validate(UNUSED config_setting_t *config)
     if(!CONF_IS_LIST(setting, "require jpointers to be a list!"))
         goto error;
 
-    // Check jpointers for validity
+    /* We need to create an array which holds jpointer, pqtype, action
+     * and filter. We do this by taking the first element, deleting it
+     * and appending a completely populated element at the end.
+     */
     for (int i = 0; i < config_setting_length(setting); i++) {
-        child = config_setting_get_elem(setting, i);
+        child = config_setting_get_elem(setting, 0);
         if (child == NULL) {
             fprintf(stderr, "%s %d: failed to read jpointer list elem %d\n",
             __FILE__, __LINE__, i);
             goto error;
         }
 
-        if (config_setting_is_array(child) == CONFIG_TRUE) {
-            member = config_setting_get_elem(child, 1);
+        new = config_setting_add(setting, NULL, CONFIG_TYPE_ARRAY);
+        for (int j = 0; j < 5; j++ )
+            config_setting_add(new, NULL, CONFIG_TYPE_STRING);
+
+        if (config_setting_is_scalar(child) == CONFIG_TRUE) {
+            conf = config_setting_get_string(child);
+            if(conf == NULL) {
+                fprintf(stderr, "%s %d: couldn't parse config at %ud",
+                __FILE__, __LINE__, config_setting_source_line(child));
+                goto error;
+            }
+            jpointer = strdup(conf);
+            pqtype = strdup("text");
+            action = strdup("store");
+            filter = strdup("noop");
+        } else if (config_setting_is_array(child) == CONFIG_TRUE) {
+            member = config_setting_get_elem(child, 0);
             if(member == NULL) {
                 fprintf(stderr, "%s %d: failed to read jpointer array %d\n",
                 __FILE__, __LINE__, i);
                 goto error;
             }
-
             conf = config_setting_get_string(member);
-            if(conf == NULL || !_pqtype_enum(conf) ) {
-                fprintf(stderr, "%s %d: not a valid type transformation %s",
-                __FILE__, __LINE__, conf);
+            if(conf == NULL) {
+                fprintf(stderr, "%s %d: couldn't parse config at %ud",
+                __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
-        } else if (config_setting_is_scalar(child) != CONFIG_TRUE)  {
+            jpointer = strdup(conf);
+
+            member = config_setting_get_elem(child, 1);
+            if(member == NULL)
+                pqtype = strdup("text");
+            else {
+                conf = config_setting_get_string(member);
+                if(conf == NULL)
+                    pqtype = strdup("text");
+                else if(!_pqtype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid type transformation %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                } else
+                    pqtype = strdup(conf);
+            }
+
+            member = config_setting_get_elem(child, 2);
+            if(member == NULL)
+                action = strdup("store");
+            else {
+                conf = config_setting_get_string(member);
+                if(conf == NULL)
+                    action = strdup("store");
+                else if(!_actiontype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid action type %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                } else
+                    action = strdup(conf);
+            }
+
+            member = config_setting_get_elem(child, 3);
+            if(member == NULL)
+               filter = strdup("noop");
+            else {
+                conf = config_setting_get_string(member);
+                if(conf == NULL)
+                    filter = strdup("noop");
+                else if(!_filtertype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid filter type %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                } else
+                    filter = strdup(conf);
+            }
+            if(filter_types[_filtertype_enum(conf)].needs_data) {
+                member = config_setting_get_elem(child,4);
+                if(member == NULL) {
+                    fprintf(stderr, "%s %d: filter needs configuration %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+                conf = config_setting_get_string(member);
+                if(conf == NULL) {
+                    fprintf(stderr, "%s %d: filter needs configuration %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+                data = strdup(conf);
+            }
+        } else {
             fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
             __FILE__, __LINE__);
         }
+        config_setting_set_string_elem(new, 0, jpointer);
+        config_setting_set_string_elem(new, 1, pqtype);
+        config_setting_set_string_elem(new, 2, action);
+        config_setting_set_string_elem(new, 3, filter);
+        config_setting_set_string_elem(new, 4, data);
+        SFREE(jpointer);
+        SFREE(pqtype);
+        SFREE(action);
+        SFREE(filter);
+        SFREE(data);
+        config_setting_remove_elem(setting,0);
     }
 
     return true;
