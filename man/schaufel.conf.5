@@ -153,6 +153,8 @@ and dereferences it into columns of a type. At the moment only
 Dereferencing is done via a list of json pointers called \fIjpointers\fR.
 These pointers confirm to \fIRFC 6901\fR. If a type other than text is
 required, an array can be used to specify a type.
+If a json pointer does not return data, the field is transformed to a
+postgres null.
 .RS
 .PP
 producers = (
@@ -164,8 +166,78 @@ producers = (
             "/data/customer",
             "/data/request/http_response",
             "/data/request/body/0",
-            ["/timestamp", "timestamp"]
+            ["/timestamp", "timestamp"],
         );
     } );
 .RE
 .PP
+If further filtering of the data should be required, this array can be extended
+with actions and filters. The standard action is to \fIstore\fR, the standard
+filter is \fInoop\fR.
+.PP
+A filter returns boolean true or false. An action takes this return value and
+decides what to do with it. If the action is \fIstore\fR, it'll return true
+no matter what the filter says. Filter \fInoop\fR will also always be true.
+.PP
+The datastructure above is transformed to look like this under the hood:
+.PP
+producers = (
+    {
+        type = "exports"
+        threads = 1;
+        topic = "data";
+        jpointers = (
+            [ "/data/customer", "text", "store", "noop" ],
+            [ "/data/request/http_response", "text", "store", "noop" ],
+            [ "/data/request/body/0", "text", "store", "noop" ],
+            [ "/timestamp", "timestamp"],
+        );
+    } );
+.RE
+.PP
+Exports supports a variety of actions and filters:
+.PP
+.TS
+box, center, tab (@);
+ c | c
+CfCB | CfCB |CfCB.
+action@description@stores data
+=
+store@store field@yes
+store_true@store field if filter is true@yes
+discard_false@discard message if filter is false@no
+discard_true@discard message if filter is true@no
+.TE
+.PP
+Do note that some filters require an additional data field:
+.TS
+box, center, tab (@);
+ c | c | c
+CfCB | CfCB | CfCB.
+filter@description@data
+=
+noop@return true@-
+exists@does the json_pointer point to an existing field@string
+match@compare result of json_pointer against a string@string
+substr@find string in result@string
+.TE
+.PP
+This functionality is useful if you want only a subset of the data,
+for example only non-error messages of customers with Doe in their name:
+.PP
+producers = (
+    {
+        type = "exports"
+        threads = 1;
+        topic = "data";
+        jpointers = (
+            [ "/error", "text", "discard_true", "exists" ],
+            [ "/data/customer", "text", "store_true", "substr", "Doe" ],
+            "/data/request/http_response",
+            "/data/request/body/0",
+            ["/timestamp", "timestamp"],
+        );
+    } );
+.RE
+.PP
+As always, feel free to implement more of what you need.
