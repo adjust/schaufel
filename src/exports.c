@@ -218,27 +218,21 @@ static bool
 _action_store_true(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
-    if(filter_ret)
-        return true;
-    return false;
+    return filter_ret;
 }
 
 static bool
 _action_discard_false(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
-    if(filter_ret)
-        return true;
-    return false;
+    return filter_ret;
 }
 
 static bool
 _action_discard_true(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
-    if(filter_ret)
-        return false;
-    return true;
+    return !filter_ret;
 }
 
 static bool
