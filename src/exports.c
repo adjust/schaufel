@@ -99,7 +99,7 @@ typedef enum {
     filter_match,       // match string
     filter_substr,      // match substring
     filter_exists,      // json key exists
-    filter_pcrematch,   // pcre match
+// TODO:    filter_pcrematch,   // pcre match
 } FilterTypes;
 
 static const struct {
@@ -113,7 +113,7 @@ static const struct {
         {filter_match, "match", &_filter_match, true},
         {filter_substr, "substr", &_filter_substr, true},
         {filter_exists, "exists", &_filter_exists, false},
-        {filter_pcrematch, "pcrematch", NULL, true},
+// TODO:        {filter_pcrematch, "pcrematch", NULL, true},
 };
 
 static char *
