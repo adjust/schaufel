@@ -768,7 +768,7 @@ exporter_validate(UNUSED config_setting_t *config)
         if (config_setting_is_scalar(child) == CONFIG_TRUE) {
             conf = config_setting_get_string(child);
             if(conf == NULL) {
-                fprintf(stderr, "%s %d: couldn't parse config at %ud",
+                fprintf(stderr, "%s %d: couldn't parse config at %ud\n",
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
@@ -785,7 +785,7 @@ exporter_validate(UNUSED config_setting_t *config)
             }
             conf = config_setting_get_string(member);
             if(conf == NULL) {
-                fprintf(stderr, "%s %d: couldn't parse config at %ud",
+                fprintf(stderr, "%s %d: couldn't parse config at %ud\n",
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
@@ -799,7 +799,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 if(conf == NULL)
                     pqtype = strdup("text");
                 else if(!_pqtype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid type transformation %s",
+                    fprintf(stderr, "%s %d: not a valid type transformation %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
@@ -814,7 +814,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 if(conf == NULL)
                     action = strdup("store");
                 else if(!_actiontype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid action type %s",
+                    fprintf(stderr, "%s %d: not a valid action type %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
@@ -829,7 +829,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 if(conf == NULL)
                     filter = strdup("noop");
                 else if(!_filtertype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid filter type %s",
+                    fprintf(stderr, "%s %d: not a valid filter type %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
@@ -838,13 +838,13 @@ exporter_validate(UNUSED config_setting_t *config)
             if(filter_types[_filtertype_enum(conf)].needs_data) {
                 member = config_setting_get_elem(child,4);
                 if(member == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration %s",
+                    fprintf(stderr, "%s %d: filter needs configuration %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
                 conf = config_setting_get_string(member);
                 if(conf == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration %s",
+                    fprintf(stderr, "%s %d: filter needs configuration %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
