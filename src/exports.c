@@ -773,9 +773,9 @@ exporter_validate(UNUSED config_setting_t *config)
                 goto error;
             }
             jpointer = strdup(conf);
-            pqtype = strdup("text");
-            action = strdup("store");
-            filter = strdup("noop");
+            pqtype = "text";
+            action = "store";
+            filter = "noop";
         } else if (config_setting_is_array(child) == CONFIG_TRUE) {
             member = config_setting_get_elem(child, 0);
             if(member == NULL) {
@@ -793,11 +793,11 @@ exporter_validate(UNUSED config_setting_t *config)
 
             member = config_setting_get_elem(child, 1);
             if(member == NULL)
-                pqtype = strdup("text");
+                pqtype = "text";
             else {
                 conf = config_setting_get_string(member);
                 if(conf == NULL)
-                    pqtype = strdup("text");
+                    pqtype = "text";
                 else if(!_pqtype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid type transformation %s\n",
                     __FILE__, __LINE__, conf);
@@ -808,11 +808,11 @@ exporter_validate(UNUSED config_setting_t *config)
 
             member = config_setting_get_elem(child, 2);
             if(member == NULL)
-                action = strdup("store");
+                action = "store";
             else {
                 conf = config_setting_get_string(member);
                 if(conf == NULL)
-                    action = strdup("store");
+                    action = "store";
                 else if(!_actiontype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid action type %s\n",
                     __FILE__, __LINE__, conf);
@@ -823,11 +823,11 @@ exporter_validate(UNUSED config_setting_t *config)
 
             member = config_setting_get_elem(child, 3);
             if(member == NULL)
-               filter = strdup("noop");
+               filter = "noop";
             else {
                 conf = config_setting_get_string(member);
                 if(conf == NULL)
-                    filter = strdup("noop");
+                    filter = "noop";
                 else if(!_filtertype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid filter type %s\n",
                     __FILE__, __LINE__, conf);
@@ -844,7 +844,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 }
                 conf = config_setting_get_string(member);
                 if(conf == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration %s\n",
+                    fprintf(stderr, "%s %d: filter needs configuration %s",
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
