@@ -772,7 +772,8 @@ exporter_validate(UNUSED config_setting_t *config)
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
-            jpointer = strdup(conf);
+            if(!(jpointer = strdup(conf)))
+                goto err_strdup;
             pqtype = "text";
             action = "store";
             filter = "noop";
@@ -789,7 +790,8 @@ exporter_validate(UNUSED config_setting_t *config)
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
-            jpointer = strdup(conf);
+            if(!(jpointer = strdup(conf)))
+                goto err_strdup;
 
             member = config_setting_get_elem(child, 1);
             if(member == NULL)
@@ -803,7 +805,8 @@ exporter_validate(UNUSED config_setting_t *config)
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    pqtype = strdup(conf);
+                    if(!(pqtype = strdup(conf)))
+                        goto err_strdup;
             }
 
             member = config_setting_get_elem(child, 2);
@@ -818,7 +821,8 @@ exporter_validate(UNUSED config_setting_t *config)
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    action = strdup(conf);
+                    if(!(action = strdup(conf)))
+                        goto err_strdup;
             }
 
             member = config_setting_get_elem(child, 3);
@@ -833,7 +837,8 @@ exporter_validate(UNUSED config_setting_t *config)
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    filter = strdup(conf);
+                    if(!(filter = strdup(conf)))
+                        goto err_strdup;
             }
             if(filter_types[_filtertype_enum(conf)].needs_data) {
                 member = config_setting_get_elem(child,4);
@@ -848,7 +853,8 @@ exporter_validate(UNUSED config_setting_t *config)
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
-                data = strdup(conf);
+                if(!(data = strdup(conf)))
+                    goto err_strdup;
             }
         } else {
             fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
@@ -868,6 +874,9 @@ exporter_validate(UNUSED config_setting_t *config)
     }
 
     return true;
+    err_strdup:
+    fprintf(stderr, "%s %d: failed to strdup\n",
+        __FILE__, __LINE__);
     error:
     return false;
 }
