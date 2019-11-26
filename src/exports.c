@@ -305,16 +305,18 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     if(!current->result)
         goto error;
 
-    if (len < 21 || len > 31) {
+    if (len < 20 || len > 31) {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
         goto error;
     }
 
     // If a timestamp is not like 2000-01-01T00:00:01.000000Z
-    // it's considered invalid. Z stands for Zulu/UTC
+    // or 2000-01-01T:00:00:01Z it's considered invalid
+    // Z stands for Zulu/UTC
     if (ts[4] != '-' || ts[7] != '-' || ts[10] != 'T'
-            || ts[13] != ':' || ts[16] != ':' || ts[19] != '.'
+            || ts[13] != ':' || ts[16] != ':'
+            || !(ts[19] == '.' || ts[19] == 'Z')
             || ts[len-1] != 'Z') {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
@@ -328,7 +330,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     tm.hour = strtoul(ts+11,NULL,10);
     tm.minute = strtoul(ts+14,NULL,10);
     tm.second = strtoul(ts+17,NULL,10);
-    if(ts[20] != 'Z')
+    if(ts[20] != 'Z' && ts[19] != 'Z') // fractionless timestamps
         tm.micro = strtoull(ts+20,NULL,10);
 
     if(errno) {
@@ -336,13 +338,14 @@ _json_to_pqtimestamp(json_object *found, Needles current)
             __FILE__, __LINE__, strerror(errno));
         goto error;
     }
-
-    if(len-21 > 6) {
-        for (uint8_t i = 0; i < (len-21-6); i++)
-            tm.micro /= 10;
-    } else if(len-21 < 6) {
-        for (uint8_t i = 0; i < (6-(len-21)); i++)
-            tm.micro *= 10;
+    if(len >= 21 ) {
+        if(len-21 > 6) {
+            for (uint8_t i = 0; i < (len-21-6); i++)
+                tm.micro /= 10;
+        } else if(len-21 < 6) {
+            for (uint8_t i = 0; i < (6-(len-21)); i++)
+                tm.micro *= 10;
+        }
     }
 
     if(tm.year < 2000 || tm.year > 4027) {
