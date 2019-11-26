@@ -232,7 +232,34 @@ producers = (
         topic = "data";
         jpointers = (
             [ "/error", "text", "discard_true", "exists" ],
-            [ "/data/customer", "text", "store_true", "substr", "Doe" ],
+            [ "/data/customer", "text", "store_true", "substr", "doe" ],
+            "/data/request/http_response",
+            "/data/request/body/0",
+            ["/timestamp", "timestamp"],
+        );
+    } );
+.RE
+.PP
+Because arrays are not human readable, a filter can also be declared in
+a group. Default values can be omitted. This example is functionally
+equivalent to the last:
+producers = (
+    {
+        type = "exports"
+        threads = 1;
+        topic = "data";
+        jpointers = (
+            {
+                jpointer = "/error";
+                action = "discard_true";
+                filter = "exists";
+            },
+            {
+                jpointer = "/data/customer";
+                action = "store_true";
+                filter = "substr";
+                data = "doe";
+            },
             "/data/request/http_response",
             "/data/request/body/0",
             ["/timestamp", "timestamp"],
