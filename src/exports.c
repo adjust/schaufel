@@ -732,7 +732,7 @@ exporter_validate(UNUSED config_setting_t *config)
 {
     config_setting_t *setting = NULL, *member = NULL, *child = NULL,
         *new = NULL;
-    char *jpointer = NULL, *pqtype = NULL, *action = NULL, *filter = NULL,
+    const char *jpointer = NULL, *pqtype = NULL, *action = NULL, *filter = NULL,
         *data = NULL;;
     const char *conf = NULL;
 
@@ -765,6 +765,11 @@ exporter_validate(UNUSED config_setting_t *config)
         for (int j = 0; j < 5; j++ )
             config_setting_add(new, NULL, CONFIG_TYPE_STRING);
 
+        pqtype = "text";
+        action = "store";
+        filter = "noop";
+        data = "";
+
         if (config_setting_is_scalar(child) == CONFIG_TRUE) {
             conf = config_setting_get_string(child);
             if(conf == NULL) {
@@ -772,11 +777,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
-            if(!(jpointer = strdup(conf)))
-                goto err_strdup;
-            pqtype = "text";
-            action = "store";
-            filter = "noop";
+            jpointer = conf;
         } else if (config_setting_is_array(child) == CONFIG_TRUE) {
             member = config_setting_get_elem(child, 0);
             if(member == NULL) {
@@ -790,56 +791,41 @@ exporter_validate(UNUSED config_setting_t *config)
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
-            if(!(jpointer = strdup(conf)))
-                goto err_strdup;
+            jpointer = conf;
 
             member = config_setting_get_elem(child, 1);
-            if(member == NULL)
-                pqtype = "text";
-            else {
+            if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if(conf == NULL)
-                    pqtype = "text";
-                else if(!_pqtype_enum(conf)) {
+                if(conf != NULL && !_pqtype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid type transformation %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    if(!(pqtype = strdup(conf)))
-                        goto err_strdup;
+                    pqtype = conf;
             }
 
             member = config_setting_get_elem(child, 2);
-            if(member == NULL)
-                action = "store";
-            else {
+            if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if(conf == NULL)
-                    action = "store";
-                else if(!_actiontype_enum(conf)) {
+                if( conf != NULL && !_actiontype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid action type %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    if(!(action = strdup(conf)))
-                        goto err_strdup;
+                    action = conf;
             }
 
             member = config_setting_get_elem(child, 3);
-            if(member == NULL)
-               filter = "noop";
-            else {
+            if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if(conf == NULL)
-                    filter = "noop";
-                else if(!_filtertype_enum(conf)) {
+                if( conf != NULL && !_filtertype_enum(conf)) {
                     fprintf(stderr, "%s %d: not a valid filter type %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
-                    if(!(filter = strdup(conf)))
-                        goto err_strdup;
+                    filter = conf;
             }
+
             if(filter_types[_filtertype_enum(conf)].needs_data) {
                 member = config_setting_get_elem(child,4);
                 if(member == NULL) {
@@ -853,8 +839,7 @@ exporter_validate(UNUSED config_setting_t *config)
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
-                if(!(data = strdup(conf)))
-                    goto err_strdup;
+                    data = conf;
             }
         } else {
             fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
@@ -865,18 +850,10 @@ exporter_validate(UNUSED config_setting_t *config)
         config_setting_set_string_elem(new, 2, action);
         config_setting_set_string_elem(new, 3, filter);
         config_setting_set_string_elem(new, 4, data);
-        SFREE(jpointer);
-        SFREE(pqtype);
-        SFREE(action);
-        SFREE(filter);
-        SFREE(data);
         config_setting_remove_elem(setting,0);
     }
 
     return true;
-    err_strdup:
-    fprintf(stderr, "%s %d: failed to strdup\n",
-        __FILE__, __LINE__);
     error:
     return false;
 }
