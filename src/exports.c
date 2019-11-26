@@ -733,8 +733,7 @@ exporter_validate(UNUSED config_setting_t *config)
     config_setting_t *setting = NULL, *member = NULL, *child = NULL,
         *new = NULL;
     const char *jpointer = NULL, *pqtype = NULL, *action = NULL, *filter = NULL,
-        *data = NULL;;
-    const char *conf = NULL;
+        *data = NULL, *conf = NULL;
 
     const char *host = NULL, *topic = NULL;
     if(!CONF_L_IS_STRING(config, "host", &host, "require host string!"))
@@ -765,6 +764,7 @@ exporter_validate(UNUSED config_setting_t *config)
         for (int j = 0; j < 5; j++ )
             config_setting_add(new, NULL, CONFIG_TYPE_STRING);
 
+        jpointer = NULL;
         pqtype = "text";
         action = "store";
         filter = "noop";
@@ -797,7 +797,7 @@ exporter_validate(UNUSED config_setting_t *config)
             if(member != NULL) {
                 conf = config_setting_get_string(member);
                 if(conf != NULL && !_pqtype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid type transformation %s\n",
+                    fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
@@ -808,7 +808,7 @@ exporter_validate(UNUSED config_setting_t *config)
             if(member != NULL) {
                 conf = config_setting_get_string(member);
                 if( conf != NULL && !_actiontype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid action type %s\n",
+                    fprintf(stderr, "%s %d: not a valid action type: %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
@@ -819,31 +819,70 @@ exporter_validate(UNUSED config_setting_t *config)
             if(member != NULL) {
                 conf = config_setting_get_string(member);
                 if( conf != NULL && !_filtertype_enum(conf)) {
-                    fprintf(stderr, "%s %d: not a valid filter type %s\n",
+                    fprintf(stderr, "%s %d: not a valid filter type: %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 } else
                     filter = conf;
             }
 
-            if(filter_types[_filtertype_enum(conf)].needs_data) {
+            if(filter_types[_filtertype_enum(filter)].needs_data) {
                 member = config_setting_get_elem(child,4);
                 if(member == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration %s\n",
+                    fprintf(stderr, "%s %d: filter needs configuration: %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
                 conf = config_setting_get_string(member);
                 if(conf == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration %s",
+                    fprintf(stderr, "%s %d: filter needs configuration: %s\n",
                     __FILE__, __LINE__, conf);
                     goto error;
                 }
                     data = conf;
             }
+        } else if (config_setting_is_group(child) == CONFIG_TRUE) {
+            CONF_L_IS_STRING(child, "jpointer", &jpointer, "failed to parse config");
+
+            if(config_setting_lookup_string(child, "pqtype", &conf) == CONFIG_TRUE) {
+                if (!_pqtype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+                pqtype = conf;
+            }
+
+            if(config_setting_lookup_string(child, "action", &conf) == CONFIG_TRUE) {
+                if (!_actiontype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid action type: %s\n",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+                action = conf;
+            }
+
+            if(config_setting_lookup_string(child, "filter", &conf) == CONFIG_TRUE) {
+                if (!_filtertype_enum(conf)) {
+                    fprintf(stderr, "%s %d: not a valid filter type: %s\n",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+                filter = conf;
+            }
+
+            if(filter_types[_filtertype_enum(filter)].needs_data) {
+                if(config_setting_lookup_string(child, "data", &conf) == CONFIG_TRUE)
+                    data = conf;
+                else {
+                    fprintf(stderr, "%s %d: filter needs configuration: %s",
+                    __FILE__, __LINE__, conf);
+                    goto error;
+                }
+            }
         } else {
-            fprintf(stderr, "%s %d: jpointer needs to be a string/array\n",
-            __FILE__, __LINE__);
+            fprintf(stderr, "%s %d: jpointer needs to be a"
+            "string/array/group\n", __FILE__, __LINE__);
         }
         config_setting_set_string_elem(new, 0, jpointer);
         config_setting_set_string_elem(new, 1, pqtype);
