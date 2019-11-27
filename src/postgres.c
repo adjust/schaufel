@@ -46,7 +46,8 @@ _connectinfo(const char *host, const char *dbname, const char *user)
 static char *
 _cpycmd(const char *host, const char *generation, postgres_format fmt)
 {
-    char *cpycmd;
+    const char *format = fmt == POSTGRES_JSON ? "text" : "csv";
+    char       *cpycmd;
 
     if (host == NULL)
         return NULL;
@@ -67,11 +68,11 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
     }
 
     if (fmt == POSTGRES_CSV)
-        cpycmd = SSPRINTF("COPY %s FROM STDIN (FORMAT CSV)", generation);
+        cpycmd = SSPRINTF("COPY %s FROM STDIN (FORMAT %s)", generation, format);
     else
     {
-        cpycmd = SSPRINTF("COPY %s_%d_%s.data FROM STDIN (FORMAT CSV)",
-                          hostname, port, generation);
+        cpycmd = SSPRINTF("COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
+                          hostname, port, generation, format);
     }
 
     free(hostname);
