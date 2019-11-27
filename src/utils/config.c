@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -405,8 +406,9 @@ config_setting_t *config_create_path(config_setting_t *parent,
     char    buf[512];
     char   *prefix = buf;
 
-    /* TODO: put an assert on strlen <= 512 */
-    strcpy(buf, path);
+    assert(strlen(path) < 512);
+    strncpy(buf, path, sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0';
 
     while ((sep = strchr(prefix, PATH_SEPARATOR)) != NULL)
     {

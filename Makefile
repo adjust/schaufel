@@ -12,7 +12,7 @@ CFLAGS += -Wall -Wextra -pedantic
 CFLAGS += -std=c11
 CFLAGS += -D_XOPEN_SOURCE=700
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
-CFLAGS += -D_DEFAULT_SOURCE
+CFLAGS += -D_GNU_SOURCE
 LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
 INC = -Isrc/
 

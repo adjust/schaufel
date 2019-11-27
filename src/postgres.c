@@ -32,13 +32,23 @@ _connectinfo(const char *host, const char *dbname, const char *user)
     if (host == NULL)
         return NULL;
     char *hostname;
-    int port = 0;
+    int   port = 0;
+    char *conninfo;
+    int   ret;
 
     if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
-    char *conninfo = SSPRINTF("dbname=%s user=%s host=%s port=%d",
-                              dbname, user, hostname, port);
+    ret = asprintf(&conninfo,
+                   "dbname=%s user=%s host=%s port=%d",
+                   dbname, user, hostname, port);
+    if (ret == -1)
+    {
+        logger_log("%s %d: Cannot allocate connection string",
+                   __FILE__, __LINE__);
+        abort();
+    }
+
     free(hostname);
     return conninfo;
 }
@@ -67,12 +77,17 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
         ++ptr;
     }
 
+    int ret;
     if (fmt == POSTGRES_CSV)
-        cpycmd = SSPRINTF("COPY %s FROM STDIN (FORMAT %s)", generation, format);
+        ret = asprintf(&cpycmd, "COPY %s FROM STDIN (FORMAT %s)", generation, format);
     else
+        ret = asprintf(&cpycmd, "COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
+                       hostname, port, generation, format);
+    if (ret == -1)
     {
-        cpycmd = SSPRINTF("COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
-                          hostname, port, generation, format);
+        logger_log("%s %d: Cannot allocate COPY query string",
+                   __FILE__, __LINE__);
+        abort();
     }
 
     free(hostname);

@@ -75,7 +75,8 @@ static void kafka_set_option(const char *key, const char *value, void *arg)
     rd_kafka_conf_t    *conf = (rd_kafka_conf_t *) arg;
     rd_kafka_conf_res_t res;
 
-    strcpy(buf, key);
+    strncpy(buf, key, sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0';
     /* kafka options use `.` (dot) as a separator */
     replace_char(buf, '_', '.');
 
@@ -94,7 +95,8 @@ static void kafka_topic_set_option(const char *key, const char *value, void *arg
     rd_kafka_topic_conf_t  *topic_conf = (rd_kafka_topic_conf_t *) arg;
     rd_kafka_conf_res_t     res;
 
-    strcpy(buf, key);
+    strncpy(buf, key, sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0';
     replace_char(buf, '_', '.');
 
     res = rd_kafka_topic_conf_set(topic_conf, buf, value, errstr, sizeof(errstr));
