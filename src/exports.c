@@ -239,7 +239,7 @@ static bool
 _filter_match(int jpointer, json_object *found,
     UNUSED Needles current)
 {
-    if(jpointer != 0) // no data to match against
+    if(jpointer != 0 || !found) // no data to match against
         return false;
     if(strcmp(json_object_get_string(found), current->filter_data) == 0)
         return true;
@@ -250,7 +250,7 @@ static bool
 _filter_substr(int jpointer, json_object *found,
     UNUSED Needles current)
 {
-    if(jpointer != 0) // no data to match against
+    if(jpointer != 0 || !found) // no data to match against
         return false;
     if(strstr(json_object_get_string(found), current->filter_data))
         return true;
@@ -559,6 +559,7 @@ _deref(json_object *haystack, Internal internal)
 
     Needles *needles = internal->needles;
     for (int i = 0; i < internal->ncount; i++) {
+        found = NULL;
         ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
 
         if (!
