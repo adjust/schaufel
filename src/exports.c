@@ -14,7 +14,6 @@
 #include "utils/scalloc.h"
 #include "utils/endian.h"
 
-
 typedef struct Needles *Needles;
 typedef struct Needles {
     char           *jpointer;
@@ -305,7 +304,17 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     if(!current->result)
         goto error;
 
-    if (len < 20 || len > 31) {
+    //2019-11-05T11:31:34Z
+    #define T_MONTH 5
+    #define T_DAY 8
+    #define T_HOUR 11
+    #define T_MINUTE 14
+    #define T_SECOND 17
+    #define T_FRACTION 20
+    #define T_MIN 20
+    #define T_MAX 31
+
+    if (len < T_MIN || len > T_MAX) {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
         goto error;
@@ -314,9 +323,9 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     // If a timestamp is not like 2000-01-01T00:00:01.000000Z
     // or 2000-01-01T:00:00:01Z it's considered invalid
     // Z stands for Zulu/UTC
-    if (ts[4] != '-' || ts[7] != '-' || ts[10] != 'T'
-            || ts[13] != ':' || ts[16] != ':'
-            || !(ts[19] == '.' || ts[19] == 'Z')
+    if (ts[T_MONTH-1] != '-' || ts[T_DAY-1] != '-' || ts[T_HOUR-1] != 'T'
+            || ts[T_MINUTE-1] != ':' || ts[T_SECOND-1] != ':'
+            || !(ts[T_FRACTION-1] == '.' || ts[T_FRACTION-1] == 'Z')
             || ts[len-1] != 'Z') {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
@@ -325,12 +334,12 @@ _json_to_pqtimestamp(json_object *found, Needles current)
 
     errno = 0;
     tm.year = strtoul(ts,NULL,10);
-    tm.month = strtoul(ts+5,NULL,10);
-    tm.day = strtoul(ts+8,NULL,10);
-    tm.hour = strtoul(ts+11,NULL,10);
-    tm.minute = strtoul(ts+14,NULL,10);
-    tm.second = strtoul(ts+17,NULL,10);
-    if(ts[20] != 'Z' && ts[19] != 'Z') // fractionless timestamps
+    tm.month = strtoul(ts+T_MONTH,NULL,10);
+    tm.day = strtoul(ts+T_DAY,NULL,10);
+    tm.hour = strtoul(ts+T_HOUR,NULL,10);
+    tm.minute = strtoul(ts+T_MINUTE,NULL,10);
+    tm.second = strtoul(ts+T_SECOND,NULL,10);
+    if(ts[T_FRACTION] != 'Z' && ts[T_FRACTION-1] != 'Z') // fractionless timestamps
         tm.micro = strtoull(ts+20,NULL,10);
 
     if(errno) {
@@ -338,12 +347,14 @@ _json_to_pqtimestamp(json_object *found, Needles current)
             __FILE__, __LINE__, strerror(errno));
         goto error;
     }
-    if(len >= 21 ) {
-        if(len-21 > 6) {
-            for (uint8_t i = 0; i < (len-21-6); i++)
+
+    // Convert fraction to postgres fixed point length
+    if(len >= T_MIN ) {
+        if(len-T_MIN > 6) {
+            for (uint8_t i = 0; i < (len-T_MIN-6); i++)
                 tm.micro /= 10;
-        } else if(len-21 < 6) {
-            for (uint8_t i = 0; i < (6-(len-21)); i++)
+        } else if(len-T_MIN < 6) {
+            for (uint8_t i = 0; i < (6-(len-T_MIN)); i++)
                 tm.micro *= 10;
         }
     }
