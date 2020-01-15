@@ -15,8 +15,15 @@ Lack of order requirements allow schaufel to work with high parallelity,
 as the only shared state is the message queue. Gains from parallelity
 therefore are limited by Amdahl's law.
 .LP
-Be aware that schaufel supports no encryption whatsoever. Please only use
-it in trusted environments.
+Schaufel does not support encryption itself at all.  Producers or consumers
+MAY support encryption on their own, but currently these are NOT supported
+via the configuration file interface.  Please familiarize yourself with the
+standard approaches for encryption for the C interfaces for these producers
+and consumers, and/or only use in a trusted environment.
+.LP
+Schaufel replication is a simple process of writing to multiple sources
+independently.  This is a feature which is supported by some producers
+such as PostgreSQL, but not on all.
 .SH OPTIONS
 Schaufel needs a certain amount of configuration. You always need to tell
 where it should log to, what it should read from, where it should write to,
