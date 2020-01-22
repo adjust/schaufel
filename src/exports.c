@@ -436,7 +436,7 @@ _needles(config_setting_t *needlestack, Internal internal)
         current->action = action_types[actiontype].action;
         current->store = action_types[actiontype].store;
         if (current->store)
-            (internal->rows)++;
+            internal->rows++;
 
         member = config_setting_get_elem(setting, 3);
         filtertype = _filtertype_enum(config_setting_get_string(member));
@@ -562,18 +562,9 @@ _deref(json_object *haystack, Internal internal)
         found = NULL;
         ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
 
-        if (!
-            (
-                needles[i]->action
-                (
-                    (
-                        needles[i]->filter(ret,found,needles[i])
-                    ),
-                    found,
-                    needles[i]
-                )
-            )
-        )
+        if(!needles[i]->action(
+                needles[i]->filter(ret, found, needles[i]),
+                found, needles[i]))
             return 1;
 
         if(ret) {
@@ -583,7 +574,7 @@ _deref(json_object *haystack, Internal internal)
             // int max is postgres NULL;
             needles[i]->length = (uint32_t)~0;
         } else {
-            if(!needles[i]->format(found,needles[i])) {
+            if(!needles[i]->format(found, needles[i])) {
                 logger_log("%s %d: Failed jpointer deref %s",
                     __FILE__, __LINE__, needles[i]->jpointer);
                 return -1;
@@ -655,7 +646,7 @@ exports_producer_produce(Producer p, Message msg)
     PQputCopyData(m->conn_master, (char *) &rows, 2);
 
     for (int i = 0; i < internal->ncount; i++) {
-        if(!(needles[i]->store))
+        if(!needles[i]->store)
             continue;
         uint32_t length =  htobe32(needles[i]->length);
         PQputCopyData(m->conn_master, (void *) &length, 4);
