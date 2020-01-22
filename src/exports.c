@@ -425,6 +425,10 @@ _needles(config_setting_t *needlestack, Internal internal)
 
         member = config_setting_get_elem(setting, 0);
         current->jpointer = strdup(config_setting_get_string(member));
+        if (!current->jpointer) {
+            logger_log("%s %d: Failed to strdup", __FILE__, __LINE__);
+            abort();
+        }
 
         member = config_setting_get_elem(setting, 1);
         pqtype = _pqtype_enum(config_setting_get_string(member));
@@ -555,12 +559,11 @@ int
 _deref(json_object *haystack, Internal internal)
 {
     json_object *found;
-    int ret = 0;
 
     Needles *needles = internal->needles;
     for (int i = 0; i < internal->ncount; i++) {
         found = NULL;
-        ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
+        int ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
 
         if(!needles[i]->action(
                 needles[i]->filter(ret, found, needles[i]),
