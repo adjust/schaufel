@@ -774,7 +774,7 @@ exporter_validate(UNUSED config_setting_t *config)
         if (config_setting_is_scalar(child) == CONFIG_TRUE) {
             conf = config_setting_get_string(child);
             if(conf == NULL) {
-                fprintf(stderr, "%s %d: couldn't parse config at %ud\n",
+                fprintf(stderr, "%s %d: couldn't parse config at %u\n",
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
@@ -788,7 +788,7 @@ exporter_validate(UNUSED config_setting_t *config)
             }
             conf = config_setting_get_string(member);
             if(conf == NULL) {
-                fprintf(stderr, "%s %d: couldn't parse config at %ud\n",
+                fprintf(stderr, "%s %d: couldn't parse config at %u\n",
                 __FILE__, __LINE__, config_setting_source_line(child));
                 goto error;
             }
@@ -882,7 +882,7 @@ exporter_validate(UNUSED config_setting_t *config)
                 }
             }
         } else {
-            fprintf(stderr, "%s %d: jpointer needs to be a"
+            fprintf(stderr, "%s %d: jpointer needs to be a "
             "string/array/group\n", __FILE__, __LINE__);
         }
         config_setting_set_string_elem(new, 0, jpointer);
