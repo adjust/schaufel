@@ -837,7 +837,8 @@ exporter_validate(UNUSED config_setting_t *config)
                     data = conf;
             }
         } else if (config_setting_is_group(child) == CONFIG_TRUE) {
-            CONF_L_IS_STRING(child, "jpointer", &jpointer, "failed to parse config");
+            if(!CONF_L_IS_STRING(child, "jpointer", &jpointer, "failed to parse config"))
+                goto error;
 
             if(config_setting_lookup_string(child, "pqtype", &conf) == CONFIG_TRUE) {
                 if (!_pqtype_enum(conf)) {
