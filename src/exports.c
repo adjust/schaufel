@@ -48,8 +48,7 @@ static bool _filter_exists (int jpointer, json_object *found, Needles current);
 
 static bool _action_store (bool filter_ret, json_object *found, Needles current);
 static bool _action_store_true (bool filter_ret, json_object *found, Needles current);
-static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
-static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
+static bool _action_discard_true_false (bool filter_ret, json_object *found, Needles current);
 
 // Types of postgres fields
 typedef enum {  // todo: add jsonb, int.
@@ -88,8 +87,8 @@ static const struct {
         {action_undef, "undef", NULL, false},
         {action_store, "store", &_action_store, true},
         {action_store_true, "store_true", &_action_store_true, true},
-        {action_discard_false, "discard_false", &_action_discard_false, false},
-        {action_discard_true, "discard_true", &_action_discard_true, false}
+        {action_discard_false, "discard_false", &_action_discard_true_false, false},
+        {action_discard_true, "discard_true", &_action_discard_true_false, false}
 };
 
 // Types of filters to be applied on data
@@ -222,17 +221,10 @@ _action_store_true(bool filter_ret, UNUSED json_object *found,
 }
 
 static bool
-_action_discard_false(bool filter_ret, UNUSED json_object *found,
+_action_discard_true_false(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
     return filter_ret;
-}
-
-static bool
-_action_discard_true(bool filter_ret, UNUSED json_object *found,
-    UNUSED Needles current)
-{
-    return !filter_ret;
 }
 
 static bool
