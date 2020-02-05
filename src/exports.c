@@ -555,6 +555,8 @@ _deref(json_object *haystack, Internal internal)
     Needles *needles = internal->needles;
     for (int i = 0; i < internal->ncount; i++) {
         found = NULL;
+        /* json_pointer_get returns negative if an error (or not found)
+         * returns 0 if it succeeds */
         int ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
 
         if(!needles[i]->action(
