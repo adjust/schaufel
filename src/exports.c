@@ -24,7 +24,7 @@ typedef struct Needles {
     uint32_t        length;
     void           *result; // output
     bool          (*action) (bool, json_object *, Needles);
-    bool          (*filter) (int, json_object *, Needles);
+    bool          (*filter) (bool, json_object *, Needles);
     bool            store;
     const char     *filter_data;
 } *Needles;
@@ -41,10 +41,10 @@ static bool _json_to_pqtimestamp (json_object *needle, Needles current);
 static void _obj_noop(UNUSED void **obj);
 static void _obj_free(void **obj);
 
-static bool _filter_match (int jpointer, json_object *found, Needles current);
-static bool _filter_noop (int jpointer, json_object *found, Needles current);
-static bool _filter_substr (int jpointer, json_object *found, Needles current);
-static bool _filter_exists (int jpointer, json_object *found, Needles current);
+static bool _filter_match (bool jpointer, json_object *found, Needles current);
+static bool _filter_noop (bool jpointer, json_object *found, Needles current);
+static bool _filter_substr (bool jpointer, json_object *found, Needles current);
+static bool _filter_exists (bool jpointer, json_object *found, Needles current);
 
 static bool _action_store (bool filter_ret, json_object *found, Needles current);
 static bool _action_store_true (bool filter_ret, json_object *found, Needles current);
@@ -105,7 +105,7 @@ typedef enum {
 static const struct {
     FilterTypes type;
     const char *filter_type;
-    bool (*filter) (int, json_object *, Needles);
+    bool (*filter) (bool, json_object *, Needles);
     bool needs_data;
 }  filter_types [] = {
         {filter_undef, "undef", NULL, false},
@@ -236,10 +236,10 @@ _action_discard_true(bool filter_ret, UNUSED json_object *found,
 }
 
 static bool
-_filter_match(int jpointer, json_object *found,
+_filter_match(bool jpointer, json_object *found,
     UNUSED Needles current)
 {
-    if(jpointer != 0 || !found) // no data to match against
+    if(jpointer == false || !found) // no data to match against
         return false;
     if(strcmp(json_object_get_string(found), current->filter_data) == 0)
         return true;
@@ -247,10 +247,10 @@ _filter_match(int jpointer, json_object *found,
 }
 
 static bool
-_filter_substr(int jpointer, json_object *found,
+_filter_substr(bool jpointer, json_object *found,
     UNUSED Needles current)
 {
-    if(jpointer != 0 || !found) // no data to match against
+    if(jpointer == false || !found) // no data to match against
         return false;
     if(strstr(json_object_get_string(found), current->filter_data))
         return true;
@@ -258,19 +258,17 @@ _filter_substr(int jpointer, json_object *found,
 }
 
 static bool
-_filter_noop(UNUSED int jpointer, UNUSED json_object *found,
+_filter_noop(UNUSED bool jpointer, UNUSED json_object *found,
     UNUSED Needles current)
 {
     return true;
 }
 
 static bool
-_filter_exists(int jpointer, UNUSED json_object *found,
+_filter_exists(bool jpointer, UNUSED json_object *found,
     UNUSED Needles current)
 {
-    if(jpointer != 0) // anything but 0 indicates error
-        return false;
-    return true;
+    return jpointer;
 }
 
 static bool
@@ -568,7 +566,7 @@ _deref(json_object *haystack, Internal internal)
         int ret = json_pointer_get(haystack, needles[i]->jpointer, &found);
 
         if(!needles[i]->action(
-                needles[i]->filter(ret, found, needles[i]),
+                needles[i]->filter(ret == 0, found, needles[i]),
                 found, needles[i]))
             return 1;
 
