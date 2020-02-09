@@ -314,6 +314,9 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     #define T_MIN 20
     #define T_MAX 31
 
+    // postgres only stores 6 digits after .
+    #define PG_FRACTION 6
+
     if (len < T_MIN || len > T_MAX) {
         logger_log("%s %d: Datestring %s not supported",
             __FILE__, __LINE__, ts);
@@ -339,24 +342,18 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     tm.hour = strtoul(ts+T_HOUR,NULL,10);
     tm.minute = strtoul(ts+T_MINUTE,NULL,10);
     tm.second = strtoul(ts+T_SECOND,NULL,10);
-    if(ts[T_FRACTION] != 'Z' && ts[T_FRACTION-1] != 'Z') // fractionless timestamps
-        tm.micro = strtoull(ts+20,NULL,10);
+    if(ts[T_FRACTION] != 'Z' && ts[T_FRACTION-1] != 'Z') { // fractionless timestamps
+        char micro[PG_FRACTION+1] = "000000";
+        int bytes = (len-1) - T_MIN > PG_FRACTION ?
+            PG_FRACTION : (len-1) - T_MIN;
+        memcpy(micro, ts+T_MIN,bytes);
+        tm.micro = strtoull(micro,NULL,10);
+    }
 
     if(errno) {
         logger_log("%s %d: Error %s in date conversion",
             __FILE__, __LINE__, strerror(errno));
         goto error;
-    }
-
-    // Convert fraction to postgres fixed point length
-    if(len >= T_MIN ) {
-        if(len-T_MIN > 6) {
-            for (uint8_t i = 0; i < (len-T_MIN-6); i++)
-                tm.micro /= 10;
-        } else if(len-T_MIN < 6) {
-            for (uint8_t i = 0; i < (6-(len-T_MIN)); i++)
-                tm.micro *= 10;
-        }
     }
 
     if(tm.year < 2000 || tm.year > 4027) {
