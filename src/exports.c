@@ -344,7 +344,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     tm.second = strtoul(ts+T_SECOND,NULL,10);
     if(ts[T_FRACTION] != 'Z' && ts[T_FRACTION-1] != 'Z') { // fractionless timestamps
         char micro[PG_FRACTION+1] = "000000";
-        int bytes = (len-1) - T_MIN > PG_FRACTION ?
+        size_t bytes = (len-1) - T_MIN > PG_FRACTION ?
             PG_FRACTION : (len-1) - T_MIN;
         memcpy(micro, ts+T_MIN,bytes);
         tm.micro = strtoull(micro,NULL,10);
