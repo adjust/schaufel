@@ -121,6 +121,44 @@ producers = (
 .PP
 Next to the standard producers, there are two special kinds. The postgres
 with replication (\fBbagger\fR) kind, and the \fBexports\fR type.
+.SS kafka
+Kafka is a producer and consumer to Apache \fIkafka\fR, using \fIlibrdkafka\fR.
+Only the message payload is forwarded, all metadata is discarded.
+.PP
+The miminum configuration for a producer is a broker and a topic, for the
+consumer a broker, topic and group id are required.
+Further options can be set if the groups \fIkafka_options\fR and
+\fItopic_options\fR are added to the config file. The names of options
+correspond to librdkafka and that is where they are documented.
+.PP
+Because of limitations in libconfigs grammar, dots are replaced by underscores
+in the naming scheme.
+.RS
+.PP
+consumers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        topic = "schaufel_queue";
+        group = "schaufel_queue_1";
+        kafka_options = {
+            partition_assignment_strategy = "roundrobin";
+        };
+    });
+.PP
+producers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        topic = "schaufel_new_queue";
+        topic_options = {
+            compression_codec = "zstd";
+        };
+    });
+
+.RE
 .SS bagger
 Bagger is essentially a producer of the \fIpostgres\fR type. Through the
 \fIhost\fR string one can define a list of postgres databases and message
