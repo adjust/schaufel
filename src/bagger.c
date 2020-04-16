@@ -1,18 +1,23 @@
 #include <errno.h>
 #include <libpq-fe.h>
-#include <pthread.h>
+// #include <pthread.h>
+#include <threads.h>
 #include <stdlib.h>
 #include <string.h>
 #include <json-c/json.h>
 #include <arpa/inet.h>
 
-#include "exports.h"
+#include "bagger.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
 #include "utils/endian.h"
+#include "utils/htable.h"
+
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 typedef struct Needles *Needles;
 typedef struct Needles {
@@ -33,7 +38,40 @@ typedef struct Internal {
     uint32_t       *leapyears;  // leapyears are globally shared
     uint16_t        ncount; // count of needles
     uint16_t        rows; // number of rows inserted into postgres
+    HTable         *htable; // hashtable of per-table buffers
 } *Internal;
+
+typedef struct BaggerMeta
+{
+    PGconn         *conn;
+    mtx_t           commit_mtx;
+    thrd_t          commit_thrd;
+    _Atomic bool    commit_thrd_exit;
+    Internal        internal;
+    int             count;
+} BaggerMeta;
+
+#define BUFFER_SIZE 1024
+
+typedef struct BufferNode BufferNode;
+
+typedef struct Buffer {
+    BufferNode     *buf_head;   // buffers list
+    BufferNode     *buf_tail;   // last buffers list element
+    size_t          nbytes;     // bytes actually written
+} Buffer;
+
+typedef struct BufferNode {
+    char            data[BUFFER_SIZE];
+    BufferNode     *next;
+} BufferNode;
+
+static void bagger_producer_free(Producer *p);
+static void bagger_producer_produce(Producer p, Message msg);
+static void bagger_consumer_free(Consumer *c);
+static int bagger_consumer_consume(Consumer c, Message msg);
+
+static void buffer_write(Buffer *buf, const char *data, size_t len);
 
 static bool _json_to_pqtext (json_object *needle, Needles current);
 static bool _json_to_pqtimestamp (json_object *needle, Needles current);
@@ -49,6 +87,10 @@ static bool _action_store (bool filter_ret, json_object *found, Needles current)
 static bool _action_store_true (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
+
+static char *_cpycmd(const char *table);
+
+static int bagger_commit_worker(void *);
 
 // Types of postgres fields
 typedef enum {  // todo: add jsonb, int.
@@ -114,6 +156,103 @@ static const struct {
         {filter_exists, "exists", &_filter_exists, false},
 // TODO:        {filter_pcrematch, "pcrematch", NULL, true},
 };
+
+static void
+buffer_write(Buffer *buf, const char *data, size_t len)
+{
+    size_t      offset;
+    size_t      bytes_left;
+    BufferNode *node = buf->buf_tail;
+
+    if (!node)
+    {
+        // initialize buffer
+        node = SCALLOC(1, sizeof(BufferNode));
+        buf->buf_head = node;
+        buf->buf_tail = node;
+    }
+
+    // calculate free space in the last buffer node;
+    offset = buf->nbytes % BUFFER_SIZE;
+    bytes_left = BUFFER_SIZE - offset;
+
+    while (true)  {
+        size_t  bytes_copied = min(bytes_left, len);
+
+        memcpy(node->data + offset, data, bytes_copied);
+
+        data += bytes_copied;
+        len -= bytes_copied;
+        buf->nbytes += bytes_copied;
+
+        // Do we need more space? Allocate a new buffer node
+        if (len > 0) {
+            BufferNode *new_node = SCALLOC(1, sizeof(BufferNode));
+
+            node->next = new_node;
+            node = new_node;
+            buf->buf_tail = new_node;
+
+            bytes_left = BUFFER_SIZE;
+            offset = 0;
+        } else {
+            break;
+        }
+    };
+}
+
+static void
+buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
+{
+    char       *cpycmd;
+    size_t      nbytes;
+    BufferNode *node,
+               *prev;
+    PGresult   *res;
+
+    cpycmd = _cpycmd(tablename);
+
+    res = PQexec(m->conn, cpycmd);
+    if (PQresultStatus(res) != PGRES_COPY_IN)
+    {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
+        abort();
+    }
+    PQclear(res);
+    free(cpycmd);
+
+    // Send signature, flags and header extension length
+    // TODO: check return value
+    PQputCopyData(m->conn,
+        "PGCOPY\n\377\r\n\0" //postgres magic
+        "\0\0\0\0"  // flags field (only bit 16 relevant)
+        "\0\0\0\0"  // Header extension area
+        , 19);
+
+    nbytes = buf->nbytes;
+
+    // write out buffers
+    node = buf->buf_head;
+    while (node != NULL)
+    {
+        size_t bufsize = min(nbytes, BUFFER_SIZE);
+
+        nbytes -= bufsize;
+        PQputCopyData(m->conn, node->data, bufsize);
+
+        prev = node;
+        node = node->next;
+
+        free(prev);
+    }
+
+    // finish write
+    // TODO: check return values
+    PQputCopyData(m->conn, "\377\377", 2);
+    PQputCopyEnd(m->conn, NULL);
+
+    // mtx_unlock(&m->commit_mtx);
+}
 
 static char *
 _connectinfo(const char *host)
@@ -464,17 +603,9 @@ _needles(config_setting_t *needlestack, Internal internal)
 }
 
 static char *
-_cpycmd(const char *host, const char *table)
+_cpycmd(const char *table)
 {
-    if (host == NULL)
-        return NULL;
-    char *hostname;
-    int port = 0;
-
-    if (parse_connstring(host, &hostname, &port) == -1)
-        abort();
-
-    const char *fmtstring = "COPY %s FROM STDIN ( FORMAT binary )";
+    const char *fmtstring = "COPY %s FROM STDIN (FORMAT binary)";
 
     int len = strlen(table)
             + strlen(fmtstring);
@@ -482,32 +613,47 @@ _cpycmd(const char *host, const char *table)
     char *cpycmd = SCALLOC(len + 1, sizeof(*cpycmd));
 
     snprintf(cpycmd, len, fmtstring, table);
-    free(hostname);
     return cpycmd;
 }
 
-
-Meta
-exports_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
+static uint32_t
+_hashfunc(const char *key)
 {
-    Meta m = SCALLOC(1, sizeof(*m));
-    Internal i = SCALLOC(1,sizeof(*i));
+    const char *s = key;
+    uint32_t    hash = 0;
 
-    m->cpyfmt = PQ_COPY_BINARY;
-    m->cpycmd = _cpycmd(host, topic);
-    m->conninfo = _connectinfo(host);
+    while(*s)
+    {
+        hash += *s;
+        s++;
+    }
+
+    return hash;
+}
+
+BaggerMeta *
+bagger_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
+{
+    BaggerMeta     *m = SCALLOC(1, sizeof(*m));
+    Internal        i = SCALLOC(1, sizeof(*i));
+    char           *conninfo;
+
+    conninfo = _connectinfo(host);
+
     m->internal = i;
     m->internal->needles = _needles(needlestack, i);
     m->internal->ncount = config_setting_length(needlestack);
+    m->internal->htable = ht_create(16, sizeof(Buffer), _hashfunc);
 
-    m->conn_master = PQconnectdb(m->conninfo);
-    if (PQstatus(m->conn_master) != CONNECTION_OK)
+    m->conn = PQconnectdb(conninfo);
+    if (PQstatus(m->conn) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
         abort();
     }
+    free(conninfo);
 
-    if (pthread_mutex_init(&m->commit_mutex, NULL) != 0) {
+    if (mtx_init(&m->commit_mtx, mtx_plain) != thrd_success) {
         logger_log("%s %d: unable to create mutex", __FILE__, __LINE__ );
         abort();
     }
@@ -516,14 +662,14 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
 }
 
 void
-exports_meta_free(Meta *m)
+bagger_meta_free(BaggerMeta *m)
 {
-    Internal internal = (*m)->internal;
-    pthread_mutex_destroy(&(*m)->commit_mutex);
+    Internal internal = m->internal;
+    mtx_destroy(&m->commit_mtx);
 
-    free((*m)->conninfo);
-    free((*m)->cpycmd);
-    PQfinish((*m)->conn_master);
+    // free(m->conninfo);
+    // free(m->cpycmd);
+    PQfinish(m->conn);
 
     for (int i = 0; i < internal->ncount; i++ ) {
         free(internal->needles[i]->jpointer);
@@ -533,26 +679,34 @@ exports_meta_free(Meta *m)
     }
     free(internal->needles);
     free(internal->leapyears);
+    free(internal->htable);
     free(internal);
 
-    free(*m);
-    *m = NULL;
+    free(m);
 }
 
 Producer
-exports_producer_init(config_setting_t *config)
+bagger_producer_init(config_setting_t *config)
 {
     const char *host = NULL, *topic = NULL;
     config_setting_t *needlestack = NULL;
     config_setting_lookup_string(config, "host", &host);
     config_setting_lookup_string(config, "topic", &topic);
     needlestack = config_setting_get_member(config, "jpointers");
-    Producer exports = SCALLOC(1, sizeof(*exports));
+    Producer bagger = SCALLOC(1, sizeof(*bagger));
 
-    exports->meta          = exports_meta_init(host, topic, needlestack);
-    exports->producer_free = exports_producer_free;
-    exports->produce       = exports_producer_produce;
+    bagger->meta          = bagger_meta_init(host, topic, needlestack);
+    bagger->producer_free = bagger_producer_free;
+    bagger->produce       = bagger_producer_produce;
 
+    if (thrd_create(&((BaggerMeta *) bagger->meta)->commit_thrd,
+                    bagger_commit_worker,
+                    bagger->meta) != thrd_success) {
+        logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
+        abort();
+    }
+
+#if 0
     if (pthread_create(&((Meta)(exports->meta))->commit_worker,
         NULL,
         commit_worker,
@@ -560,8 +714,9 @@ exports_producer_init(config_setting_t *config)
         logger_log("%s %d: Failed to create commit worker!", __FILE__, __LINE__);
         abort();
     }
+#endif
 
-    return exports;
+    return bagger;
 }
 
 static int
@@ -599,14 +754,59 @@ _deref(json_object *haystack, Internal internal)
     return 0;
 }
 
-void
-exports_producer_produce(Producer p, Message msg)
+// partition_name
+//      Generates table name based on values in the `in` object. The input json
+//      must contain these three attributes: "service", "tag", "timestamp".
+//      The result is written into the `out` string. String must be allocated
+//      by the caller and be at least 64 bytes long (postgres naming rules
+//      require names to be no longer than 64 bytes including terminal zero)
+static void
+partition_name(json_object *in, char *out)
 {
-    Meta m = (Meta)p->meta;
+    json_object    *obj;
+    int             i;
+    const char     *names[] = {"/service", "/tag", "/timestamp"};
+    const char     *values[3];
+    char           *s;
+
+#if 0
+    strcpy(out, "stub");
+#endif
+    for (i = 0; i < 3; ++i)
+    {
+        if (json_pointer_get(in, names[i], &obj) < 0)
+        {
+            logger_log("%s %d: invalid json, \"%s\" not found",
+                       __FILE__, __LINE__, names[i]);
+            abort();
+        }
+        values[i] = json_object_get_string(obj);
+    }
+
+    snprintf(out, 64, "data_%s_%s_%s", values[0], values[1], values[2]);
+
+    // Replace invalid charachters (according to postgres naming convention).
+    // We assume for now that the only invalid charachers could be in timestamp
+    // string. Feel free to extend this part if situation changes.
+    s = out;
+    while (*s)
+    {
+        if (*s == '-')
+            *s = '_';
+        s++;
+    }
+}
+
+void
+bagger_producer_produce(Producer p, Message msg)
+{
+    BaggerMeta *m = (BaggerMeta *) p->meta;
     Needles *needles = m->internal->needles;
     Internal internal = m->internal;
     json_object *haystack = NULL;
-    int ret = 0;
+    char        tablename[64]; // max table name in postgres including \0
+    Buffer     *buf;
+    int         ret = 0;
 
     size_t len = message_get_len(msg);
     char* data = message_get_data(msg);
@@ -620,8 +820,8 @@ exports_producer_produce(Producer p, Message msg)
         return;
     }
 
-
-    pthread_mutex_lock(&m->commit_mutex);
+    mtx_lock(&m->commit_mtx);
+#if 0
     if (m->copy == 0)
     {
         m->res = PQexec(m->conn_master, m->cpycmd);
@@ -639,12 +839,16 @@ exports_producer_produce(Producer p, Message msg)
             , 19);
         m->copy = 1;
     }
+#endif
 
     haystack = json_tokener_parse(data);
     if(!haystack) {
         logger_log("%s %d: Failed to tokenize json!", __FILE__, __LINE__);
         goto error;
     }
+
+    partition_name(haystack, tablename);
+    buf = ht_search(internal->htable, tablename, HT_UPSERT);
 
     // get value from json, apply transformation
     if((ret = _deref(haystack, internal) != 0)) {
@@ -657,16 +861,19 @@ exports_producer_produce(Producer p, Message msg)
         goto fail;
     }
 
-    PQputCopyData(m->conn_master, (char *) &rows, 2);
+    // PQputCopyData(m->conn_master, (char *) &rows, 2);
+    buffer_write(buf, (char *) &rows, 2);
 
     for (int i = 0; i < internal->ncount; i++) {
         if(!needles[i]->store)
             continue;
         uint32_t length =  htobe32(needles[i]->length);
-        PQputCopyData(m->conn_master, (void *) &length, 4);
+        // PQputCopyData(m->conn, (void *) &length, 4);
+        buffer_write(buf, (char *) &length, 4);
 
         if(needles[i]->result) {
-            PQputCopyData(m->conn_master, needles[i]->result, needles[i]->length);
+            // PQputCopyData(m->conn, needles[i]->result, needles[i]->length);
+            buffer_write(buf, needles[i]->result, needles[i]->length);
             needles[i]->free(&needles[i]->result);
         }
     }
@@ -674,67 +881,82 @@ exports_producer_produce(Producer p, Message msg)
     m->count = m->count + 1;
     if (m->count == 2000)
     {
-        commit(&m);
+        // commit(&m);
+        buffer_flush(m, buf, tablename);
     }
 
     error:
     fail:
     json_object_put(haystack);
-    pthread_mutex_unlock(&m->commit_mutex);
+
+    mtx_unlock(&m->commit_mtx);
 }
 
 void
-exports_producer_free(Producer *p)
+bagger_producer_free(Producer *p)
 {
-    Meta m = (Meta) ((*p)->meta);
+    BaggerMeta *m = (BaggerMeta *) ((*p)->meta);
+    HTable     *ht = m->internal->htable;
+    HTIter     *iter;
+    Buffer     *buf;
+    const char *key;
+    int         res;
 
-    pthread_cancel(m->commit_worker);
-    void *res;
-    pthread_join(m->commit_worker, &res);
+    m->commit_thrd_exit = true;
+    thrd_join(m->commit_thrd, &res);
 
-    if (m->copy != 0)
+    // flush all remaining messages
+    iter = ht_iter_create(ht);
+    while ((key = ht_iter_next(iter, (void **) &buf)) != NULL)
     {
-        commit(&m);
-    }
+        buffer_flush(m, buf, key);
 
-    exports_meta_free(&m);
+        /*
+         * With the way iterator is implemented it's safe to remove
+         * items as we iterate.
+         */
+        ht_search(ht, key, HT_REMOVE);
+    }
+    free(iter);
+
+    bagger_meta_free(m);
     free(*p);
     *p = NULL;
 }
 
 Consumer
-exports_consumer_init(config_setting_t *config)
+bagger_consumer_init(config_setting_t *config)
 {
     const char *host = NULL;
     config_setting_t *needles = NULL;
     config_setting_lookup_string(config, "host", &host);
-    Consumer exports = SCALLOC(1, sizeof(*exports));
+    Consumer bagger = SCALLOC(1, sizeof(*bagger));
 
-    exports->meta          = exports_meta_init(host, NULL, needles);
-    exports->consumer_free = exports_consumer_free;
-    exports->consume       = exports_consumer_consume;
+    bagger->meta          = bagger_meta_init(host, NULL, needles);
+    bagger->consumer_free = bagger_consumer_free;
+    bagger->consume       = bagger_consumer_consume;
 
-    return exports;
+    return bagger;
 }
 
 int
-exports_consumer_consume(UNUSED Consumer c, UNUSED Message msg)
+bagger_consumer_consume(UNUSED Consumer c, UNUSED Message msg)
 {
     //TODO
     return -1;
 }
 
 void
-exports_consumer_free(Consumer *c)
+bagger_consumer_free(Consumer *c)
 {
-    Meta m = (Meta) ((*c)->meta);
-    exports_meta_free(&m);
+    BaggerMeta *m = (BaggerMeta *) ((*c)->meta);
+    bagger_meta_free(m);
     free(*c);
     *c = NULL;
 }
 
 bool
-exporter_validate(UNUSED config_setting_t *config)
+bagger_validate(UNUSED config_setting_t *config)
 {
     config_setting_t *setting = NULL, *member = NULL, *child = NULL,
         *new = NULL;
@@ -906,11 +1128,70 @@ exporter_validate(UNUSED config_setting_t *config)
 
 
 Validator
-exports_validator_init()
+bagger_validator_init()
 {
     Validator v = SCALLOC(1,sizeof(*v));
 
-    v->validate_consumer = &exporter_validate;
-    v->validate_producer = &exporter_validate;
+    v->validate_consumer = &bagger_validate;
+    v->validate_producer = &bagger_validate;
     return v;
 }
+
+int
+bagger_commit_worker(void *meta)
+{
+    BaggerMeta *m = (BaggerMeta *) meta;
+
+#ifdef PR_SET_NAME
+    prctl(PR_SET_NAME, "commit_worker");
+#endif
+
+    while(42)
+    {
+        HTable     *ht = m->internal->htable;
+        HTIter     *iter;
+        Buffer     *buf;
+        const char *key;
+
+        sleep(5);
+
+        if (m->commit_thrd_exit)
+            break;
+
+        mtx_lock(&m->commit_mtx);
+
+        iter = ht_iter_create(ht);
+        while ((key = ht_iter_next(iter, (void **) &buf)) != NULL)
+        {
+            buffer_flush(m, buf, key);
+
+            /*
+             * With the way iterator is implemented it's safe to remove
+             * items as we iterate.
+             */
+            ht_search(ht, key, HT_REMOVE);
+        }
+        free(iter);
+
+#if 0
+        m->commit_iter++;
+        m->commit_iter &= 0xF;
+
+        /* if count > 0 it implies that copy == 1,
+         * therefore it is safe to commit data */
+        if((!((*m)->commit_iter)) && ((*m)->count > 0)) {
+            logger_log("%s %d: Autocommiting %d entries",
+                __FILE__, __LINE__, (*m)->count);
+            commit(m);
+        }
+
+        // pthread_cleanup_pop(0);
+#endif
+
+        mtx_unlock(&m->commit_mtx);
+        // pthread_testcancel();
+    }
+
+    return 0;
+}
+

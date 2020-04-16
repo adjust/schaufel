@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "utils/htable.h"
+#include "utils/scalloc.h"
 
 
 #define MAX_KEY_LEN 128
@@ -31,11 +32,18 @@ typedef struct HTable
     HTSlot      slots[];
 } HTable;
 
+typedef struct HTIter
+{
+    HTable     *ht;
+    int32_t     slot;       /* current slot */
+    HTNode     *node;       /* current node */
+} HTIter;
+
 HTable *
 ht_create(uint16_t nslots, size_t data_size, HashFunc hfunc)
 {
     size_t  size = sizeof(HTable) + nslots * sizeof(HTSlot);
-    HTable *ht = (HTable *) malloc(size);
+    HTable *ht = (HTable *) SCALLOC(1, size);
 
     memset(ht, 0, size);
     ht->nslots = nslots;
@@ -81,14 +89,15 @@ ht_search(HTable *ht, const char *key, HTAction action)
         case HT_FIND:
             return found ? cur->data : NULL;
         case HT_INSERT:
+        case HT_UPSERT:
             {
                 HTNode   *new_node;
 
                 if (found)
-                    return NULL;
+                    return action == HT_INSERT ? NULL : cur->data;
 
                 /* allocate the node itself and also its data segment */
-                new_node = malloc(sizeof(HTNode) + ht->data_size);
+                new_node = SCALLOC(1, sizeof(HTNode) + ht->data_size);
 
                 strncpy(new_node->key, key, MAX_KEY_LEN);
                 new_node->key[MAX_KEY_LEN - 1] = '\0';
@@ -113,3 +122,52 @@ ht_search(HTable *ht, const char *key, HTAction action)
     return NULL;
 }
 
+HTIter *
+ht_iter_create(HTable *ht)
+{
+    HTIter *iter = SCALLOC(1, sizeof(HTIter));
+
+    iter->ht = ht;
+    iter->slot = 0;
+    iter->node = NULL;
+
+    return iter;
+}
+
+const char *
+ht_iter_next(HTIter *iter, void **data)
+{
+    HTNode *node = iter->node;
+    bool    done = true;
+
+    /* That was the last node in the list. Find the next nonempty slot */
+    if (!node)
+    {
+        int i;
+
+        for (i = iter->slot; i < iter->ht->nslots; ++i)
+        {
+            node = iter->ht->slots[i].list;
+
+            if (node != NULL)
+            {
+                done = false;
+                iter->slot = i + 1;
+
+                break;
+            }
+        }
+    }
+    else
+    {
+        done = false;
+    }
+
+    /* No more slots in the hashtable */
+    if (done)
+        return NULL;
+
+    iter->node = node->next;
+    *data = node->data;
+    return node->key;
+}
