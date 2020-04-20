@@ -15,6 +15,7 @@
 #include "utils/scalloc.h"
 #include "utils/endian.h"
 #include "utils/htable.h"
+#include "utils/murmur.h"
 #include "exports.h"
 
 
@@ -187,20 +188,10 @@ _cpycmd(const char *table)
     return cpycmd;
 }
 
-/* TODO: use murmur hashing */
 static uint32_t
-_hashfunc(const char *key)
+hashfunc(const char *key)
 {
-    const char *s = key;
-    uint32_t    hash = 0;
-
-    while(*s)
-    {
-        hash += *s;
-        s++;
-    }
-
-    return hash;
+    return MurmurHash2(key, strlen(key), 0);
 }
 
 BaggerMeta *
@@ -215,7 +206,7 @@ bagger_meta_init(const char *host, const char *topic, config_setting_t *needlest
     m->internal = i;
     m->internal->needles = transform_needles(needlestack, i);
     m->internal->ncount = config_setting_length(needlestack);
-    m->htable = ht_create(16, sizeof(Buffer), _hashfunc);
+    m->htable = ht_create(16, sizeof(Buffer), hashfunc);
 
     m->conn = PQconnectdb(conninfo);
     if (PQstatus(m->conn) != CONNECTION_OK)
@@ -239,8 +230,6 @@ bagger_meta_free(BaggerMeta *m)
     Internal internal = m->internal;
     mtx_destroy(&m->commit_mtx);
 
-    // free(m->conninfo);
-    // free(m->cpycmd);
     PQfinish(m->conn);
 
     for (int i = 0; i < internal->ncount; i++ ) {
