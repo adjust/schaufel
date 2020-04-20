@@ -72,7 +72,7 @@ buffer_write(Buffer *buf, const char *data, size_t len)
         buf->buf_tail = node;
     }
 
-    // calculate free space in the last buffer node;
+    // calculate remaining space in the buffer node
     offset = buf->nbytes % BUFFER_SIZE;
     bytes_left = BUFFER_SIZE - offset;
 
@@ -121,14 +121,6 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
     PQclear(res);
     free(cpycmd);
 
-    // Send signature, flags and header extension length
-    // TODO: check return value
-    PQputCopyData(m->conn,
-        "PGCOPY\n\377\r\n\0" //postgres magic
-        "\0\0\0\0"  // flags field (only bit 16 relevant)
-        "\0\0\0\0"  // Header extension area
-        , 19);
-
     nbytes = buf->nbytes;
 
     // write out buffers
@@ -138,7 +130,12 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
         size_t bufsize = min(nbytes, BUFFER_SIZE);
 
         nbytes -= bufsize;
-        PQputCopyData(m->conn, node->data, bufsize);
+        if (PQputCopyData(m->conn, node->data, bufsize) < 0)
+        {
+            logger_log("%s %d: PQputCopyData failed!\n %s",
+                       __FILE__, __LINE__);
+            abort();
+        }
 
         prev = node;
         node = node->next;
@@ -148,10 +145,8 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
 
     // finish write
     // TODO: check return values
-    PQputCopyData(m->conn, "\377\377", 2);
+    PQputCopyData(m->conn, "\\.\n", 3);
     PQputCopyEnd(m->conn, NULL);
-
-    // mtx_unlock(&m->commit_mtx);
 }
 
 static char *
@@ -181,7 +176,7 @@ _connectinfo(const char *host)
 static char *
 _cpycmd(const char *table)
 {
-    const char *fmtstring = "COPY %s FROM STDIN (FORMAT binary)";
+    const char *fmtstring = "COPY %s FROM STDIN (FORMAT text)";
 
     int len = strlen(table)
             + strlen(fmtstring);
@@ -341,7 +336,7 @@ bagger_producer_produce(Producer p, Message msg)
     char* data = message_get_data(msg);
 
     // postgres is big endian internally
-    uint16_t rows = htons(m->internal->rows);
+    uint16_t rows = htons(m->internal->rows + 1);
 
     if (data[len] != '\0')
     {
@@ -361,6 +356,9 @@ bagger_producer_produce(Producer p, Message msg)
     buf = ht_search(m->htable, tablename, HT_UPSERT);
 
     // get value from json, apply transformation
+    //
+    // TODO: must use different format functions for text COPY format
+    // (for timestamp in particular)
     if((ret = extract_needles_from_haystack(haystack, internal) != 0)) {
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
@@ -371,19 +369,36 @@ bagger_producer_produce(Producer p, Message msg)
         goto fail;
     }
 
-    buffer_write(buf, (char *) &rows, 2);
+    for (int i = 0; i < internal->ncount; i++)
+    {
+        const char *key = needles[i]->jpointer;
 
-    for (int i = 0; i < internal->ncount; i++) {
         if(!needles[i]->store)
             continue;
-        uint32_t length =  htobe32(needles[i]->length);
-        buffer_write(buf, (char *) &length, 4);
 
-        if(needles[i]->result) {
+        if (i > 0)
+            buffer_write(buf, "\t", 1);
+
+        if(needles[i]->result)
             buffer_write(buf, needles[i]->result, needles[i]->length);
-            needles[i]->free(&needles[i]->result);
-        }
+        else
+            buffer_write(buf, "\\N", 2);
+
+        // Jpointers usually start with slash. We need 'clear' key without
+        // trailing symbols
+        key = (*key == '/') ? key + 1 : key;
+
+        // We only want to store as json those fields that we haven't extracted
+        json_object_object_del(haystack, key);
     }
+
+    // Write the rest of json as last column
+    const char *json = json_object_to_json_string(haystack);
+    uint32_t length = strlen(json);
+    if (internal->ncount > 0)
+            buffer_write(buf, "\t", 1);
+    buffer_write(buf, json, length);
+    buffer_write(buf, "\n", 1);
 
     m->count = m->count + 1;
 
@@ -419,10 +434,8 @@ bagger_producer_free(Producer *p)
     {
         buffer_flush(m, buf, key);
 
-        /*
-         * With the way iterator is implemented it's safe to remove
-         * items as we iterate.
-         */
+        // With the way iterator is implemented it's safe to remove items
+        // as we iterate.
         ht_search(ht, key, HT_REMOVE);
     }
     free(iter);
@@ -495,7 +508,7 @@ bagger_validator_init()
     return v;
 }
 
-int
+static int
 bagger_commit_worker(void *meta)
 {
     BaggerMeta *m = (BaggerMeta *) meta;
@@ -523,10 +536,8 @@ bagger_commit_worker(void *meta)
         {
             buffer_flush(m, buf, key);
 
-            /*
-             * With the way iterator is implemented it's safe to remove
-             * items as we iterate.
-             */
+             // With the way iterator is implemented it's safe to remove items
+             // as we iterate.
             ht_search(ht, key, HT_REMOVE);
         }
         free(iter);
