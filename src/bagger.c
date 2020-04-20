@@ -310,6 +310,39 @@ partition_name(json_object *in, char *out)
     }
 }
 
+// Delete a nested key
+static void
+json_remove_key(json_object *json, char *path)
+{
+    int     ret;
+    char   *key;
+    char   *delim;
+    json_object *obj = json;
+
+    delim = strrchr(path, '/');
+    key = delim + 1;
+
+    // apparently not a proper path
+    if (delim == NULL)
+        return;
+
+    // if it's a non-trivial path extract the json object containing the key
+    if (delim != path)
+    {
+        // temporarily replace last slash in the path with terminal zero
+        *delim = '\0';
+
+        ret = json_pointer_get(json, path, &obj);
+        if (ret < 0 || obj == NULL)
+            return;
+
+        // put the delimiter back
+        *delim = '/';
+    }
+
+    json_object_object_del(obj, key);
+}
+
 void
 bagger_producer_produce(Producer p, Message msg)
 {
@@ -360,7 +393,7 @@ bagger_producer_produce(Producer p, Message msg)
 
     for (int i = 0; i < internal->ncount; i++)
     {
-        const char *key = needles[i]->jpointer;
+        char *key = needles[i]->jpointer;
 
         if(!needles[i]->store)
             continue;
@@ -373,12 +406,7 @@ bagger_producer_produce(Producer p, Message msg)
         else
             buffer_write(buf, "\\N", 2);
 
-        // Jpointers usually start with slash. We need 'clear' key without
-        // trailing symbols
-        key = (*key == '/') ? key + 1 : key;
-
-        // We only want to store as json those fields that we haven't extracted
-        json_object_object_del(haystack, key);
+        json_remove_key(haystack, key);
     }
 
     // Write the rest of json as last column
@@ -397,8 +425,8 @@ bagger_producer_produce(Producer p, Message msg)
         buffer_flush(m, buf, tablename);
     }
 
-    error:
-    fail:
+error:
+fail:
     json_object_put(haystack);
 
     mtx_unlock(&m->commit_mtx);
