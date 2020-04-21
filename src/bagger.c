@@ -1,11 +1,10 @@
+#include <ctype.h>
 #include <errno.h>
 #include <libpq-fe.h>
-// #include <pthread.h>
 #include <threads.h>
 #include <stdlib.h>
 #include <string.h>
 #include <json-c/json.h>
-#include <arpa/inet.h>
 
 #include "bagger.h"
 #include "utils/config.h"
@@ -20,6 +19,7 @@
 
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
+#define BUFFER_FLUSH_THRESHOLD (8096 * 8)
 
 typedef struct BaggerMeta
 {
@@ -28,7 +28,6 @@ typedef struct BaggerMeta
     thrd_t          commit_thrd;
     _Atomic bool    commit_thrd_exit;
     Internal        internal;
-    int             count;
     HTable         *htable; // hashtable of per-table buffers
 } BaggerMeta;
 
@@ -283,7 +282,7 @@ partition_name(json_object *in, char *out)
     int             i;
     const char     *names[] = {"/service", "/tag", "/timestamp"};
     const char     *values[3];
-    char           *s;
+    char            ts[14];
 
     for (i = 0; i < 3; ++i)
     {
@@ -296,18 +295,15 @@ partition_name(json_object *in, char *out)
         values[i] = json_object_get_string(obj);
     }
 
-    snprintf(out, 64, "data_%s_%s_%s", values[0], values[1], values[2]);
+    // As timestamp we get a string like "YYYY-MM-DD hh:mm:ss". In bagger each
+    // partition contains records for one hour timespan. Hence we need to
+    // transform the original timestamp to "YYYY_MM_DD_hh" which would comply
+    // with both hourly principle and postgres naming rules.
+    for (i = 0; i < 13 && values[2][i] != '\0'; i++)
+        ts[i] = isalnum(values[2][i]) ? values[2][i] : '_';
+    ts[i] = '\0';
 
-    // Replace invalid charachters (according to postgres naming convention).
-    // We assume for now that the only invalid charachers could be in timestamp
-    // string. Feel free to extend this part if situation changes.
-    s = out;
-    while (*s)
-    {
-        if (*s == '-')
-            *s = '_';
-        s++;
-    }
+    snprintf(out, 64, "data_%s_%s_%s", values[0], values[1], ts);
 }
 
 // Delete a nested key
@@ -356,9 +352,6 @@ bagger_producer_produce(Producer p, Message msg)
 
     size_t len = message_get_len(msg);
     char* data = message_get_data(msg);
-
-    // postgres is big endian internally
-    uint16_t rows = htons(m->internal->rows + 1);
 
     if (data[len] != '\0')
     {
@@ -417,13 +410,10 @@ bagger_producer_produce(Producer p, Message msg)
     buffer_write(buf, json, length);
     buffer_write(buf, "\n", 1);
 
-    m->count = m->count + 1;
-
-    // TODO: flush based on stored data size in buffer
-    if (m->count == 2000)
-    {
+    // Flush when buffer size exceeds the threshold. If it doesn't then
+    // it will be eventually flushed by bagger_commit_worker.
+    if (buf->nbytes >= BUFFER_FLUSH_THRESHOLD)
         buffer_flush(m, buf, tablename);
-    }
 
 error:
 fail:
@@ -541,10 +531,12 @@ bagger_commit_worker(void *meta)
         Buffer     *buf;
         const char *key;
 
-        sleep(5);
-
-        if (m->commit_thrd_exit)
-            break;
+        for (int i = 0; i < 5; ++i)
+        {
+            sleep(1);
+            if (m->commit_thrd_exit)
+                return 0;
+        }
 
         mtx_lock(&m->commit_mtx);
 
