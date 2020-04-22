@@ -300,7 +300,7 @@ partition_name(json_object *in, char *out)
     // transform the original timestamp to "YYYY_MM_DD_hh" which would comply
     // with both hourly principle and postgres naming rules.
     for (i = 0; i < 13 && values[2][i] != '\0'; i++)
-        ts[i] = isalnum(values[2][i]) ? values[2][i] : '_';
+        ts[i] = isdigit(values[2][i]) ? values[2][i] : '_';
     ts[i] = '\0';
 
     snprintf(out, 64, "data_%s_%s_%s", values[0], values[1], ts);

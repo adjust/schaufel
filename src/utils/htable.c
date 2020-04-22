@@ -56,7 +56,7 @@ ht_create(uint16_t nslots, size_t data_size, HashFunc hfunc)
 void *
 ht_search(HTable *ht, const char *key, HTAction action)
 {
-    int         hash;
+    uint32_t    hash;
     HTSlot     *slot;
     HTNode     *cur;
     HTNode     *prev = NULL;
