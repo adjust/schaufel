@@ -4,9 +4,12 @@
 #include <libpq-fe.h>
 #include <pthread.h>
 
-#define PQ_COPY_TEXT   0
-#define PQ_COPY_CSV    1
-#define PQ_COPY_BINARY 2
+
+typedef enum {
+    PQ_COPY_TEXT,
+    PQ_COPY_CSV,
+    PQ_COPY_BINARY
+} PqCopyFormat;
 
 typedef struct Internal *Internal;
 

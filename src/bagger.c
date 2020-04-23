@@ -130,10 +130,9 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
         size_t bufsize = min(nbytes, BUFFER_SIZE);
 
         nbytes -= bufsize;
-        if (PQputCopyData(m->conn, node->data, bufsize) < 0)
-        {
-            logger_log("%s %d: PQputCopyData failed!\n %s",
-                       __FILE__, __LINE__);
+        if (PQputCopyData(m->conn, node->data, bufsize) < 0) {
+            logger_log("%s %d: PQputCopyData failed: %s",
+                       __FILE__, __LINE__, PQerrorMessage(m->conn));
             abort();
         }
 
@@ -144,9 +143,17 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
     }
 
     // finish write
-    // TODO: check return values
-    PQputCopyData(m->conn, "\\.\n", 3);
-    PQputCopyEnd(m->conn, NULL);
+    if (PQputCopyData(m->conn, "\\.\n", 3) < 0) {
+        logger_log("%s %d: PQputCopyData failed: %s",
+                   __FILE__, __LINE__, PQerrorMessage(m->conn));
+        abort();
+    }
+    if (PQputCopyEnd(m->conn, NULL) < 0) {
+        logger_log("%s %d: PQputCopyEnd failed: %s",
+                   __FILE__, __LINE__, PQerrorMessage(m->conn));
+        abort();
+    }
+
 }
 
 static char *
@@ -203,7 +210,7 @@ bagger_meta_init(const char *host, const char *topic, config_setting_t *needlest
     conninfo = _connectinfo(host);
 
     m->internal = i;
-    m->internal->needles = transform_needles(needlestack, i);
+    m->internal->needles = transform_needles(needlestack, i, PQ_COPY_TEXT);
     m->internal->ncount = config_setting_length(needlestack);
     m->htable = ht_create(16, sizeof(Buffer), hashfunc);
 
@@ -371,9 +378,6 @@ bagger_producer_produce(Producer p, Message msg)
     buf = ht_search(m->htable, tablename, HT_UPSERT);
 
     // get value from json, apply transformation
-    //
-    // TODO: must use different format functions for text COPY format
-    // (for timestamp in particular)
     if((ret = extract_needles_from_haystack(haystack, internal) != 0)) {
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
@@ -499,7 +503,7 @@ bagger_validate(UNUSED config_setting_t *config)
     if (!(setting = CONF_GET_MEM(config,"jpointers", "require jpointers!")))
         return false;
 
-    if (!validate_jpointers(setting))
+    if (!validate_jpointers(setting, PQ_COPY_TEXT))
         return false;
 
     return true;

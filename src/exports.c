@@ -9,7 +9,6 @@
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
-#include "utils/postgres.h"
 #include "utils/scalloc.h"
 #include "utils/endian.h"
 
@@ -52,7 +51,7 @@ typedef struct {
     const char *pq_type;
     bool  (*format) (json_object *, Needles);
     void  (*free) (void **obj);
-} PqType;
+} PqTypeFormat;
 
 static const ExportsAction action_types[] = {
         {"undef", NULL, false},
@@ -71,10 +70,15 @@ static const ExportsFilter filter_types[] = {
 // TODO:        {"pcrematch", NULL, true},
 };
 
-static const PqType pq_types[] = {
+static const PqTypeFormat pq_typfmt_bin[] = {
         {"undef", NULL, NULL},
         {"text", &_json_to_pqtext, &_obj_noop},
         {"timestamp", &_json_to_pqtimestamp, &_obj_free},
+};
+
+static const PqTypeFormat pq_typfmt_text[] = {
+        {"undef", NULL, NULL},
+        {"text", &_json_to_pqtext, &_obj_noop},
 };
 
 static char *
@@ -122,13 +126,32 @@ lookup_filtertype(const char *filter_type)
     return NULL;
 }
 
-static const PqType *
-lookup_pqtype(const char *pqtype)
+static const PqTypeFormat *
+lookup_pqtypfmt(const char *pqtype, PqCopyFormat fmt)
 {
-    uint32_t j;
-    for (j = 1; j < sizeof(pq_types) / sizeof(pq_types[0]); j++)
-        if (!strcmp(pqtype, pq_types[j].pq_type))
-            return &pq_types[j];
+    const PqTypeFormat *typfmt;
+    size_t      len;
+    uint32_t    j;
+
+    switch (fmt)
+    {
+        case PQ_COPY_TEXT:
+            typfmt = pq_typfmt_text;
+            len = sizeof(pq_typfmt_text) / sizeof(PqTypeFormat);
+            break;
+        case PQ_COPY_BINARY:
+            typfmt = pq_typfmt_bin;
+            len = sizeof(pq_typfmt_bin) / sizeof(PqTypeFormat);
+            break;
+        default:
+            logger_log("%s %d: csv format is not supported",
+                       __FILE__, __LINE__);
+            abort();
+    }
+
+    for (j = 1; j < len; j++)
+        if (!strcmp(pqtype, typfmt[j].pq_type))
+            return &typfmt[j];
     return NULL;
 }
 
@@ -371,7 +394,8 @@ _json_to_pqtimestamp(json_object *found, Needles current)
 }
 
 Needles *
-transform_needles(config_setting_t *needlestack, Internal internal)
+transform_needles(config_setting_t *needlestack, Internal internal,
+                  PqCopyFormat fmt)
 {
     config_setting_t *setting = NULL, *member= NULL;
     int list = 0;
@@ -385,7 +409,7 @@ transform_needles(config_setting_t *needlestack, Internal internal)
     for(int i = 0; i < list; i++) {
         const ExportsAction *actiontype;
         const ExportsFilter *filtertype;
-        const PqType        *pqtype;
+        const PqTypeFormat  *pqtype;
         Needles              current = SCALLOC(list,sizeof(*current));
 
         needles[i] = current;
@@ -406,7 +430,7 @@ transform_needles(config_setting_t *needlestack, Internal internal)
         }
 
         member = config_setting_get_elem(setting, 1);
-        pqtype = lookup_pqtype(config_setting_get_string(member));
+        pqtype = lookup_pqtypfmt(config_setting_get_string(member), fmt);
         current->format = pqtype->format;
         current->free = pqtype->free;
 
@@ -463,7 +487,7 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
     m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
     m->internal = i;
-    m->internal->needles = transform_needles(needlestack, i);
+    m->internal->needles = transform_needles(needlestack, i, PQ_COPY_BINARY);
     m->internal->ncount = config_setting_length(needlestack);
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -700,7 +724,7 @@ exports_consumer_free(Consumer *c)
 }
 
 bool
-validate_jpointers(config_setting_t *setting)
+validate_jpointers(config_setting_t *setting, PqCopyFormat fmt)
 {
     if(!CONF_IS_LIST(setting, "require jpointers to be a list!"))
         return false;
@@ -759,7 +783,7 @@ validate_jpointers(config_setting_t *setting)
             member = config_setting_get_elem(child, 1);
             if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if(conf != NULL && !lookup_pqtype(conf)) {
+                if(conf != NULL && !lookup_pqtypfmt(conf, fmt)) {
                     fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
                             __FILE__, __LINE__, conf);
                     return false;
@@ -809,7 +833,7 @@ validate_jpointers(config_setting_t *setting)
                 return false;
 
             if(config_setting_lookup_string(child, "pqtype", &conf) == CONFIG_TRUE) {
-                if (!lookup_pqtype(conf)) {
+                if (!lookup_pqtypfmt(conf, fmt)) {
                     fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
                             __FILE__, __LINE__, conf);
                     return false;
@@ -874,7 +898,7 @@ exporter_validate(UNUSED config_setting_t *config)
     if(!(setting = CONF_GET_MEM(config,"jpointers", "require jpointers!")))
         return false;
 
-    if(!validate_jpointers(setting))
+    if(!validate_jpointers(setting, PQ_COPY_BINARY))
         return false;
 
     return true;

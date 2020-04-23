@@ -8,6 +8,7 @@
 #include "consumer.h"
 #include "validator.h"
 #include "queue.h"
+#include "utils/postgres.h"
 
 
 typedef struct Needles *Needles;
@@ -36,8 +37,9 @@ Producer exports_producer_init(config_setting_t *config);
 Consumer exports_consumer_init(config_setting_t *config);
 Validator exports_validator_init();
 
-bool validate_jpointers(config_setting_t *setting);
-Needles *transform_needles(config_setting_t *needlestack, Internal internal);
+bool validate_jpointers(config_setting_t *setting, PqCopyFormat fmt);
+Needles *transform_needles(config_setting_t *needlestack, Internal internal,
+                           PqCopyFormat fmt);
 int extract_needles_from_haystack(json_object *haystack, Internal internal);
 
 #endif
