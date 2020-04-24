@@ -20,6 +20,7 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define BUFFER_FLUSH_THRESHOLD (8096 * 8)
+#define BUFFER_SIZE 1024
 
 typedef struct BaggerMeta
 {
@@ -30,8 +31,6 @@ typedef struct BaggerMeta
     Internal        internal;
     HTable         *htable; // hashtable of per-table buffers
 } BaggerMeta;
-
-#define BUFFER_SIZE 1024
 
 typedef struct BufferNode BufferNode;
 
@@ -60,44 +59,36 @@ static int bagger_commit_worker(void *);
 static void
 buffer_write(Buffer *buf, const char *data, size_t len)
 {
-    size_t      offset;
-    size_t      bytes_left;
     BufferNode *node = buf->buf_tail;
 
-    if (!node)
-    {
-        // initialize buffer
-        node = SCALLOC(1, sizeof(BufferNode));
-        buf->buf_head = node;
-        buf->buf_tail = node;
-    }
+    while (len > 0) {
+        // Calculate remaining space in the buffer node
+        size_t  offset = buf->nbytes % BUFFER_SIZE;
+        size_t  bytes_left = BUFFER_SIZE - offset;
 
-    // calculate remaining space in the buffer node
-    offset = buf->nbytes % BUFFER_SIZE;
-    bytes_left = BUFFER_SIZE - offset;
+        // Do we need to allocate a new node?
+        if (offset == 0)
+        {
+            BufferNode *new_node = SCALLOC(1, sizeof(BufferNode));
 
-    while (true)  {
+            // If this is the first node make it the head of the list.
+            // Otherwise attach it to the end.
+            if (!node)
+                buf->buf_head = new_node;
+            else
+                node->next = new_node;
+            buf->buf_tail = new_node;
+            node = new_node;
+
+            bytes_left = BUFFER_SIZE;
+        }
+
         size_t  bytes_copied = min(bytes_left, len);
-
         memcpy(node->data + offset, data, bytes_copied);
 
         data += bytes_copied;
         len -= bytes_copied;
         buf->nbytes += bytes_copied;
-
-        // Do we need more space? Allocate a new buffer node
-        if (len > 0) {
-            BufferNode *new_node = SCALLOC(1, sizeof(BufferNode));
-
-            node->next = new_node;
-            node = new_node;
-            buf->buf_tail = new_node;
-
-            bytes_left = BUFFER_SIZE;
-            offset = 0;
-        } else {
-            break;
-        }
     };
 }
 
@@ -141,6 +132,11 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
 
         free(prev);
     }
+
+    // reinitialize buffer for further usage
+    buf->buf_head = NULL;
+    buf->buf_tail = NULL;
+    buf->nbytes = 0;
 
     // finish write
     if (PQputCopyData(m->conn, "\\.\n", 3) < 0) {
@@ -416,8 +412,11 @@ bagger_producer_produce(Producer p, Message msg)
 
     // Flush when buffer size exceeds the threshold. If it doesn't then
     // it will be eventually flushed by bagger_commit_worker.
-    if (buf->nbytes >= BUFFER_FLUSH_THRESHOLD)
+    if (buf->nbytes >= BUFFER_FLUSH_THRESHOLD) {
         buffer_flush(m, buf, tablename);
+
+        ht_search(m->htable, tablename, HT_REMOVE);
+    }
 
 error:
 fail:
