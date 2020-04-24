@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <json-c/json.h>
+#include <unistd.h>
 
 #include "bagger.h"
 #include "utils/config.h"
@@ -19,8 +20,10 @@
 
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define BUFFER_FLUSH_THRESHOLD (8096 * 8)
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE_THRESHOLD (8096 * 8)
+#define BUFFER_EPOCH_THRESHOLD 12
+#define BUFFER_NODE_SIZE 4096
+#define COMMIT_WORKER_DELAY 5
 
 typedef struct BaggerMeta
 {
@@ -38,10 +41,11 @@ typedef struct Buffer {
     BufferNode     *buf_head;   // buffers list
     BufferNode     *buf_tail;   // last buffers list element
     size_t          nbytes;     // bytes actually written
+    int             epoch;
 } Buffer;
 
 typedef struct BufferNode {
-    char            data[BUFFER_SIZE];
+    char            data[BUFFER_NODE_SIZE];
     BufferNode     *next;
 } BufferNode;
 
@@ -63,8 +67,8 @@ buffer_write(Buffer *buf, const char *data, size_t len)
 
     while (len > 0) {
         // Calculate remaining space in the buffer node
-        size_t  offset = buf->nbytes % BUFFER_SIZE;
-        size_t  bytes_left = BUFFER_SIZE - offset;
+        size_t  offset = buf->nbytes % BUFFER_NODE_SIZE;
+        size_t  bytes_left = BUFFER_NODE_SIZE - offset;
 
         // Do we need to allocate a new node?
         if (offset == 0)
@@ -80,7 +84,7 @@ buffer_write(Buffer *buf, const char *data, size_t len)
             buf->buf_tail = new_node;
             node = new_node;
 
-            bytes_left = BUFFER_SIZE;
+            bytes_left = BUFFER_NODE_SIZE;
         }
 
         size_t  bytes_copied = min(bytes_left, len);
@@ -90,6 +94,9 @@ buffer_write(Buffer *buf, const char *data, size_t len)
         len -= bytes_copied;
         buf->nbytes += bytes_copied;
     };
+
+    // Reset epoch
+    buf->epoch = 0;
 }
 
 static void
@@ -118,7 +125,7 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
     node = buf->buf_head;
     while (node != NULL)
     {
-        size_t bufsize = min(nbytes, BUFFER_SIZE);
+        size_t bufsize = min(nbytes, BUFFER_NODE_SIZE);
 
         nbytes -= bufsize;
         if (PQputCopyData(m->conn, node->data, bufsize) < 0) {
@@ -412,7 +419,7 @@ bagger_producer_produce(Producer p, Message msg)
 
     // Flush when buffer size exceeds the threshold. If it doesn't then
     // it will be eventually flushed by bagger_commit_worker.
-    if (buf->nbytes >= BUFFER_FLUSH_THRESHOLD) {
+    if (buf->nbytes >= BUFFER_SIZE_THRESHOLD) {
         buffer_flush(m, buf, tablename);
 
         ht_search(m->htable, tablename, HT_REMOVE);
@@ -534,7 +541,7 @@ bagger_commit_worker(void *meta)
         Buffer     *buf;
         const char *key;
 
-        for (int i = 0; i < 5; ++i)
+        for (int i = 0; i < COMMIT_WORKER_DELAY; ++i)
         {
             sleep(1);
             if (m->commit_thrd_exit)
@@ -546,6 +553,16 @@ bagger_commit_worker(void *meta)
         iter = ht_iter_create(ht);
         while ((key = ht_iter_next(iter, (void **) &buf)) != NULL)
         {
+            // Simple technique to prevent half empty buffers being flushed
+            // too early. This is particularly useful when postgres table is
+            // created using pg_cryogen (or similar storage) which works best
+            // with large batches of data.
+            if (buf->epoch < BUFFER_EPOCH_THRESHOLD)
+            {
+                buf->epoch++;
+                continue;
+            }
+
             buffer_flush(m, buf, key);
 
              // With the way iterator is implemented it's safe to remove items
