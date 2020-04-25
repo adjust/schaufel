@@ -59,7 +59,7 @@ void logger_init(config_setting_t *config)
         fprintf(stderr, "failed to allocate memory: %s\n", strerror(errno));
         exit(1);
     }
-    log_fd        = open(fname, O_CREAT | O_APPEND | O_WRONLY, 0640);
+    log_fd        = open(fname, O_CREAT | O_APPEND | O_WRONLY, 0644);
     if (log_fd < 0)
     {
         fprintf(stderr, "could not open logger fh: %s", strerror(errno));
