@@ -12,18 +12,13 @@
 #include "utils/scalloc.h"
 
 
-typedef enum {
-    POSTGRES_JSON,
-    POSTGRES_CSV,
-} postgres_format;
-
 struct pg_parameters {
     const char     *host;
     const char     *dbname;
     const char     *user;
     const char     *host_replica;
     const char     *generation;
-    postgres_format fmt;
+    PqCopyFormat    fmt;
 };
 
 char *
@@ -54,9 +49,9 @@ _connectinfo(const char *host, const char *dbname, const char *user)
 }
 
 static char *
-_cpycmd(const char *host, const char *generation, postgres_format fmt)
+_cpycmd(const char *host, const char *generation, PqCopyFormat fmt)
 {
-    const char *format = fmt == POSTGRES_JSON ? "text" : "csv";
+    const char *format = fmt == PQ_COPY_TEXT ? "text" : "csv";
     char       *cpycmd;
 
     if (host == NULL)
@@ -78,7 +73,7 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
     }
 
     int ret;
-    if (fmt == POSTGRES_CSV)
+    if (fmt == PQ_COPY_CSV)
         ret = asprintf(&cpycmd, "COPY %s FROM STDIN (FORMAT %s)", generation, format);
     else
         ret = asprintf(&cpycmd, "COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
@@ -116,9 +111,9 @@ read_pg_params(struct pg_parameters *p, config_setting_t *config)
 
     assert(format != NULL);
     if (strcmp(format, "csv") == 0)
-        p->fmt = POSTGRES_CSV;
+        p->fmt = PQ_COPY_CSV;
     else if (strcmp(format, "json") == 0)
-        p->fmt = POSTGRES_JSON;
+        p->fmt = PQ_COPY_TEXT;
     else
     {
         logger_log("%s %d: Unknown format: %s", __FILE__, __LINE__, format);

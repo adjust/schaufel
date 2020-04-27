@@ -31,8 +31,17 @@ typedef struct BaggerMeta
     mtx_t           commit_mtx;
     thrd_t          commit_thrd;
     _Atomic bool    commit_thrd_exit;
+    const char     *generation;
     Internal        internal;
     HTable         *htable; // hashtable of per-table buffers
+
+    // connection parameters
+    struct {
+        char   *hostname;
+        int     port;
+    }               addr;
+    const char     *dbname;
+    const char     *user;
 } BaggerMeta;
 
 typedef struct BufferNode BufferNode;
@@ -56,7 +65,7 @@ static int bagger_consumer_consume(Consumer c, Message msg);
 
 static void buffer_write(Buffer *buf, const char *data, size_t len);
 
-static char *_cpycmd(const char *table);
+static char *_cpycmd(const BaggerMeta *m, const char *table);
 
 static int bagger_commit_worker(void *);
 
@@ -108,7 +117,7 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
                *prev;
     PGresult   *res;
 
-    cpycmd = _cpycmd(tablename);
+    cpycmd = _cpycmd(m, tablename);
 
     res = PQexec(m->conn, cpycmd);
     if (PQresultStatus(res) != PGRES_COPY_IN)
@@ -160,40 +169,35 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
 }
 
 static char *
-_connectinfo(const char *host)
+_connectinfo(const BaggerMeta *m)
 {
-    if (host == NULL)
-        return NULL;
-    char *hostname;
-    int port = 0;
+    const char *fmtstr = "dbname=%s user=%s host=%s port=%d";
+    char   *conninfo;
+    int     port = 0;
+    size_t  len;
 
-    if (parse_connstring(host, &hostname, &port) == -1)
-        abort();
+    len = snprintf(NULL, 0, fmtstr, m->dbname, m->user,
+                   m->addr.hostname, m->addr.port);
+    conninfo = (char *) SCALLOC(1, len);
+    sprintf(conninfo, fmtstr, m->dbname, m->user,
+            m->addr.hostname, m->addr.port);
 
-    int len = strlen(hostname)
-            + number_length(port)
-            + strlen(" dbname=bagger_exports user=postgres ")
-            + strlen(" host= ")
-            + strlen(" port= ");
-    char *conninfo = SCALLOC(len + 1, sizeof(*conninfo));
-
-    snprintf(conninfo, len, "dbname=bagger_exports"
-        " user=postgres host=%s port=%d", hostname, port);
-    free(hostname);
     return conninfo;
 }
 
 static char *
-_cpycmd(const char *table)
+_cpycmd(const BaggerMeta *m, const char *table)
 {
-    const char *fmtstring = "COPY %s FROM STDIN (FORMAT text)";
+    const char *fmtstr = "COPY %s_%d_%s.%s FROM STDIN (FORMAT text)";
+    size_t  len;
+    char   *cpycmd;
 
-    int len = strlen(table)
-            + strlen(fmtstring);
+    len = snprintf(NULL, 0, fmtstr, m->addr.hostname, m->addr.port,
+                   m->generation, table);
+    cpycmd = (char *) SCALLOC(1, len);
+    sprintf(cpycmd, fmtstr, m->addr.hostname, m->addr.port,
+            m->generation, table);
 
-    char *cpycmd = SCALLOC(len + 1, sizeof(*cpycmd));
-
-    snprintf(cpycmd, len, fmtstring, table);
     return cpycmd;
 }
 
@@ -204,19 +208,27 @@ hashfunc(const char *key)
 }
 
 BaggerMeta *
-bagger_meta_init(const char *host, const char *topic, config_setting_t *needlestack)
+bagger_meta_init(const char *host, const char *dbname, const char *user,
+                 const char *topic, config_setting_t *needlestack)
 {
     BaggerMeta     *m = SCALLOC(1, sizeof(*m));
     Internal        i = SCALLOC(1, sizeof(*i));
     char           *conninfo;
 
-    conninfo = _connectinfo(host);
-
     m->internal = i;
     m->internal->needles = transform_needles(needlestack, i, PQ_COPY_TEXT);
     m->internal->ncount = config_setting_length(needlestack);
     m->htable = ht_create(16, sizeof(Buffer), hashfunc);
+    m->generation = topic;
+    m->dbname = dbname;
+    m->user = user;
 
+    if (parse_connstring(host, &m->addr.hostname, &m->addr.port) == -1) {
+        logger_log("%s %d: failed to parse host string", __FILE__, __LINE__ );
+        abort();
+    }
+
+    conninfo = _connectinfo(m);
     m->conn = PQconnectdb(conninfo);
     if (PQstatus(m->conn) != CONNECTION_OK)
     {
@@ -249,8 +261,9 @@ bagger_meta_free(BaggerMeta *m)
     }
     free(internal->needles);
     free(internal->leapyears);
-    free(m->htable);
     free(internal);
+    free(m->htable);
+    free(m->addr.hostname);
 
     free(m);
 }
@@ -258,14 +271,25 @@ bagger_meta_free(BaggerMeta *m)
 Producer
 bagger_producer_init(config_setting_t *config)
 {
-    const char *host = NULL, *topic = NULL;
+    const char     *host = NULL,
+                   *topic = NULL,
+                   *user = NULL,
+                   *dbname = NULL;
     config_setting_t *needlestack = NULL;
+
+    // config defaults
+    config_set_default_string(config, "user", "postgres");
+    config_set_default_string(config, "dbname", "postgres");
+
+    // read config
     config_setting_lookup_string(config, "host", &host);
+    config_setting_lookup_string(config, "dbname", &dbname);
+    config_setting_lookup_string(config, "user", &user);
     config_setting_lookup_string(config, "topic", &topic);
     needlestack = config_setting_get_member(config, "jpointers");
-    Producer bagger = SCALLOC(1, sizeof(*bagger));
 
-    bagger->meta          = bagger_meta_init(host, topic, needlestack);
+    Producer bagger = SCALLOC(1, sizeof(*bagger));
+    bagger->meta          = bagger_meta_init(host, dbname, user, topic, needlestack);
     bagger->producer_free = bagger_producer_free;
     bagger->produce       = bagger_producer_produce;
 
@@ -470,7 +494,7 @@ bagger_consumer_init(config_setting_t *config)
     config_setting_lookup_string(config, "host", &host);
     Consumer bagger = SCALLOC(1, sizeof(*bagger));
 
-    bagger->meta          = bagger_meta_init(host, NULL, needles);
+    bagger->meta          = bagger_meta_init(host, NULL, NULL, NULL, needles);
     bagger->consumer_free = bagger_consumer_free;
     bagger->consume       = bagger_consumer_consume;
 
@@ -499,6 +523,8 @@ bagger_validate(UNUSED config_setting_t *config)
     config_setting_t   *setting = NULL;
     const char     *host = NULL;
     const char     *topic = NULL;
+    const char     *dbname = NULL;
+    const char     *user = NULL;
 
     if (!CONF_L_IS_STRING(config, "host", &host, "require host string!"))
         return false;
