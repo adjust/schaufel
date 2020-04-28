@@ -25,23 +25,26 @@
 #define BUFFER_NODE_SIZE 4096
 #define COMMIT_WORKER_DELAY 5
 
+
+typedef struct {
+    PGconn         *conn;
+    char           *hostname;
+    int             port;
+} Conn;
+
 typedef struct BaggerMeta
 {
-    PGconn         *conn;
     mtx_t           commit_mtx;
     thrd_t          commit_thrd;
     _Atomic bool    commit_thrd_exit;
-    const char     *generation;
     Internal        internal;
     HTable         *htable; // hashtable of per-table buffers
 
     // connection parameters
-    struct {
-        char   *hostname;
-        int     port;
-    }               addr;
+    Conn            master, replica;
     const char     *dbname;
     const char     *user;
+    const char     *generation;
 } BaggerMeta;
 
 typedef struct BufferNode BufferNode;
@@ -63,10 +66,7 @@ static void bagger_producer_produce(Producer p, Message msg);
 static void bagger_consumer_free(Consumer *c);
 static int bagger_consumer_consume(Consumer c, Message msg);
 
-static void buffer_write(Buffer *buf, const char *data, size_t len);
-
 static char *_cpycmd(const BaggerMeta *m, const char *table);
-
 static int bagger_commit_worker(void *);
 
 static void
@@ -111,21 +111,25 @@ buffer_write(Buffer *buf, const char *data, size_t len)
 static void
 buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
 {
+    Conn       *servers[] = {&m->master, &m->replica};
+    int         nservers;
     char       *cpycmd;
     size_t      nbytes;
     BufferNode *node,
                *prev;
-    PGresult   *res;
+
+    // ignore replica if it wasn't specified
+    nservers = m->replica.hostname ? 2 : 1;
 
     cpycmd = _cpycmd(m, tablename);
+    for (int i = 0; i < nservers; ++i) {
+        PGresult *res = PQexec(servers[i]->conn, cpycmd);
 
-    res = PQexec(m->conn, cpycmd);
-    if (PQresultStatus(res) != PGRES_COPY_IN)
-    {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
-        abort();
+        if (PQresultStatus(res) != PGRES_COPY_IN) {
+            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(servers[i]->conn));
+            abort();
+        }
     }
-    PQclear(res);
     free(cpycmd);
 
     nbytes = buf->nbytes;
@@ -137,11 +141,14 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
         size_t bufsize = min(nbytes, BUFFER_NODE_SIZE);
 
         nbytes -= bufsize;
-        if (PQputCopyData(m->conn, node->data, bufsize) < 0) {
-            logger_log("%s %d: PQputCopyData failed: %s",
-                       __FILE__, __LINE__, PQerrorMessage(m->conn));
-            abort();
+        for (int i = 0; i < nservers; ++i) {
+            if (PQputCopyData(servers[i]->conn, node->data, bufsize) < 0) {
+                logger_log("%s %d: PQputCopyData failed: %s",
+                           __FILE__, __LINE__, PQerrorMessage(servers[i]->conn));
+                abort();
+            }
         }
+        // pg_put_copy_data(m, node->data, bufsize);
 
         prev = node;
         node = node->next;
@@ -149,38 +156,37 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
         free(prev);
     }
 
-    // reinitialize buffer for further usage
+    // reinitialize buffer for further use
     buf->buf_head = NULL;
     buf->buf_tail = NULL;
     buf->nbytes = 0;
 
     // finish write
-    if (PQputCopyData(m->conn, "\\.\n", 3) < 0) {
-        logger_log("%s %d: PQputCopyData failed: %s",
-                   __FILE__, __LINE__, PQerrorMessage(m->conn));
-        abort();
+    for (int i = 0; i < nservers; ++i)
+    {
+        if (PQputCopyData(servers[i]->conn, "\\.\n", 3) < 0) {
+            logger_log("%s %d: PQputCopyData failed: %s",
+                       __FILE__, __LINE__, PQerrorMessage(servers[i]->conn));
+            abort();
+        }
+        if (PQputCopyEnd(servers[i]->conn, NULL) < 0) {
+            logger_log("%s %d: PQputCopyEnd failed: %s",
+                       __FILE__, __LINE__, PQerrorMessage(servers[i]->conn));
+            abort();
+        }
     }
-    if (PQputCopyEnd(m->conn, NULL) < 0) {
-        logger_log("%s %d: PQputCopyEnd failed: %s",
-                   __FILE__, __LINE__, PQerrorMessage(m->conn));
-        abort();
-    }
-
 }
 
 static char *
-_connectinfo(const BaggerMeta *m)
+_connectinfo(const char *host, int port, const char *dbname, const char *user)
 {
     const char *fmtstr = "dbname=%s user=%s host=%s port=%d";
     char   *conninfo;
-    int     port = 0;
     size_t  len;
 
-    len = snprintf(NULL, 0, fmtstr, m->dbname, m->user,
-                   m->addr.hostname, m->addr.port);
+    len = snprintf(NULL, 0, fmtstr, dbname, user, host, port);
     conninfo = (char *) SCALLOC(1, len);
-    sprintf(conninfo, fmtstr, m->dbname, m->user,
-            m->addr.hostname, m->addr.port);
+    sprintf(conninfo, fmtstr, dbname, user, host, port);
 
     return conninfo;
 }
@@ -192,10 +198,10 @@ _cpycmd(const BaggerMeta *m, const char *table)
     size_t  len;
     char   *cpycmd;
 
-    len = snprintf(NULL, 0, fmtstr, m->addr.hostname, m->addr.port,
+    len = snprintf(NULL, 0, fmtstr, m->master.hostname, m->master.port,
                    m->generation, table);
     cpycmd = (char *) SCALLOC(1, len);
-    sprintf(cpycmd, fmtstr, m->addr.hostname, m->addr.port,
+    sprintf(cpycmd, fmtstr, m->master.hostname, m->master.port,
             m->generation, table);
 
     return cpycmd;
@@ -208,8 +214,9 @@ hashfunc(const char *key)
 }
 
 BaggerMeta *
-bagger_meta_init(const char *host, const char *dbname, const char *user,
-                 const char *topic, config_setting_t *needlestack)
+bagger_meta_init(const char *host, const char *replica, const char *dbname,
+                 const char *user, const char *topic,
+                 config_setting_t *needlestack)
 {
     BaggerMeta     *m = SCALLOC(1, sizeof(*m));
     Internal        i = SCALLOC(1, sizeof(*i));
@@ -223,19 +230,37 @@ bagger_meta_init(const char *host, const char *dbname, const char *user,
     m->dbname = dbname;
     m->user = user;
 
-    if (parse_connstring(host, &m->addr.hostname, &m->addr.port) == -1) {
+    // parse host string and establish connection to master
+    if (parse_connstring(host, &m->master.hostname, &m->master.port) == -1) {
         logger_log("%s %d: failed to parse host string", __FILE__, __LINE__ );
         abort();
     }
 
-    conninfo = _connectinfo(m);
-    m->conn = PQconnectdb(conninfo);
-    if (PQstatus(m->conn) != CONNECTION_OK)
+    conninfo = _connectinfo(m->master.hostname, m->master.port, m->dbname, m->user);
+    m->master.conn = PQconnectdb(conninfo);
+    if (PQstatus(m->master.conn) != CONNECTION_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn));
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->master.conn));
         abort();
     }
     free(conninfo);
+
+    // establish connection to replica if needed
+    if (replica) {
+        if (parse_connstring(replica, &m->replica.hostname, &m->replica.port) == -1) {
+            logger_log("%s %d: failed to parse replica host", __FILE__, __LINE__ );
+            abort();
+        }
+
+        conninfo = _connectinfo(m->replica.hostname, m->replica.port, m->dbname, m->user);
+        m->replica.conn = PQconnectdb(conninfo);
+        if (PQstatus(m->replica.conn) != CONNECTION_OK)
+        {
+            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->replica.conn));
+            abort();
+        }
+        free(conninfo);
+    }
 
     if (mtx_init(&m->commit_mtx, mtx_plain) != thrd_success) {
         logger_log("%s %d: unable to create mutex", __FILE__, __LINE__ );
@@ -251,7 +276,9 @@ bagger_meta_free(BaggerMeta *m)
     Internal internal = m->internal;
     mtx_destroy(&m->commit_mtx);
 
-    PQfinish(m->conn);
+    PQfinish(m->master.conn);
+    if (m->replica.hostname)
+        PQfinish(m->replica.conn)
 
     for (int i = 0; i < internal->ncount; i++ ) {
         free(internal->needles[i]->jpointer);
@@ -263,7 +290,9 @@ bagger_meta_free(BaggerMeta *m)
     free(internal->leapyears);
     free(internal);
     free(m->htable);
-    free(m->addr.hostname);
+    free(m->master.hostname);
+    if (m->replica.hostname)
+        free(m->replica.hostname);
 
     free(m);
 }
@@ -272,6 +301,7 @@ Producer
 bagger_producer_init(config_setting_t *config)
 {
     const char     *host = NULL,
+                   *replica = NULL,
                    *topic = NULL,
                    *user = NULL,
                    *dbname = NULL;
@@ -283,13 +313,15 @@ bagger_producer_init(config_setting_t *config)
 
     // read config
     config_setting_lookup_string(config, "host", &host);
+    config_setting_lookup_string(config, "replica", &replica);
     config_setting_lookup_string(config, "dbname", &dbname);
     config_setting_lookup_string(config, "user", &user);
     config_setting_lookup_string(config, "topic", &topic);
     needlestack = config_setting_get_member(config, "jpointers");
 
     Producer bagger = SCALLOC(1, sizeof(*bagger));
-    bagger->meta          = bagger_meta_init(host, dbname, user, topic, needlestack);
+    bagger->meta          = bagger_meta_init(host, replica, dbname, user,
+                                             topic, needlestack);
     bagger->producer_free = bagger_producer_free;
     bagger->produce       = bagger_producer_produce;
 
@@ -494,7 +526,7 @@ bagger_consumer_init(config_setting_t *config)
     config_setting_lookup_string(config, "host", &host);
     Consumer bagger = SCALLOC(1, sizeof(*bagger));
 
-    bagger->meta          = bagger_meta_init(host, NULL, NULL, NULL, needles);
+    bagger->meta          = bagger_meta_init(host, NULL, NULL, NULL, NULL, needles);
     bagger->consumer_free = bagger_consumer_free;
     bagger->consume       = bagger_consumer_consume;
 
