@@ -129,6 +129,7 @@ buffer_flush(BaggerMeta *m, Buffer *buf, const char *tablename)
             logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(servers[i]->conn));
             abort();
         }
+        PQclear(res);
     }
     free(cpycmd);
 
@@ -185,7 +186,7 @@ _connectinfo(const char *host, int port, const char *dbname, const char *user)
     size_t  len;
 
     len = snprintf(NULL, 0, fmtstr, dbname, user, host, port);
-    conninfo = (char *) SCALLOC(1, len);
+    conninfo = (char *) SCALLOC(1, len + 1);
     sprintf(conninfo, fmtstr, dbname, user, host, port);
 
     return conninfo;
@@ -200,7 +201,7 @@ _cpycmd(const BaggerMeta *m, const char *table)
 
     len = snprintf(NULL, 0, fmtstr, m->master.hostname, m->master.port,
                    m->generation, table);
-    cpycmd = (char *) SCALLOC(1, len);
+    cpycmd = (char *) SCALLOC(1, len + 1);
     sprintf(cpycmd, fmtstr, m->master.hostname, m->master.port,
             m->generation, table);
 
