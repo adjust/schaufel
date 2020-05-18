@@ -32,6 +32,7 @@ static bool _action_discard_false (bool filter_ret, json_object *found, Needles 
 static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
 
 static bool _json_to_pqtext(json_object *found, Needles current);
+static bool _json_to_pqtext_esc(json_object *found, Needles current);
 static bool _json_to_pqtimestamp(json_object *found, Needles current);
 
 
@@ -79,6 +80,7 @@ static const PqTypeFormat pq_typfmt_bin[] = {
 static const PqTypeFormat pq_typfmt_text[] = {
         {"undef", NULL, NULL},
         {"text", &_json_to_pqtext, &_obj_noop},
+        {"text_esc", &_json_to_pqtext_esc, &_obj_free},
 };
 
 static char *
@@ -261,6 +263,18 @@ _json_to_pqtext(json_object *found, Needles current)
     // Any json type can be cast to string
     current->result = (char *)json_object_get_string(found);
     current->length = strlen(current->result);
+    return true;
+}
+
+// Same as _json_to_pqtext but escapes all backslash characters. It might be
+// slower, but it complies postgres text COPY format.
+static bool
+_json_to_pqtext_esc(json_object *found, Needles current)
+{
+    size_t    len;
+
+    current->result = json_to_pqtext_esc(found, &len);
+    current->length = len;
     return true;
 }
 

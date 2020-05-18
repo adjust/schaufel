@@ -406,46 +406,6 @@ json_remove_key(json_object *json, char *path)
     json_object_object_del(obj, key);
 }
 
-// json_stringify
-//      Stringify json object and escape all backslash characters. Returns
-//      allocated string and writes string length to `len`.
-static char *
-json_stringify(json_object *obj, size_t *len)
-{
-    const char *json = json_object_to_json_string(obj);
-    const char *j = json;
-    char       *res;
-    char       *r;
-    size_t      esc_num = 0;
-
-    *len = 0;
-
-    // count escape characters in order to allocate large enough string for
-    // result
-    while (*j)
-    {
-        esc_num += (*j == '\\') ? 1 : 0;
-        (*len)++;
-        j++;
-    }
-    *len += esc_num;
-
-    res = SCALLOC(1, *len);
-
-    j = json;
-    r = res;
-    while (*j)
-    {
-        // escape backslash
-        if (*j == '\\')
-            *r++ = '\\';
-
-        *r++ = *j++;
-    }
-
-    return res;
-}
-
 void
 bagger_producer_produce(Producer p, Message msg)
 {
@@ -508,7 +468,7 @@ bagger_producer_produce(Producer p, Message msg)
 
     // Write the rest of json as last column
     size_t length;
-    char *json = json_stringify(haystack, &length);
+    char *json = json_to_pqtext_esc(haystack, &length);
     if (internal->ncount > 0)
             buffer_write(buf, "\t", 1);
     buffer_write(buf, json, length);

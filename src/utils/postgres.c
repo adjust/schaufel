@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <json-c/json.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
@@ -6,6 +7,7 @@
 
 #include "utils/logger.h"
 #include "utils/postgres.h"
+#include "utils/scalloc.h"
 
 
 void
@@ -60,4 +62,48 @@ commit_worker(void *meta)
         pthread_mutex_unlock(&((*m)->commit_mutex));
         pthread_testcancel();
     }
+}
+
+/*
+ * json_to_pqtext_esc
+ *      Stringify json object and escape all backslash characters. Returns
+ *      allocated string and writes string length to `len`.
+ */
+char *
+json_to_pqtext_esc(json_object *obj, size_t *len)
+{
+    const char *json = json_object_to_json_string(obj);
+    const char *j = json;
+    char       *res;
+    char       *r;
+    size_t      esc_num = 0;
+
+    *len = 0;
+
+    /*
+     * Count escape characters in order to allocate large enough string for
+     * result
+     */
+    while (*j)
+    {
+        esc_num += (*j == '\\') ? 1 : 0;
+        (*len)++;
+        j++;
+    }
+    *len += esc_num;
+
+    res = SCALLOC(1, *len);
+
+    j = json;
+    r = res;
+    while (*j)
+    {
+        /* escape backslash */
+        if (*j == '\\')
+            *r++ = '\\';
+
+        *r++ = *j++;
+    }
+
+    return res;
 }
