@@ -3,6 +3,7 @@
 
 #include <libpq-fe.h>
 #include <pthread.h>
+#include <json-c/json.h>
 
 
 typedef enum {
