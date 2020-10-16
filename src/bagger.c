@@ -466,14 +466,29 @@ bagger_producer_produce(Producer p, Message msg)
         json_remove_key(haystack, key);
     }
 
-    // Write the rest of json as last column
-    size_t length;
-    char *json = json_to_pqtext_esc(haystack, &length);
+    // Write the rest of json as last column. Before that escape all
+    // special characters
+    const char *json = json_object_to_json_string(haystack);
+    char *esc = PQescapeLiteral(m->master.conn, json, strlen(json));
+    if (!esc) {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->master.conn));
+        goto error;
+    }
+    // remove leading/trailing quotes etc. added by PQescapeLiteral
+    char *t = esc;
+    if (esc[0] == ' ' && esc[1] == 'E') {
+        t = esc + 3;
+        esc[strlen(esc) - 1] = '\0';
+    } else if (esc[0] == '\'') {
+        t = esc + 1;
+        esc[strlen(esc) - 1] = '\0';
+    }
+
     if (internal->ncount > 0)
-            buffer_write(buf, "\t", 1);
-    buffer_write(buf, json, length);
+        buffer_write(buf, "\t", 1);
+    buffer_write(buf, t, strlen(t));
     buffer_write(buf, "\n", 1);
-    SFREE(json);
+    PQfreemem(esc);
 
     // Flush when buffer size exceeds the threshold. If it doesn't then
     // it will be eventually flushed by bagger_commit_worker.
