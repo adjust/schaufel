@@ -410,8 +410,8 @@ void
 bagger_producer_produce(Producer p, Message msg)
 {
     BaggerMeta *m = (BaggerMeta *) p->meta;
-    Needles *needles = m->internal->needles;
-    Internal internal = m->internal;
+    Needles    *needles = m->internal->needles;
+    Internal    internal = m->internal;
     json_object *haystack = NULL;
     char        tablename[64]; // max table name in postgres including \0
     Buffer     *buf;
@@ -438,7 +438,7 @@ bagger_producer_produce(Producer p, Message msg)
     buf = ht_search(m->htable, tablename, HT_UPSERT);
 
     // get value from json, apply transformation
-    if((ret = extract_needles_from_haystack(haystack, internal) != 0)) {
+    if((ret = extract_needles_from_haystack(m->master.conn, haystack, internal) != 0)) {
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
                 __FILE__, __LINE__, data);
@@ -468,27 +468,14 @@ bagger_producer_produce(Producer p, Message msg)
 
     // Write the rest of json as last column. Before that escape all
     // special characters
-    const char *json = json_object_to_json_string(haystack);
-    char *esc = PQescapeLiteral(m->master.conn, json, strlen(json));
-    if (!esc) {
-        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->master.conn));
-        goto error;
-    }
-    // remove leading/trailing quotes etc. added by PQescapeLiteral
-    char *t = esc;
-    if (esc[0] == ' ' && esc[1] == 'E') {
-        t = esc + 3;
-        esc[strlen(esc) - 1] = '\0';
-    } else if (esc[0] == '\'') {
-        t = esc + 1;
-        esc[strlen(esc) - 1] = '\0';
-    }
+    size_t esclen;
+    char *esc = json_to_pqtext_esc(m->master.conn, haystack, &esclen);
 
     if (internal->ncount > 0)
         buffer_write(buf, "\t", 1);
-    buffer_write(buf, t, strlen(t));
+    buffer_write(buf, esc, esclen);
     buffer_write(buf, "\n", 1);
-    PQfreemem(esc);
+    free_pqtext_esc(&esc);
 
     // Flush when buffer size exceeds the threshold. If it doesn't then
     // it will be eventually flushed by bagger_commit_worker.

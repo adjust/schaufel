@@ -3,6 +3,7 @@
 
 #include <libconfig.h>
 #include <json-c/json.h>
+#include <libpq-fe.h>
 
 #include "producer.h"
 #include "consumer.h"
@@ -14,7 +15,7 @@
 typedef struct Needles *Needles;
 typedef struct Needles {
     char           *jpointer;
-    bool          (*format) (json_object *, Needles);
+    bool          (*format) (PGconn *, json_object *, Needles);
     void          (*free) (void **);
     uint32_t       *leapyears;
     uint32_t        length;
@@ -40,6 +41,6 @@ Validator exports_validator_init();
 bool validate_jpointers(config_setting_t *setting, PqCopyFormat fmt);
 Needles *transform_needles(config_setting_t *needlestack, Internal internal,
                            PqCopyFormat fmt);
-int extract_needles_from_haystack(json_object *haystack, Internal internal);
+int extract_needles_from_haystack(PGconn *conn, json_object *haystack, Internal internal);
 
 #endif

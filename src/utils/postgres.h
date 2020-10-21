@@ -33,5 +33,6 @@ typedef struct Meta {
 void commit(Meta *m);
 
 void *commit_worker(void *meta);
-char *json_to_pqtext_esc(json_object *obj, size_t *len);
+char *json_to_pqtext_esc(PGconn *conn, json_object *obj, size_t *len);
+void free_pqtext_esc(void **obj);
 #endif

@@ -20,6 +20,7 @@ static int exports_consumer_consume(Consumer c, Message msg);
 
 static void _obj_noop(UNUSED void **obj);
 static void _obj_free(void **obj);
+static void _pqtext_esc_free(void **obj);
 
 static bool _filter_match (bool jpointer, json_object *found, Needles current);
 static bool _filter_noop (bool jpointer, json_object *found, Needles current);
@@ -31,9 +32,9 @@ static bool _action_store_true (bool filter_ret, json_object *found, Needles cur
 static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
 
-static bool _json_to_pqtext(json_object *found, Needles current);
-static bool _json_to_pqtext_esc(json_object *found, Needles current);
-static bool _json_to_pqtimestamp(json_object *found, Needles current);
+static bool _json_to_pqtext(PGconn *conn, json_object *found, Needles current);
+static bool _json_to_pqtext_esc(PGconn *conn, json_object *found, Needles current);
+static bool _json_to_pqtimestamp(PGconn *conn, json_object *found, Needles current);
 
 
 typedef struct {
@@ -50,7 +51,7 @@ typedef struct {
 
 typedef struct {
     const char *pq_type;
-    bool  (*format) (json_object *, Needles);
+    bool  (*format) (PGconn *, json_object *, Needles);
     void  (*free) (void **obj);
 } PqTypeFormat;
 
@@ -80,7 +81,7 @@ static const PqTypeFormat pq_typfmt_bin[] = {
 static const PqTypeFormat pq_typfmt_text[] = {
         {"undef", NULL, NULL},
         {"text", &_json_to_pqtext, &_obj_noop},
-        {"text_esc", &_json_to_pqtext_esc, &_obj_free},
+        {"text_esc", &_json_to_pqtext_esc, &_pqtext_esc_free},
 };
 
 static char *
@@ -258,7 +259,7 @@ _filter_exists(bool jpointer, UNUSED json_object *found,
 }
 
 static bool
-_json_to_pqtext(json_object *found, Needles current)
+_json_to_pqtext(PGconn *conn, json_object *found, Needles current)
 {
     // Any json type can be cast to string
     current->result = (char *)json_object_get_string(found);
@@ -269,17 +270,24 @@ _json_to_pqtext(json_object *found, Needles current)
 // Same as _json_to_pqtext but escapes all backslash characters. It might be
 // slower, but it complies postgres text COPY format.
 static bool
-_json_to_pqtext_esc(json_object *found, Needles current)
+_json_to_pqtext_esc(PGconn *conn, json_object *found, Needles current)
 {
     size_t    len;
 
-    current->result = json_to_pqtext_esc(found, &len);
+    current->result = json_to_pqtext_esc(conn, found, &len);
     current->length = len;
     return true;
 }
 
+static void
+_pqtext_esc_free(void **obj)
+{
+    free_pqtext_esc(obj);
+}
+
+
 static bool
-_json_to_pqtimestamp(json_object *found, Needles current)
+_json_to_pqtimestamp(PGconn *conn, json_object *found, Needles current)
 {
     const char *ts = json_object_get_string(found);
     uint64_t epoch;
@@ -569,7 +577,7 @@ exports_producer_init(config_setting_t *config)
 }
 
 int
-extract_needles_from_haystack(json_object *haystack, Internal internal)
+extract_needles_from_haystack(PGconn *conn, json_object *haystack, Internal internal)
 {
     json_object *found;
 
@@ -592,7 +600,7 @@ extract_needles_from_haystack(json_object *haystack, Internal internal)
             // int max is postgres NULL;
             needles[i]->length = (uint32_t)~0;
         } else {
-            if(!needles[i]->format(found, needles[i])) {
+            if(!needles[i]->format(conn, found, needles[i])) {
                 logger_log("%s %d: Failed jpointer deref %s",
                     __FILE__, __LINE__, needles[i]->jpointer);
                 return -1;
@@ -651,7 +659,7 @@ exports_producer_produce(Producer p, Message msg)
     }
 
     // get value from json, apply transformation
-    if((ret = extract_needles_from_haystack(haystack, internal) != 0)) {
+    if((ret = extract_needles_from_haystack(m->conn_master, haystack, internal) != 0)) {
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
                 __FILE__, __LINE__, data);
