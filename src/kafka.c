@@ -14,7 +14,7 @@ static void
 dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, UNUSED void *opaque)
 {
     if (rkmessage->err)
-        logger_log("%s %d: Message delivery failed: %s\n", __FILE__, __LINE__, rd_kafka_err2str(rkmessage->err));
+        logger_log("%s %d: Message delivery failed: %s partition: %d\n", __FILE__, __LINE__, rd_kafka_err2str(rkmessage->err), rkmessage->partition);
 }
 
 static void
