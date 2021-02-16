@@ -219,7 +219,6 @@ kafka_consumer_meta_init(const char *broker,
     rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
 
     rd_kafka_conf_set_rebalance_cb(conf, rebalance_cb);
-    rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
     rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk)
