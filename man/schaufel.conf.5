@@ -144,6 +144,10 @@ consumers = (
         group = "schaufel_queue_1";
         kafka_options = {
             partition_assignment_strategy = "roundrobin";
+            enable_auto_commit = "false;
+        };
+        topic_options = {
+            auto_offset_reset = "beginning";
         };
     });
 .PP

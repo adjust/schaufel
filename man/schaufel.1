@@ -90,8 +90,10 @@ outputs every message that it reads to stdout.
 As a consumer, schaufel reads line-wise (preserving the newline). As a
 producer it writes the messages as they are.
 .SS kafka
-As a consumer, schaufel joins a consumer group. As a producer it'll
-simply write to a topic.
+As a consumer, schaufel joins a consumer group. If the consumer group does
+not exist yet, it'll assume the latest available offsets as a starting point.
+To change this behaviour you'll require a schaufel.conf file.
+As a producer it'll simply write to a topic.
 .SS redis
 As a consumer, schaufel will LPUSH from a list. As a producer it'll BLPOP.
 .SS postgres
