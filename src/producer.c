@@ -1,3 +1,4 @@
+#include "bagger.h"
 #include "dummy.h"
 #include "exports.h"
 #include "file.h"
@@ -30,6 +31,9 @@ producer_init(char kind, config_setting_t *config)
             break;
         case 'k':
             p = kafka_producer_init(config);
+            break;
+        case 'b':
+            p = bagger_producer_init(config);
             break;
         default:
             return NULL;

@@ -1,4 +1,6 @@
+#include <string.h>
 #include <arpa/inet.h>
+#include <json-c/json.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
@@ -6,6 +8,7 @@
 
 #include "utils/logger.h"
 #include "utils/postgres.h"
+#include "utils/scalloc.h"
 
 
 void
@@ -60,4 +63,73 @@ commit_worker(void *meta)
         pthread_mutex_unlock(&((*m)->commit_mutex));
         pthread_testcancel();
     }
+}
+
+/*
+ * json_to_pqtext_esc
+ *      Stringify json object and escape all special characters. Returns
+ *      allocated string and writes string length to `len`. Always use
+ *      free_pqtext_esc() to deallocate the result as it requires special
+ *      treatment.
+ */
+char *
+json_to_pqtext_esc(PGconn *conn, json_object *obj, size_t *len)
+{
+    const char *json;
+    char *esc;
+    char *res;
+
+    json = json_object_to_json_string(obj);
+    esc = PQescapeLiteral(conn, json, strlen(json));
+
+    if (!esc) {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(conn));
+        abort();
+    }
+    // remove leading/trailing quotes etc. added by PQescapeLiteral
+    res = esc;
+    if (esc[0] == ' ' && esc[1] == 'E') {
+        res = esc + 3;
+        esc[strlen(esc) - 1] = '\0';
+    } else if (esc[0] == '\'') {
+        res = esc + 1;
+        esc[strlen(esc) - 1] = '\0';
+    }
+    *len = strlen(res);
+
+    // We return not the same pointer that was allocated by PQescapeLiteral.
+    // Therefore we must do the reverse conversion when we deallocate the
+    // string.
+    return res;
+}
+
+void
+free_pqtext_esc(void **obj)
+{
+    char *esc;
+    char *ptr;
+
+    // this function is supposed to be idempotent
+    if(!obj)
+        return;
+    if(!*obj)
+        return;
+    esc = *obj;
+
+    // see json_to_pqtext_esc for details
+    if (*(esc - 1) != '\'') {
+        logger_log("%s %d: unexpected byte", __FILE__, __LINE__);
+        abort();
+    }
+    if (*(esc - 2) == 'E') {
+        ptr = esc - 3;
+    } else if (*(esc - 2) == ' ') {
+        ptr = esc - 1;
+    } else {
+        logger_log("%s %d: unexpected byte", __FILE__, __LINE__);
+        abort();
+    }
+
+    PQfreemem(ptr);
+    *obj = NULL;
 }

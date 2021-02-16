@@ -3,42 +3,24 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <json-c/json.h>
 #include <arpa/inet.h>
 
 #include "exports.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
-#include "utils/postgres.h"
 #include "utils/scalloc.h"
 #include "utils/endian.h"
 
-typedef struct Needles *Needles;
-typedef struct Needles {
-    char           *jpointer;
-    bool          (*format) (json_object *, Needles);
-    void          (*free) (void **);
-    uint32_t       *leapyears;
-    uint32_t        length;
-    void           *result; // output
-    bool          (*action) (bool, json_object *, Needles);
-    bool          (*filter) (bool, json_object *, Needles);
-    bool            store;
-    const char     *filter_data;
-} *Needles;
 
-typedef struct Internal {
-    Needles        *needles;
-    uint32_t       *leapyears;  // leapyears are globally shared
-    uint16_t        ncount; // count of needles
-    uint16_t        rows; // number of rows inserted into postgres
-} *Internal;
+static void exports_producer_free(Producer *p);
+static void exports_producer_produce(Producer p, Message msg);
+static void exports_consumer_free(Consumer *c);
+static int exports_consumer_consume(Consumer c, Message msg);
 
-static bool _json_to_pqtext (json_object *needle, Needles current);
-static bool _json_to_pqtimestamp (json_object *needle, Needles current);
 static void _obj_noop(UNUSED void **obj);
 static void _obj_free(void **obj);
+static void _pqtext_esc_free(void **obj);
 
 static bool _filter_match (bool jpointer, json_object *found, Needles current);
 static bool _filter_noop (bool jpointer, json_object *found, Needles current);
@@ -50,69 +32,56 @@ static bool _action_store_true (bool filter_ret, json_object *found, Needles cur
 static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
 
-// Types of postgres fields
-typedef enum {  // todo: add jsonb, int.
-    pqtype_undef,
-    pqtype_text,
-    pqtype_timestamp,
-} PqTypes;
-
-static const struct {
-    PqTypes type;
-    const char *pq_type;
-    bool  (*format) (json_object *, Needles);
-    void  (*free) (void **obj);
-}  pq_types [] = {
-        {pqtype_undef, "undef", NULL, NULL},
-        {pqtype_text, "text", &_json_to_pqtext, &_obj_noop},
-        {pqtype_timestamp, "timestamp", &_json_to_pqtimestamp, &_obj_free},
-};
+static bool _json_to_pqtext(PGconn *conn, json_object *found, Needles current);
+static bool _json_to_pqtext_esc(PGconn *conn, json_object *found, Needles current);
+static bool _json_to_pqtimestamp(PGconn *conn, json_object *found, Needles current);
 
 
-// Types of actions available for data
-typedef enum {
-    action_undef,           // invalid conf
-    action_store,           // store the field/null whatever happens
-    action_store_true,      // store field if filter returns true
-    action_discard_false,   // discard the message if filter returns false
-    action_discard_true,    // discard the message if filter returns true
-} ActionTypes;
-
-static const struct {
-    ActionTypes type;
+typedef struct {
     const char *action_type;
     bool  (*action) (bool, json_object *, Needles);
     bool store;
-}  action_types [] = {
-        {action_undef, "undef", NULL, false},
-        {action_store, "store", &_action_store, true},
-        {action_store_true, "store_true", &_action_store_true, true},
-        {action_discard_false, "discard_false", &_action_discard_false, false},
-        {action_discard_true, "discard_true", &_action_discard_true, false}
-};
+} ExportsAction;
 
-// Types of filters to be applied on data
-typedef enum {
-    filter_undef,
-    filter_noop,        // returns true, default
-    filter_match,       // match string
-    filter_substr,      // match substring
-    filter_exists,      // json key exists
-// TODO:    filter_pcrematch,   // pcre match
-} FilterTypes;
-
-static const struct {
-    FilterTypes type;
+typedef struct {
     const char *filter_type;
     bool (*filter) (bool, json_object *, Needles);
     bool needs_data;
-}  filter_types [] = {
-        {filter_undef, "undef", NULL, false},
-        {filter_noop, "noop", &_filter_noop, false},
-        {filter_match, "match", &_filter_match, true},
-        {filter_substr, "substr", &_filter_substr, true},
-        {filter_exists, "exists", &_filter_exists, false},
-// TODO:        {filter_pcrematch, "pcrematch", NULL, true},
+} ExportsFilter;
+
+typedef struct {
+    const char *pq_type;
+    bool  (*format) (PGconn *, json_object *, Needles);
+    void  (*free) (void **obj);
+} PqTypeFormat;
+
+static const ExportsAction action_types[] = {
+        {"undef", NULL, false},
+        {"store", &_action_store, true},
+        {"store_true", &_action_store_true, true},
+        {"discard_false", &_action_discard_false, false},
+        {"discard_true", &_action_discard_true, false}
+};
+
+static const ExportsFilter filter_types[] = {
+        {"undef", NULL, false},
+        {"noop", &_filter_noop, false},
+        {"match", &_filter_match, true},
+        {"substr", &_filter_substr, true},
+        {"exists", &_filter_exists, false},
+// TODO:        {"pcrematch", NULL, true},
+};
+
+static const PqTypeFormat pq_typfmt_bin[] = {
+        {"undef", NULL, NULL},
+        {"text", &_json_to_pqtext, &_obj_noop},
+        {"timestamp", &_json_to_pqtimestamp, &_obj_free},
+};
+
+static const PqTypeFormat pq_typfmt_text[] = {
+        {"undef", NULL, NULL},
+        {"text", &_json_to_pqtext, &_obj_noop},
+        {"text_esc", &_json_to_pqtext_esc, &_pqtext_esc_free},
 };
 
 static char *
@@ -139,35 +108,54 @@ _connectinfo(const char *host)
     return conninfo;
 }
 
-static ActionTypes
-_actiontype_enum(const char *action_type)
+static const ExportsAction *
+lookup_actiontype(const char *action_type)
 {
     uint32_t j;
     for (j = 1; j < sizeof(action_types) / sizeof(action_types[0]); j++)
         if (!strcmp(action_type, action_types[j].action_type))
-            return action_types[j].type;
-    return action_undef;
+            return &action_types[j];
+    return NULL;
 }
 
 
-static FilterTypes
-_filtertype_enum(const char *filter_type)
+static const ExportsFilter *
+lookup_filtertype(const char *filter_type)
 {
     uint32_t j;
     for (j = 1; j < sizeof(filter_types) / sizeof(filter_types[0]); j++)
         if (!strcmp(filter_type, filter_types[j].filter_type))
-            return filter_types[j].type;
-    return filter_undef;
+            return &filter_types[j];
+    return NULL;
 }
 
-static PqTypes
-_pqtype_enum(const char *pqtype)
+static const PqTypeFormat *
+lookup_pqtypfmt(const char *pqtype, PqCopyFormat fmt)
 {
-    uint32_t j;
-    for (j = 1; j < sizeof(pq_types) / sizeof(pq_types[0]); j++)
-        if (!strcmp(pqtype, pq_types[j].pq_type))
-            return pq_types[j].type;
-    return pqtype_undef;
+    const PqTypeFormat *typfmt;
+    size_t      len;
+    uint32_t    j;
+
+    switch (fmt)
+    {
+        case PQ_COPY_TEXT:
+            typfmt = pq_typfmt_text;
+            len = sizeof(pq_typfmt_text) / sizeof(PqTypeFormat);
+            break;
+        case PQ_COPY_BINARY:
+            typfmt = pq_typfmt_bin;
+            len = sizeof(pq_typfmt_bin) / sizeof(PqTypeFormat);
+            break;
+        default:
+            logger_log("%s %d: csv format is not supported",
+                       __FILE__, __LINE__);
+            abort();
+    }
+
+    for (j = 1; j < len; j++)
+        if (!strcmp(pqtype, typfmt[j].pq_type))
+            return &typfmt[j];
+    return NULL;
 }
 
 static uint32_t *
@@ -271,7 +259,7 @@ _filter_exists(bool jpointer, UNUSED json_object *found,
 }
 
 static bool
-_json_to_pqtext(json_object *found, Needles current)
+_json_to_pqtext(PGconn *conn, json_object *found, Needles current)
 {
     // Any json type can be cast to string
     current->result = (char *)json_object_get_string(found);
@@ -279,8 +267,27 @@ _json_to_pqtext(json_object *found, Needles current)
     return true;
 }
 
+// Same as _json_to_pqtext but escapes all backslash characters. It might be
+// slower, but it complies postgres text COPY format.
 static bool
-_json_to_pqtimestamp(json_object *found, Needles current)
+_json_to_pqtext_esc(PGconn *conn, json_object *found, Needles current)
+{
+    size_t    len;
+
+    current->result = json_to_pqtext_esc(conn, found, &len);
+    current->length = len;
+    return true;
+}
+
+static void
+_pqtext_esc_free(void **obj)
+{
+    free_pqtext_esc(obj);
+}
+
+
+static bool
+_json_to_pqtimestamp(PGconn *conn, json_object *found, Needles current)
 {
     const char *ts = json_object_get_string(found);
     uint64_t epoch;
@@ -408,11 +415,12 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     return false;
 }
 
-static Needles *
-_needles(config_setting_t *needlestack, Internal internal)
+Needles *
+transform_needles(config_setting_t *needlestack, Internal internal,
+                  PqCopyFormat fmt)
 {
     config_setting_t *setting = NULL, *member= NULL;
-    int list = 0, pqtype = 0, actiontype = 0, filtertype = 0;
+    int list = 0;
     list = config_setting_length(needlestack);
 
     Needles *needles = SCALLOC(list,sizeof(*needles));
@@ -421,7 +429,11 @@ _needles(config_setting_t *needlestack, Internal internal)
     internal->rows = 0;
 
     for(int i = 0; i < list; i++) {
-        Needles current = SCALLOC(list,sizeof(*current));
+        const ExportsAction *actiontype;
+        const ExportsFilter *filtertype;
+        const PqTypeFormat  *pqtype;
+        Needles              current = SCALLOC(list,sizeof(*current));
+
         needles[i] = current;
         // Alias should a needle need leapyear data
         needles[i]->leapyears = internal->leapyears;
@@ -440,23 +452,23 @@ _needles(config_setting_t *needlestack, Internal internal)
         }
 
         member = config_setting_get_elem(setting, 1);
-        pqtype = _pqtype_enum(config_setting_get_string(member));
-        current->format = pq_types[pqtype].format;
-        current->free = pq_types[pqtype].free;
+        pqtype = lookup_pqtypfmt(config_setting_get_string(member), fmt);
+        current->format = pqtype->format;
+        current->free = pqtype->free;
 
         member = config_setting_get_elem(setting, 2);
-        actiontype = _actiontype_enum(config_setting_get_string(member));
-        current->action = action_types[actiontype].action;
-        current->store = action_types[actiontype].store;
+        actiontype = lookup_actiontype(config_setting_get_string(member));
+        current->action = actiontype->action;
+        current->store = actiontype->store;
         if (current->store)
             internal->rows++;
 
         member = config_setting_get_elem(setting, 3);
-        filtertype = _filtertype_enum(config_setting_get_string(member));
-        current->filter = filter_types[filtertype].filter;
-        if(filter_types[filtertype].needs_data)
+        filtertype = lookup_filtertype(config_setting_get_string(member));
+        current->filter = filtertype->filter;
+        if(filtertype->needs_data)
             current->filter_data =
-            config_setting_get_string(config_setting_get_elem(setting, 4));
+                config_setting_get_string(config_setting_get_elem(setting, 4));
 
     }
 
@@ -497,7 +509,7 @@ exports_meta_init(const char *host, const char *topic, config_setting_t *needles
     m->cpycmd = _cpycmd(host, topic);
     m->conninfo = _connectinfo(host);
     m->internal = i;
-    m->internal->needles = _needles(needlestack, i);
+    m->internal->needles = transform_needles(needlestack, i, PQ_COPY_BINARY);
     m->internal->ncount = config_setting_length(needlestack);
 
     m->conn_master = PQconnectdb(m->conninfo);
@@ -565,7 +577,7 @@ exports_producer_init(config_setting_t *config)
 }
 
 int
-_deref(json_object *haystack, Internal internal)
+extract_needles_from_haystack(PGconn *conn, json_object *haystack, Internal internal)
 {
     json_object *found;
 
@@ -588,7 +600,7 @@ _deref(json_object *haystack, Internal internal)
             // int max is postgres NULL;
             needles[i]->length = (uint32_t)~0;
         } else {
-            if(!needles[i]->format(found, needles[i])) {
+            if(!needles[i]->format(conn, found, needles[i])) {
                 logger_log("%s %d: Failed jpointer deref %s",
                     __FILE__, __LINE__, needles[i]->jpointer);
                 return -1;
@@ -599,7 +611,7 @@ _deref(json_object *haystack, Internal internal)
     return 0;
 }
 
-void
+static void
 exports_producer_produce(Producer p, Message msg)
 {
     Meta m = (Meta)p->meta;
@@ -647,7 +659,7 @@ exports_producer_produce(Producer p, Message msg)
     }
 
     // get value from json, apply transformation
-    if((ret = _deref(haystack, internal) != 0)) {
+    if((ret = extract_needles_from_haystack(m->conn_master, haystack, internal) != 0)) {
         if(ret == -1)
             logger_log("%s %d: Failed to dereference json!\n %s",
                 __FILE__, __LINE__, data);
@@ -683,7 +695,7 @@ exports_producer_produce(Producer p, Message msg)
     pthread_mutex_unlock(&m->commit_mutex);
 }
 
-void
+static void
 exports_producer_free(Producer *p)
 {
     Meta m = (Meta) ((*p)->meta);
@@ -717,14 +729,14 @@ exports_consumer_init(config_setting_t *config)
     return exports;
 }
 
-int
+static int
 exports_consumer_consume(UNUSED Consumer c, UNUSED Message msg)
 {
     //TODO
     return -1;
 }
 
-void
+static void
 exports_consumer_free(Consumer *c)
 {
     Meta m = (Meta) ((*c)->meta);
@@ -734,78 +746,69 @@ exports_consumer_free(Consumer *c)
 }
 
 bool
-exporter_validate(UNUSED config_setting_t *config)
+validate_jpointers(config_setting_t *setting, PqCopyFormat fmt)
 {
-    config_setting_t *setting = NULL, *member = NULL, *child = NULL,
-        *new = NULL;
-    const char *jpointer = NULL, *pqtype = NULL, *action = NULL, *filter = NULL,
-        *data = NULL, *conf = NULL;
-
-    const char *host = NULL, *topic = NULL;
-    if(!CONF_L_IS_STRING(config, "host", &host, "require host string!"))
-        goto error;
-
-    if(!CONF_L_IS_STRING(config, "topic", &topic, "require topic string!"))
-        goto error;
-
-    if(!(setting = CONF_GET_MEM(config,"jpointers", "require jpointers!")))
-        goto error;
-
     if(!CONF_IS_LIST(setting, "require jpointers to be a list!"))
-        goto error;
+        return false;
 
     /* We need to create an array which holds jpointer, pqtype, action
      * and filter. We do this by taking the first element, deleting it
      * and appending a completely populated element at the end.
      */
-    for (int i = 0; i < config_setting_length(setting); i++) {
+    for (int i = 0; i < config_setting_length(setting); i++)
+    {
+        const char *jpointer = NULL,
+                   *pqtype = "text",
+                   *action = "store",
+                   *filter = "noop",
+                   *data = "",
+                   *conf = NULL;
+
+        config_setting_t   *member = NULL,
+                           *child = NULL,
+                           *new = NULL;
+
         child = config_setting_get_elem(setting, 0);
         if (child == NULL) {
             fprintf(stderr, "%s %d: failed to read jpointer list elem %d\n",
-            __FILE__, __LINE__, i);
-            goto error;
+                    __FILE__, __LINE__, i);
+            return false;;
         }
 
         new = config_setting_add(setting, NULL, CONFIG_TYPE_ARRAY);
         for (int j = 0; j < 5; j++ )
             config_setting_add(new, NULL, CONFIG_TYPE_STRING);
 
-        jpointer = NULL;
-        pqtype = "text";
-        action = "store";
-        filter = "noop";
-        data = "";
-
         if (config_setting_is_scalar(child) == CONFIG_TRUE) {
             conf = config_setting_get_string(child);
             if(conf == NULL) {
                 fprintf(stderr, "%s %d: couldn't parse config at %u\n",
                 __FILE__, __LINE__, config_setting_source_line(child));
-                goto error;
+                return false;
             }
             jpointer = conf;
         } else if (config_setting_is_array(child) == CONFIG_TRUE) {
             member = config_setting_get_elem(child, 0);
             if(member == NULL) {
                 fprintf(stderr, "%s %d: failed to read jpointer array %d\n",
-                __FILE__, __LINE__, i);
-                goto error;
+                        __FILE__, __LINE__, i);
+                return false;
             }
             conf = config_setting_get_string(member);
             if(conf == NULL) {
                 fprintf(stderr, "%s %d: couldn't parse config at %u\n",
-                __FILE__, __LINE__, config_setting_source_line(child));
-                goto error;
+                        __FILE__, __LINE__, config_setting_source_line(child));
+                return false;
             }
             jpointer = conf;
 
             member = config_setting_get_elem(child, 1);
             if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if(conf != NULL && !_pqtype_enum(conf)) {
+                if(conf != NULL && !lookup_pqtypfmt(conf, fmt)) {
                     fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 } else
                     pqtype = conf;
             }
@@ -813,10 +816,10 @@ exporter_validate(UNUSED config_setting_t *config)
             member = config_setting_get_elem(child, 2);
             if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if( conf != NULL && !_actiontype_enum(conf)) {
+                if( conf != NULL && !lookup_actiontype(conf)) {
                     fprintf(stderr, "%s %d: not a valid action type: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 } else
                     action = conf;
             }
@@ -824,67 +827,67 @@ exporter_validate(UNUSED config_setting_t *config)
             member = config_setting_get_elem(child, 3);
             if(member != NULL) {
                 conf = config_setting_get_string(member);
-                if( conf != NULL && !_filtertype_enum(conf)) {
+                if( conf != NULL && !lookup_filtertype(conf)) {
                     fprintf(stderr, "%s %d: not a valid filter type: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 } else
                     filter = conf;
             }
 
-            if(filter_types[_filtertype_enum(filter)].needs_data) {
+            if(lookup_filtertype(filter)->needs_data) {
                 member = config_setting_get_elem(child,4);
                 if(member == NULL) {
                     fprintf(stderr, "%s %d: filter needs configuration: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
                 conf = config_setting_get_string(member);
                 if(conf == NULL) {
                     fprintf(stderr, "%s %d: filter needs configuration: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
                     data = conf;
             }
         } else if (config_setting_is_group(child) == CONFIG_TRUE) {
             if(!CONF_L_IS_STRING(child, "jpointer", &jpointer, "failed to parse config"))
-                goto error;
+                return false;
 
             if(config_setting_lookup_string(child, "pqtype", &conf) == CONFIG_TRUE) {
-                if (!_pqtype_enum(conf)) {
+                if (!lookup_pqtypfmt(conf, fmt)) {
                     fprintf(stderr, "%s %d: not a valid type transformation: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
                 pqtype = conf;
             }
 
             if(config_setting_lookup_string(child, "action", &conf) == CONFIG_TRUE) {
-                if (!_actiontype_enum(conf)) {
+                if (!lookup_actiontype(conf)) {
                     fprintf(stderr, "%s %d: not a valid action type: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
                 action = conf;
             }
 
             if(config_setting_lookup_string(child, "filter", &conf) == CONFIG_TRUE) {
-                if (!_filtertype_enum(conf)) {
+                if (!lookup_filtertype(conf)) {
                     fprintf(stderr, "%s %d: not a valid filter type: %s\n",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
                 filter = conf;
             }
 
-            if(filter_types[_filtertype_enum(filter)].needs_data) {
+            if(lookup_filtertype(filter)->needs_data) {
                 if(config_setting_lookup_string(child, "data", &conf) == CONFIG_TRUE)
                     data = conf;
                 else {
                     fprintf(stderr, "%s %d: filter needs configuration: %s",
-                    __FILE__, __LINE__, conf);
-                    goto error;
+                            __FILE__, __LINE__, conf);
+                    return false;
                 }
             }
         } else {
@@ -900,8 +903,27 @@ exporter_validate(UNUSED config_setting_t *config)
     }
 
     return true;
-    error:
-    return false;
+}
+
+bool
+exporter_validate(UNUSED config_setting_t *config)
+{
+    config_setting_t *setting = NULL;
+    const char *host = NULL, *topic = NULL;
+
+    if(!CONF_L_IS_STRING(config, "host", &host, "require host string!"))
+        return false;
+
+    if(!CONF_L_IS_STRING(config, "topic", &topic, "require topic string!"))
+        return false;
+
+    if(!(setting = CONF_GET_MEM(config,"jpointers", "require jpointers!")))
+        return false;
+
+    if(!validate_jpointers(setting, PQ_COPY_BINARY))
+        return false;
+
+    return true;
 }
 
 

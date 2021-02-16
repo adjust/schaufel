@@ -3,10 +3,14 @@
 
 #include <libpq-fe.h>
 #include <pthread.h>
+#include <json-c/json.h>
 
-#define PQ_COPY_TEXT   0
-#define PQ_COPY_CSV    1
-#define PQ_COPY_BINARY 2
+
+typedef enum {
+    PQ_COPY_TEXT,
+    PQ_COPY_CSV,
+    PQ_COPY_BINARY
+} PqCopyFormat;
 
 typedef struct Internal *Internal;
 
@@ -29,4 +33,6 @@ typedef struct Meta {
 void commit(Meta *m);
 
 void *commit_worker(void *meta);
+char *json_to_pqtext_esc(PGconn *conn, json_object *obj, size_t *len);
+void free_pqtext_esc(void **obj);
 #endif

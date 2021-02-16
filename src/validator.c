@@ -1,3 +1,4 @@
+#include "bagger.h"
 #include "dummy.h"
 #include "exports.h"
 #include "file.h"
@@ -29,6 +30,9 @@ validator_init(const char* kind)
             break;
         case 'k':
             v = kafka_validator_init();
+            break;
+        case 'b':
+            v = bagger_validator_init();
             break;
         default:
             return NULL;
