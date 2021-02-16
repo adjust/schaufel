@@ -115,17 +115,20 @@ static void kafka_producer_defaults(config_setting_t *c)
 
 static void kafka_consumer_defaults(config_setting_t *c)
 {
-    config_setting_t *topic_options;
+    config_setting_t *kafka_options;
 
-    config_set_default_string(c, "kafka_options/offset_store_method", "broker");
-
-    topic_options = config_create_path(c, "topic_options", CONFIG_TYPE_GROUP);
-    if (topic_options)
+    kafka_options = config_create_path(c, "kafka_options", CONFIG_TYPE_GROUP);
+    if (kafka_options)
     {
-        config_set_default_string(topic_options, "enable_auto_commit", "true");
-        config_set_default_string(topic_options, "auto_commit_interval_ms", "10");
-        config_set_default_string(topic_options, "auto_offset_reset", "latest");
+        /* enable.auto.commit and enable.auto.offset.store
+         * are default values, they're only here to be explicit */
+        config_set_default_string(kafka_options, "enable_auto_commit", "true");
+        config_set_default_string(kafka_options, "enable_auto_offset_store", "true");
+        config_set_default_string(kafka_options, "auto_commit_interval_ms", "10");
     }
+
+    // naively assume you don't want to touch past data
+    config_set_default_string(c, "topic_options/auto_offset_reset", "latest");
 }
 
 typedef struct Meta {
