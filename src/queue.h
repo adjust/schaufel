@@ -12,6 +12,7 @@ Message message_init();
 void   *message_get_data(Message msg);
 void    message_set_data(Message msg, void *data);
 size_t  message_get_len(Message msg);
+int64_t message_get_xmark(Message msg);
 void    message_set_len(Message msg, size_t len);
 void    message_free(Message *msg);
 

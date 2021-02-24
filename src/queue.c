@@ -4,13 +4,15 @@
 #include <stdint.h>
 
 #include "queue.h"
+#include "hooks.h"
 
 
 typedef struct Message
 {
     void    *data;
     size_t   datalen;
-    int64_t  msgtype;
+    int64_t  xmark;
+    void    *metadata;
 } *Message;
 
 Message
@@ -48,6 +50,14 @@ message_get_len(Message msg)
     if (msg == NULL)
         return 0;
     return msg->datalen;
+}
+
+int64_t
+message_get_xmark(Message msg)
+{
+    if (msg == NULL)
+        return 0;
+    return msg->xmark;
 }
 
 void
@@ -94,6 +104,8 @@ typedef struct Queue
     pthread_cond_t consumer_cond;
     MessageList first;
     MessageList last;
+    hooklist postadd;
+    hooklist preget;
 } *Queue;
 
 Queue
@@ -118,6 +130,8 @@ queue_init(void)
         pthread_cond_destroy(&q->consumer_cond);
         return NULL;
     }
+    q->postadd = hook_init();
+    q->preget = hook_init();
 
     q->timeout.tv_sec = 10;
     q->timeout.tv_nsec = 0;
@@ -126,7 +140,7 @@ queue_init(void)
 }
 
 int
-queue_add(Queue q, void *data, size_t datalen, int64_t msgtype)
+queue_add(Queue q, void *data, size_t datalen, int64_t xmark)
 {
     MessageList newmsg;
     pthread_mutex_lock(&q->mutex);
@@ -148,7 +162,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t msgtype)
         newmsg->msg->datalen = datalen;
     }
     newmsg->msg->data = data;
-    newmsg->msg->msgtype = msgtype;
+    newmsg->msg->xmark = xmark;
 
     newmsg->next = NULL;
     if (q->last == NULL)
@@ -218,7 +232,7 @@ queue_get(Queue q, Message msg)
 
     msg->data = firstrec->msg->data;
     msg->datalen = firstrec->msg->datalen;
-    msg->msgtype = firstrec->msg->msgtype;
+    msg->xmark = firstrec->msg->xmark;
 
     pthread_cond_broadcast(&q->consumer_cond);
     message_list_free(&firstrec);
@@ -252,6 +266,10 @@ queue_free(Queue *q)
     ret = pthread_mutex_destroy(&(*q)->mutex);
     pthread_cond_destroy(&(*q)->producer_cond);
     pthread_cond_destroy(&(*q)->consumer_cond);
+
+    hook_free((*q)->postadd);
+    hook_free((*q)->preget);
+
     free(*q);
     *q = NULL;
     return ret;
