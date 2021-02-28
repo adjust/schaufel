@@ -23,7 +23,7 @@ INC = -Isrc/
 OBJDIR = obj
 OUT = bin/schaufel
 
-SOURCES = $(wildcard src/*.c) $(wildcard src/utils/*.c)
+SOURCES = $(wildcard src/*.c) $(wildcard src/utils/*.c) $(wildcard src/hooks/*.c)
 TEST_SOURCES = $(wildcard t/*.c)
 
 OBJ = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SOURCES))
@@ -46,7 +46,7 @@ release: before_release $(OBJ) out_release
 test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
 before_release:
-	mkdir -p obj/utils bin
+	mkdir -p obj/utils obj/hooks bin
 
 clean: clean_release
 

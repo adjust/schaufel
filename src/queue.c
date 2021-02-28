@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <stdint.h>
 
+#include "utils/config.h"
 #include "queue.h"
 #include "hooks.h"
 
@@ -104,12 +105,12 @@ typedef struct Queue
     pthread_cond_t consumer_cond;
     MessageList first;
     MessageList last;
-    hooklist postadd;
-    hooklist preget;
+    Hooklist postadd;
+    Hooklist preget;
 } *Queue;
 
 Queue
-queue_init(void)
+queue_init(config_setting_t *conf)
 {
     Queue q = calloc(1, sizeof(*q));
     if (!q)
@@ -130,8 +131,13 @@ queue_init(void)
         pthread_cond_destroy(&q->consumer_cond);
         return NULL;
     }
+
     q->postadd = hook_init();
     q->preget = hook_init();
+
+    /* todo: error handling */
+    hooks_add(q->postadd,config_setting_get_member(conf, "postadd"));
+    hooks_add(q->postadd,config_setting_get_member(conf, "preget"));
 
     q->timeout.tv_sec = 10;
     q->timeout.tv_nsec = 0;
@@ -143,6 +149,10 @@ int
 queue_add(Queue q, void *data, size_t datalen, int64_t xmark)
 {
     MessageList newmsg;
+    /* Todo:
+     *      Reorder this function (mutexes)
+     *      Pass Message msg to this function
+     */
     pthread_mutex_lock(&q->mutex);
 
     while (q->length > MAX_QUEUE_SIZE)
@@ -163,6 +173,8 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark)
     }
     newmsg->msg->data = data;
     newmsg->msg->xmark = xmark;
+
+    hooklist_run(q->postadd,newmsg->msg);
 
     newmsg->next = NULL;
     if (q->last == NULL)
@@ -237,6 +249,8 @@ queue_get(Queue q, Message msg)
     pthread_cond_broadcast(&q->consumer_cond);
     message_list_free(&firstrec);
     pthread_mutex_unlock(&q->mutex);
+
+    hooklist_run(q->preget,msg);
 
     return 0;
 }

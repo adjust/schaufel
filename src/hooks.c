@@ -1,33 +1,125 @@
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <utils/config.h>
 #include <utils/scalloc.h>
 #include "hooks.h"
+// #include "hooks/xmark.h"
+#include "hooks/copy.h"
 
 typedef struct hooklist {
-    size_t num;
-    hook* hptr;
-} *hooklist;
+    int64_t num;
+    Hptr *hptrarray;
+} *Hooklist;
 
+Hptr *hooks_available;
 
-int hook_add(hooklist h)
+static Hptr _find_hook(const char *name)
 {
+    Hptr res = NULL;
+    Hptr *ha = hooks_available;
+    while((*ha)->name)
+    {
+        if(strcmp(name,(*ha)->name) == 0) {
+            res = SCALLOC(1,sizeof(struct hptr));
+            memcpy(res,(*ha),sizeof(struct hptr));
+            break;
+        }
+        (*ha)++;
+    }
+    return res;
 }
 
-hooklist hook_init()
+void hooks_register()
 {
-    hooklist hooks;
+    /* stub */
+    struct hptr copy = {"copy",&h_copy,&h_copy_init,&h_copy_free,NULL};
+
+    hooks_available = SCALLOC(1,sizeof(Hptr));
+    *hooks_available = SCALLOC(2,sizeof(struct hptr)); // null terminator
+
+    memcpy(*hooks_available,(void *) &copy,
+        sizeof(struct hptr));
+
+    return;
+}
+
+void hooks_deregister(void)
+{
+    free(*hooks_available);
+    free(hooks_available);
+    return;
+}
+
+inline void hooklist_run(Hooklist h, Message msg)
+{
+    for (int64_t i = 0; i < h->num; i++)
+    {
+        Hptr hook = *(h->hptrarray+i);
+
+        hook->hook(hook->ctx,msg);
+    }
+    return;
+}
+
+int hooks_add(Hooklist h, config_setting_t *conf)
+{
+    size_t list;
+    config_setting_t *hook = NULL, *type = NULL;
+    Hptr hookptr;
+
+    list = config_setting_length(conf);
+
+    for (size_t i = 0; i < list; ++i)
+    {
+        hook = config_setting_get_elem(conf, i);
+        if(hook == NULL)
+            abort();
+
+        type = CONF_GET_MEM(hook, "type", "hooks need a type!");
+
+        hookptr = _find_hook(config_setting_get_string(type));
+
+        if (hookptr == NULL)
+            abort(); //TODO: error message
+
+        // this code is ugly
+        h->num++;
+        h->hptrarray = realloc(h->hptrarray,(h->num*(sizeof(hookptr))));
+
+        if (h->hptrarray == NULL)
+            abort();
+
+        hookptr->ctx = hookptr->init(hook);
+        *(h->hptrarray+(h->num)-1) = hookptr;
+    }
+    return 1;
+}
+
+Hooklist hook_init()
+{
+    Hooklist hooks;
     hooks = SCALLOC(1,sizeof(*hooks));
     return hooks;
 }
 
-void hook_free(hooklist h)
+void hook_free(Hooklist h)
 {
+    Hptr *hooks = h->hptrarray;
+    Hptr hook;
     if(!h)
         return;
 
-    if(h->hptr)
-        free(h->hptr);
+    if(hooks)
+    {
+        for (int64_t i = 0; i < h->num; i++)
+        {
+            hook = *(hooks+i);
+            hook->free(hook->ctx);
+            free(hook);
+        }
+    }
+    free(hooks);
 
     free(h);
     return;

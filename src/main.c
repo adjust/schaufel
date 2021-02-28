@@ -10,6 +10,7 @@
 
 #include "consumer.h"
 #include "producer.h"
+#include "hooks.h"
 #include "utils/config.h"
 #include "utils/helper.h"
 #include "utils/logger.h"
@@ -137,7 +138,8 @@ consume(void *config)
             break;
         if (message_get_data(msg) != NULL)
         {
-            queue_add(q, message_get_data(msg), message_get_len(msg), 1);
+            queue_add(q, message_get_data(msg), message_get_len(msg),
+                message_get_xmark(msg));
             //give up ownership
             message_set_data(msg, NULL);
         }
@@ -335,11 +337,13 @@ main(int argc, char **argv)
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
 
-    q = queue_init();
+    hooks_register();
+    q = queue_init(config_lookup(&config,"queue"));
     if (!q) {
         logger_log("%s %d: Failed to init queue\n", __FILE__, __LINE__);
         abort();
     }
+
 
     r_c_threads = get_thread_count(&config, SCHAUFEL_TYPE_CONSUMER);
     c_thread = SCALLOC(r_c_threads, sizeof(*c_thread));
@@ -365,6 +369,7 @@ main(int argc, char **argv)
     free(c_thread);
     free(p_thread);
     queue_free(&q);
+    hooks_deregister();
     config_destroy(&config);
     logger_log("done");
     logger_free();
