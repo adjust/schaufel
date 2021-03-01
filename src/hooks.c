@@ -6,6 +6,7 @@
 #include "hooks.h"
 // #include "hooks/xmark.h"
 #include "hooks/copy.h"
+#include "hooks/dummy.h"
 
 typedef struct hooklist {
     int64_t num;
@@ -34,11 +35,14 @@ void hooks_register()
 {
     /* stub */
     struct hptr copy = {"copy",&h_copy,&h_copy_init,&h_copy_free,NULL};
+    struct hptr dummy = {"dummy",&h_dummy,&h_dummy_init,&h_dummy_free,NULL};
 
     hooks_available = SCALLOC(1,sizeof(Hptr));
-    *hooks_available = SCALLOC(2,sizeof(struct hptr)); // null terminator
+    *hooks_available = SCALLOC(3,sizeof(struct hptr)); // null terminator
 
     memcpy(*hooks_available,(void *) &copy,
+        sizeof(struct hptr));
+    memcpy((*hooks_available)+1,(void *) &dummy,
         sizeof(struct hptr));
 
     return;
@@ -68,6 +72,9 @@ int hooks_add(Hooklist h, config_setting_t *conf)
     config_setting_t *hook = NULL, *type = NULL;
     Hptr hookptr;
 
+    if(!config_setting_is_list(conf))
+        return 0;
+
     list = config_setting_length(conf);
 
     for (size_t i = 0; i < list; ++i)
@@ -76,7 +83,8 @@ int hooks_add(Hooklist h, config_setting_t *conf)
         if(hook == NULL)
             abort();
 
-        type = CONF_GET_MEM(hook, "type", "hooks need a type!");
+        if(!(type = CONF_GET_MEM(hook, "type", "hooks need a type!")))
+            abort();
 
         hookptr = _find_hook(config_setting_get_string(type));
 

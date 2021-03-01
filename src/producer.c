@@ -11,6 +11,8 @@ Producer
 producer_init(char kind, config_setting_t *config)
 {
     Producer p;
+    config_setting_t *hook_conf;
+
     switch (kind)
     {
         case 'd':
@@ -34,6 +36,11 @@ producer_init(char kind, config_setting_t *config)
         default:
             return NULL;
     }
+    p->postget = hook_init();
+
+    if((hook_conf = config_setting_get_member(config,"hooks")) != NULL)
+        hooks_add(p->postget,hook_conf);
+
     return p;
 }
 
@@ -42,6 +49,7 @@ producer_free(Producer *p)
 {
     if ((*p) == NULL)
         return;
+    hook_free((*p)->postget);
     (*p)->producer_free(p);
 }
 

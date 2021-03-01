@@ -138,6 +138,7 @@ consume(void *config)
             break;
         if (message_get_data(msg) != NULL)
         {
+            hooklist_run(c->preadd,msg); //todo: error handling
             queue_add(q, message_get_data(msg), message_get_len(msg),
                 message_get_xmark(msg));
             //give up ownership
@@ -179,6 +180,7 @@ produce(void *config)
 
         if (message_get_data(msg) != NULL)
         {
+            hooklist_run(p->postget,msg); //todo: error handling
             //TODO: check success
             producer_produce(p, msg);
             //message was handled: free it

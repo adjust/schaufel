@@ -9,6 +9,7 @@ Consumer
 consumer_init(char kind, config_setting_t *config)
 {
     Consumer c;
+    config_setting_t *hook_conf;
     switch (kind)
     {
         case 'd':
@@ -26,6 +27,12 @@ consumer_init(char kind, config_setting_t *config)
         default:
             return NULL;
     }
+
+    c->preadd = hook_init();
+
+    if((hook_conf = config_setting_get_member(config,"hooks")) != NULL)
+        hooks_add(c->preadd,hook_conf);
+
     return c;
 }
 
@@ -34,6 +41,7 @@ consumer_free(Consumer *c)
 {
     if ((*c) == NULL)
         return;
+    hook_free((*c)->preadd);
     (*c)->consumer_free(c);
 }
 
