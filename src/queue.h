@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include "utils/config.h"
 
 #define MAX_QUEUE_SIZE 100000
 
@@ -13,6 +14,7 @@ void   *message_get_data(Message msg);
 void    message_set_data(Message msg, void *data);
 size_t  message_get_len(Message msg);
 int64_t message_get_xmark(Message msg);
+void    message_set_xmark(Message msg, int64_t xmark);
 void    message_set_len(Message msg, size_t len);
 void    message_free(Message *msg);
 

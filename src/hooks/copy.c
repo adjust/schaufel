@@ -2,9 +2,9 @@
 #include "utils/scalloc.h"
 #include "hooks/copy.h"
 
-int h_copy(Context ctx, Message msg)
+bool h_copy(Context ctx, Message msg)
 {
-    return 0;
+    return true;
 }
 Context h_copy_init(config_setting_t *config)
 {

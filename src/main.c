@@ -155,8 +155,11 @@ produce(void *config)
 {
     Message msg = message_init();
     const char *producer_type = NULL;
+    uint32_t xmark = 0;
     config_setting_lookup_string((config_setting_t *) config,
         "type", &producer_type);
+    config_setting_lookup_int((config_setting_t *) config,
+        "xmark", &xmark);
     Producer p = producer_init(*producer_type,
         (config_setting_t *) config);
     if (p == NULL)
@@ -167,6 +170,9 @@ produce(void *config)
 
     // at least one producer ready
     set_state(&produce_state, true);
+
+    // Message routing
+    message_set_xmark(msg,xmark);
 
     int ret = 0;
     while(42)

@@ -4,9 +4,9 @@
 #include <utils/config.h>
 #include <utils/scalloc.h>
 #include "hooks.h"
-// #include "hooks/xmark.h"
 #include "hooks/copy.h"
 #include "hooks/dummy.h"
+#include "hooks/xmark.h"
 
 typedef struct hooklist {
     int64_t num;
@@ -18,31 +18,37 @@ Hptr *hooks_available;
 static Hptr _find_hook(const char *name)
 {
     Hptr res = NULL;
-    Hptr *ha = hooks_available;
-    while((*ha)->name)
+    Hptr ha = *hooks_available;
+    while(ha->name)
     {
-        if(strcmp(name,(*ha)->name) == 0) {
+        if(strcmp(name,ha->name) == 0) {
             res = SCALLOC(1,sizeof(struct hptr));
-            memcpy(res,(*ha),sizeof(struct hptr));
+            memcpy(res,ha,sizeof(struct hptr));
             break;
         }
-        (*ha)++;
+        ha++;
     }
     return res;
 }
 
 void hooks_register()
 {
-    /* stub */
+    /* todo: validators
+     *       dynamic module adding
+     */
     struct hptr copy = {"copy",&h_copy,&h_copy_init,&h_copy_free,NULL};
     struct hptr dummy = {"dummy",&h_dummy,&h_dummy_init,&h_dummy_free,NULL};
+    struct hptr xmark =
+        {"xmark",&h_xmark,&h_xmark_init,&h_xmark_free,NULL};
 
     hooks_available = SCALLOC(1,sizeof(Hptr));
-    *hooks_available = SCALLOC(3,sizeof(struct hptr)); // null terminator
+    *hooks_available = SCALLOC(4,sizeof(struct hptr)); // null terminator
 
     memcpy(*hooks_available,(void *) &copy,
         sizeof(struct hptr));
     memcpy((*hooks_available)+1,(void *) &dummy,
+        sizeof(struct hptr));
+    memcpy((*hooks_available)+2,(void *) &xmark,
         sizeof(struct hptr));
 
     return;
@@ -55,7 +61,7 @@ void hooks_deregister(void)
     return;
 }
 
-inline void hooklist_run(Hooklist h, Message msg)
+inline bool hooklist_run(Hooklist h, Message msg)
 {
     for (int64_t i = 0; i < h->num; i++)
     {
@@ -63,7 +69,7 @@ inline void hooklist_run(Hooklist h, Message msg)
 
         hook->hook(hook->ctx,msg);
     }
-    return;
+    return true;
 }
 
 int hooks_add(Hooklist h, config_setting_t *conf)

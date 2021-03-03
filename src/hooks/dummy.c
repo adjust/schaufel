@@ -3,10 +3,11 @@
 #include "utils/helper.h"
 #include "hooks/dummy.h"
 
-int h_dummy(UNUSED Context ctx, UNUSED Message msg)
+bool h_dummy(UNUSED Context ctx, UNUSED Message msg)
 {
-    return 0;
+    return true;
 }
+
 Context h_dummy_init(UNUSED config_setting_t *config)
 {
     Context ctx = SCALLOC(1,sizeof(*ctx));

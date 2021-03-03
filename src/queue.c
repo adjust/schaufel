@@ -62,6 +62,13 @@ message_get_xmark(Message msg)
 }
 
 void
+message_set_xmark(Message msg, int64_t xmark)
+{
+    if(msg)
+       msg->xmark = xmark;
+}
+
+void
 message_free(Message *msg)
 {
     free(*msg);
@@ -202,6 +209,7 @@ int
 queue_get(Queue q, Message msg)
 {
     MessageList firstrec;
+    MessageList cur = NULL, prev = NULL;
     int ret = 0;
     if (q == NULL || msg == NULL)
         return EINVAL;
@@ -231,8 +239,35 @@ queue_get(Queue q, Message msg)
         return ret;
     }
 
-    firstrec = q->first;
-    q->first = q->first->next;
+    /* todo : optimize this part to be done without locks
+     * as it is O(n) while holding a mutex
+     */
+    // find message matching consumers xmark
+    cur = q->first;
+    do {
+        if (cur->msg->xmark == msg->xmark)
+            break;
+        prev = cur;
+        cur = cur->next;
+    }
+    while (cur != NULL && cur->msg->xmark != msg->xmark && q->last != cur);
+
+    if(cur == NULL || (cur == q->last && cur->msg->xmark != msg->xmark))
+    {
+        pthread_mutex_unlock(&q->mutex);
+        return ETIMEDOUT;
+    }
+
+    if (prev == NULL) {
+        // pop from start
+        firstrec = q->first;
+        q->first = q->first->next;
+    } else {
+        // splice element out of list
+        firstrec = cur;
+        prev->next = cur->next;
+    }
+
     q->length--;
     q->delivered++;
 
