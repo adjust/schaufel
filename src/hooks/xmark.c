@@ -30,7 +30,7 @@ Context h_xmark_init(config_setting_t *config)
 
 void h_xmark_free(Context ctx)
 {
-    if (ctx = NULL)
+    if (ctx == NULL)
         return;
 
     free(ctx->data);

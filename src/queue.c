@@ -209,7 +209,7 @@ int
 queue_get(Queue q, Message msg)
 {
     MessageList firstrec;
-    MessageList cur = NULL, prev = NULL;
+    MessageList cur, prev = NULL;
     int ret = 0;
     if (q == NULL || msg == NULL)
         return EINVAL;
@@ -242,17 +242,19 @@ queue_get(Queue q, Message msg)
     /* todo : optimize this part to be done without locks
      * as it is O(n) while holding a mutex
      */
+
     // find message matching consumers xmark
     cur = q->first;
+
     do {
+        // match xmark of caller
         if (cur->msg->xmark == msg->xmark)
             break;
         prev = cur;
         cur = cur->next;
-    }
-    while (cur != NULL && cur->msg->xmark != msg->xmark && q->last != cur);
+    } while (prev->next != NULL);
 
-    if(cur == NULL || (cur == q->last && cur->msg->xmark != msg->xmark))
+    if (cur == NULL) // This will cause cpu cycles wasted on polling queue
     {
         pthread_mutex_unlock(&q->mutex);
         return ETIMEDOUT;
@@ -265,8 +267,16 @@ queue_get(Queue q, Message msg)
     } else {
         // splice element out of list
         firstrec = cur;
-        prev->next = cur->next;
+
+        if (cur->next) // element is in list
+            prev->next = cur->next;
+        else           // element is last
+        {
+            prev->next = NULL;
+            q->last = prev;
+        }
     }
+
 
     q->length--;
     q->delivered++;
@@ -279,7 +289,9 @@ queue_get(Queue q, Message msg)
 
     msg->data = firstrec->msg->data;
     msg->datalen = firstrec->msg->datalen;
-    msg->xmark = firstrec->msg->xmark;
+
+    /* this line can cause an unfinishable queue */
+    // msg->xmark = firstrec->msg->xmark;
 
     pthread_cond_broadcast(&q->consumer_cond);
     message_list_free(&firstrec);
