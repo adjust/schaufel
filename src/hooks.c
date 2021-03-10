@@ -7,6 +7,7 @@
 #include "hooks/copy.h"
 #include "hooks/dummy.h"
 #include "hooks/xmark.h"
+#include "hooks/jsonexport.h"
 
 typedef struct hooklist {
     int64_t num;
@@ -40,15 +41,19 @@ void hooks_register()
     struct hptr dummy = {"dummy",&h_dummy,&h_dummy_init,&h_dummy_free,NULL};
     struct hptr xmark =
         {"xmark",&h_xmark,&h_xmark_init,&h_xmark_free,NULL};
+    struct hptr jsonexport =
+        {"jsonexport",&h_jsonexport,&h_jsonexport_init,&h_jsonexport_free,NULL};
 
     hooks_available = SCALLOC(1,sizeof(Hptr));
-    *hooks_available = SCALLOC(4,sizeof(struct hptr)); // null terminator
+    *hooks_available = SCALLOC(5,sizeof(struct hptr)); // null terminator
 
     memcpy(*hooks_available,(void *) &copy,
         sizeof(struct hptr));
     memcpy((*hooks_available)+1,(void *) &dummy,
         sizeof(struct hptr));
     memcpy((*hooks_available)+2,(void *) &xmark,
+        sizeof(struct hptr));
+    memcpy((*hooks_available)+3,(void *) &jsonexport,
         sizeof(struct hptr));
 
     return;
