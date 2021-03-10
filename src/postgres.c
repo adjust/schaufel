@@ -15,6 +15,7 @@
 typedef enum {
     POSTGRES_JSON,
     POSTGRES_CSV,
+    POSTGRES_BINARY,
 } postgres_format;
 
 struct pg_parameters {
@@ -56,8 +57,22 @@ _connectinfo(const char *host, const char *dbname, const char *user)
 static char *
 _cpycmd(const char *host, const char *generation, postgres_format fmt)
 {
-    const char *format = fmt == POSTGRES_JSON ? "text" : "csv";
+    const char *format;
     char       *cpycmd;
+
+    switch (fmt) {
+        case POSTGRES_CSV:
+            format = "csv";
+            break;
+        case POSTGRES_BINARY:
+            format = "binary";
+            break;
+        case POSTGRES_JSON:
+            __attribute__((fallthrough));
+        default:
+            format = "text";
+            break;
+    }
 
     if (host == NULL)
         return NULL;
@@ -78,11 +93,12 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
     }
 
     int ret;
-    if (fmt == POSTGRES_CSV)
+    if (fmt == POSTGRES_CSV || fmt == POSTGRES_BINARY)
         ret = asprintf(&cpycmd, "COPY %s FROM STDIN (FORMAT %s)", generation, format);
     else
         ret = asprintf(&cpycmd, "COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
                        hostname, port, generation, format);
+
     if (ret == -1)
     {
         logger_log("%s %d: Cannot allocate COPY query string",
@@ -119,6 +135,8 @@ read_pg_params(struct pg_parameters *p, config_setting_t *config)
         p->fmt = POSTGRES_CSV;
     else if (strcmp(format, "json") == 0)
         p->fmt = POSTGRES_JSON;
+    else if (strcmp(format, "binary") == 0)
+        p->fmt = POSTGRES_BINARY;
     else
     {
         logger_log("%s %d: Unknown format: %s", __FILE__, __LINE__, format);
@@ -133,6 +151,7 @@ postgres_meta_init(struct pg_parameters *p)
 
     m->cpycmd = _cpycmd(p->host, p->generation, p->fmt);
     m->conninfo = _connectinfo(p->host, p->dbname, p->user);
+    m->cpyfmt = (int) p->fmt;
 
     m->conn_master = PQconnectdb(m->conninfo);
     if (PQstatus(m->conn_master) != CONNECTION_OK)
@@ -207,7 +226,12 @@ postgres_producer_produce(Producer p, Message msg)
 
     char *buf = (char *) message_get_data(msg);
     size_t len = message_get_len(msg);
-    char *newline = "\n";
+    const char *newline = "\n";
+    char *lit = NULL;
+    const char *binheader =
+            "PGCOPY\n\377\r\n\0" //postgres magic
+            "\0\0\0\0"  // flags field (only bit 16 relevant)
+            "\0\0\0\0"; // Header extension area
 
     if (buf[len] != '\0')
     {
@@ -215,14 +239,17 @@ postgres_producer_produce(Producer p, Message msg)
         return;
     }
 
-    char *s = strstr(buf, "\\u0000");
-    if (s != NULL)
+    if (m->cpyfmt != POSTGRES_BINARY)
     {
-        logger_log("found invalid unicode byte sequence: %s", buf);
-        return;
-    }
+        char *s = strstr(buf, "\\u0000");
+        if (s != NULL)
+        {
+            logger_log("found invalid unicode byte sequence: %s", buf);
+            return;
+        }
 
-    char *lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
+        lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
+    }
 
     pthread_mutex_lock(&m->commit_mutex);
     if (m->copy == 0)
@@ -235,6 +262,9 @@ postgres_producer_produce(Producer p, Message msg)
         }
         PQclear(m->res);
 
+        if(m->cpyfmt  == POSTGRES_BINARY)
+            PQputCopyData(m->conn_master, binheader, 19);
+
         if (m->conninfo_replica)
         {
             m->res = PQexec(m->conn_replica, m->cpycmd);
@@ -244,29 +274,39 @@ postgres_producer_produce(Producer p, Message msg)
                 abort();
             }
             PQclear(m->res);
+
+            if(m->cpyfmt  == POSTGRES_BINARY)
+                PQputCopyData(m->conn_replica, binheader, 19);
         }
         m->copy = 1;
     }
 
-    if (lit[0] == ' ' && lit[1] == 'E')
-    {
-        PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
-        if (m->conninfo_replica)
-            PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
-    }
-    else if (lit[0] == '\'')
-    {
-        PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
-        if (m->conninfo_replica)
-            PQputCopyData(m->conn_replica, lit + 1, strlen(lit) - 2);
-    }
-    else
-        abort();
+    if (m->cpyfmt != POSTGRES_BINARY) {
+        if (lit[0] == ' ' && lit[1] == 'E')
+        {
+            PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
+            if (m->conninfo_replica)
+                PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
+        }
+        else if (lit[0] == '\'')
+        {
+            PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
+            if (m->conninfo_replica)
+                PQputCopyData(m->conn_replica, lit + 1, strlen(lit) - 2);
+        }
+        else
+            abort();
 
-    PQputCopyData(m->conn_master, newline, 1);
+        PQputCopyData(m->conn_master, newline, 1);
 
-    if (m->conninfo_replica)
-        PQputCopyData(m->conn_replica, newline, 1);
+        if (m->conninfo_replica)
+            PQputCopyData(m->conn_replica, newline, 1);
+    } else {
+       PQputCopyData(m->conn_master, buf, len);
+
+       if (m->conninfo_replica)
+           PQputCopyData(m->conn_replica, buf, len);
+    }
 
     m->count = m->count + 1;
     if (m->count == 2000)
