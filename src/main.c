@@ -16,6 +16,7 @@
 #include "utils/logger.h"
 #include "utils/options.h"
 #include "utils/scalloc.h"
+#include "utils/metadata.h"
 #include "version.h"
 
 
@@ -140,9 +141,10 @@ consume(void *config)
         {
             hooklist_run(c->preadd,msg); //todo: error handling
             queue_add(q, message_get_data(msg), message_get_len(msg),
-                message_get_xmark(msg));
+                message_get_xmark(msg),message_get_metadata(msg));
             //give up ownership
             message_set_data(msg, NULL);
+            message_set_metadata(msg, NULL);
         }
     }
     message_free(&msg);
@@ -159,7 +161,7 @@ produce(void *config)
     config_setting_lookup_string((config_setting_t *) config,
         "type", &producer_type);
     config_setting_lookup_int((config_setting_t *) config,
-        "xmark", &xmark);
+        "xmark", (int32_t *) &xmark);
     Producer p = producer_init(*producer_type,
         (config_setting_t *) config);
     if (p == NULL)
@@ -192,6 +194,8 @@ produce(void *config)
             //message was handled: free it
             free(message_get_data(msg));
             message_set_data(msg, NULL);
+
+            metadata_free(message_get_metadata(msg));
         }
     }
     message_free(&msg);

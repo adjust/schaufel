@@ -7,13 +7,12 @@
 #include "queue.h"
 #include "hooks.h"
 
-
 typedef struct Message
 {
     void    *data;
     size_t   datalen;
     int64_t  xmark;
-    void    *metadata;
+    Metadata metadata;
 } *Message;
 
 Message
@@ -21,6 +20,21 @@ message_init(void)
 {
     Message msg = calloc(1, sizeof(*msg));
     return msg;
+}
+
+Metadata *
+message_get_metadata(Message msg)
+{
+    if (msg == NULL)
+        return NULL;
+    return &(msg->metadata);
+}
+
+void
+message_set_metadata(Message msg, Metadata md)
+{
+    if (msg)
+        msg->metadata = md;
 }
 
 void *
@@ -153,7 +167,7 @@ queue_init(config_setting_t *conf)
 }
 
 int
-queue_add(Queue q, void *data, size_t datalen, int64_t xmark)
+queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 {
     MessageList newmsg;
     /* Todo:
@@ -180,6 +194,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark)
     }
     newmsg->msg->data = data;
     newmsg->msg->xmark = xmark;
+    newmsg->msg->metadata = *md;
 
     hooklist_run(q->postadd,newmsg->msg);
 
@@ -289,8 +304,11 @@ queue_get(Queue q, Message msg)
 
     msg->data = firstrec->msg->data;
     msg->datalen = firstrec->msg->datalen;
+    msg->metadata = firstrec->msg->metadata;
 
-    /* this line can cause an unfinishable queue */
+    /* this line can cause an unfinishable queue
+     * consumers do not need xmark anylonger
+     */
     // msg->xmark = firstrec->msg->xmark;
 
     pthread_cond_broadcast(&q->consumer_cond);
