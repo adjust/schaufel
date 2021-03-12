@@ -1,28 +1,83 @@
+#include <string.h>
 #include "hooks/xmark.h"
 #include "utils/scalloc.h"
+#include "utils/metadata.h"
 #include "queue.h"
+#include "utils/fnv.h"
 
 typedef struct internal {
     uint32_t xmark;
+    const char *field; // managed by libconfig
+    Fnv32_t (*hash) (void *, size_t);
+    Fnv32_t (*fold) (Fnv32_t);
 } *Internal;
 
 
 bool h_xmark(Context ctx, Message msg)
 {
-    message_set_xmark(msg,((Internal) (ctx->data))->xmark);
+    Internal i = (Internal) ctx->data;
+    Metadata *m = message_get_metadata(msg);
+
+    if(i->field)
+    {
+        MDatum md = metadata_find(m,(char *)i->field);
+        if(!md)
+        {
+            fprintf(stderr, "Metadata field: \"%s\" does not exist\n", i->field);
+            goto fallback;
+        }
+        if(md->type != MTYPE_STRING)
+        {
+            fprintf(stderr, "Metadata field: \"%s\" not a string\n", i->field);
+            goto fallback;
+        }
+
+        uint32_t xmark = i->fold(i->hash(md->value,(md->len-1)));
+        message_set_xmark(msg,xmark);
+    } else {
+        message_set_xmark(msg,i->xmark);
+    }
+
+
     return true;
+    fallback:
+    fprintf(stderr, "Falling back to xmark: \"%d\"\n", i->xmark);
+    message_set_xmark(msg,i->xmark);
+    return false;
 }
 
 Context h_xmark_init(config_setting_t *config)
 {
     uint32_t xmark = 0;
     config_setting_t *child = NULL;
+    const char *res;
     Context ctx = SCALLOC(1,sizeof(*ctx));
     Internal internal = SCALLOC(1,sizeof(*internal));
     ctx->data = (void *) internal;
 
-    if(!(CONF_L_IS_INT(config, "xmark", &xmark, "Hook XMARK requires integer xmark")))
+    child = config_setting_get_member(config, "field");
+    if(child) {
+        if(!CONF_L_IS_STRING(config,"field", &res, "field must be a string"))
+            abort();
+        internal->field = res;
+        if(!CONF_L_IS_STRING(config,"hash", &res, "hash must be a string"))
+            abort();
+        internal->hash = fnv_init((char *)res);
+
+        child = config_setting_get_member(config, "fold");
+        if(child) {
+            if(!CONF_L_IS_STRING(config,"fold", &res, "fold must be a string"))
+                abort();
+            internal->fold = fold_init((char*)res);
+        } else {
+            internal->fold = fold_init("fold_noop");
+        }
+    }
+
+    if(!(CONF_L_IS_INT(config, "xmark", (int32_t *) &xmark,
+        "Hook XMARK requires integer xmark (as a fallback)")))
         abort();
+
     internal->xmark = xmark;
 
     return ctx;
@@ -30,7 +85,7 @@ Context h_xmark_init(config_setting_t *config)
 
 void h_xmark_free(Context ctx)
 {
-    if (ctx == NULL)
+    if(ctx == NULL)
         return;
 
     free(ctx->data);
@@ -39,12 +94,14 @@ void h_xmark_free(Context ctx)
     return;
 }
 
+
 bool h_xmark_validate(config_setting_t *config)
 {
     uint32_t xmark = 0;
 
-    /* todo : xmark is supposed to be unsigned, but input can be signed */
-    if(!(CONF_L_IS_INT(config, "xmark", &xmark, "Hook XMARK requires integer xmark")))
+    // signedness of xmark should not matter in twos complement archs
+    if(!(CONF_L_IS_INT(config, "xmark", (int32_t *) &xmark,
+        "Hook XMARK requires integer xmark (as a fallback)")))
         abort();
 
     return true;
