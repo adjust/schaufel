@@ -13,6 +13,7 @@
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
 #include "utils/endian.h"
+#include "utils/metadata.h"
 
 typedef struct Needles *Needles;
 typedef struct Needles {
@@ -26,6 +27,7 @@ typedef struct Needles {
     bool          (*filter) (bool, json_object *, Needles);
     bool            store;
     const char     *filter_data;
+    bool            metadata; //metadata for other hooks
 } *Needles;
 
 typedef struct Internal {
@@ -49,6 +51,7 @@ static bool _action_store (bool filter_ret, json_object *found, Needles current)
 static bool _action_store_true (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_false (bool filter_ret, json_object *found, Needles current);
 static bool _action_discard_true (bool filter_ret, json_object *found, Needles current);
+static bool _action_store_meta (bool filter_ret, json_object *found, Needles current);
 
 // Types of postgres fields
 typedef enum {  // todo: add jsonb, int.
@@ -76,6 +79,7 @@ typedef enum {
     action_store_true,      // store field if filter returns true
     action_discard_false,   // discard the message if filter returns false
     action_discard_true,    // discard the message if filter returns true
+    action_store_meta,      // store AND store as metadata
 } ActionTypes;
 
 static const struct {
@@ -88,7 +92,8 @@ static const struct {
         {action_store, "store", &_action_store, true},
         {action_store_true, "store_true", &_action_store_true, true},
         {action_discard_false, "discard_false", &_action_discard_false, false},
-        {action_discard_true, "discard_true", &_action_discard_true, false}
+        {action_discard_true, "discard_true", &_action_discard_true, false},
+        {action_store_meta, "store_meta", &_action_store_meta, true},
 };
 
 // Types of filters to be applied on data
@@ -208,6 +213,14 @@ _action_discard_true(bool filter_ret, UNUSED json_object *found,
     UNUSED Needles current)
 {
     return !filter_ret;
+}
+
+static bool
+_action_store_meta(UNUSED bool filter_ret, UNUSED json_object *found,
+    Needles current)
+{
+    current->metadata = true;
+    return true;
 }
 
 static bool
@@ -486,6 +499,7 @@ h_jsonexport(Context ctx, Message msg)
 
     size_t len = message_get_len(msg);
     char *data = message_get_data(msg);
+    Metadata *md = message_get_metadata(msg);
 
     // postgres is big endian internally
     uint16_t rows = htons(internal->rows);
@@ -513,18 +527,6 @@ h_jsonexport(Context ctx, Message msg)
         goto fail;
     }
 
-    /*
-     * Todo: the following block needs to go to the postgres producer
-    buf = SCALLOC(1,22);
-    buflen = 21;
-
-    memcpy(buf, "PGCOPY\n\377\r\n\0"
-                "\0\0\0\0"
-                "\0\0\0\0",
-                19
-    );
-    bufpos += 19;
-    */
     buf = SCALLOC(1,2);
     buflen = 2;
     memcpy(buf+bufpos,&rows,2);
@@ -546,6 +548,13 @@ h_jsonexport(Context ctx, Message msg)
             memcpy(buf+bufpos, needles[i]->result, needles[i]->length);
             needles[i]->free(&needles[i]->result);
             bufpos += needles[i]->length;
+        }
+        if(needles[i]->metadata) {
+            char *res = SCALLOC(1,(needles[i]->length)+1);
+            memcpy(res, needles[i]->result, needles[i]->length);
+            MDatum datum =
+                mdatum_init(MTYPE_STRING,res,(needles[i]->length)+1);
+            metadata_insert(md,"jpointer",datum);
         }
     }
 
