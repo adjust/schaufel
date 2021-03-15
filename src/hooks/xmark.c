@@ -4,6 +4,7 @@
 #include "utils/metadata.h"
 #include "queue.h"
 #include "utils/fnv.h"
+#include "utils/logger.h"
 
 typedef struct internal {
     uint32_t xmark;
@@ -38,12 +39,14 @@ bool h_xmark(Context ctx, Message msg)
         message_set_xmark(msg,i->xmark);
     }
 
-
     return true;
+
     fallback:
-    fprintf(stderr, "Falling back to xmark: \"%d\"\n", i->xmark);
+    // This message is still okay to produce, but we should warn
+    logger_log("%s %d: Falling back to xmark: \"%d\"",
+        __FILE__,__LINE__, i->xmark);
     message_set_xmark(msg,i->xmark);
-    return false;
+    return true;
 }
 
 Context h_xmark_init(config_setting_t *config)
