@@ -139,7 +139,10 @@ consume(void *config)
             break;
         if (message_get_data(msg) != NULL)
         {
-            hooklist_run(c->preadd,msg); //todo: error handling
+            if(!hooklist_run(c->preadd,msg))
+                continue;
+
+            //todo: check result of queue_add()
             queue_add(q, message_get_data(msg), message_get_len(msg),
                 message_get_xmark(msg),message_get_metadata(msg));
             //give up ownership
@@ -183,18 +186,18 @@ produce(void *config)
             break;
         ret = queue_get(q, msg);
 
-        if (ret == ETIMEDOUT)
+        if (ret == ETIMEDOUT || ret == EBADMSG)
             continue;
 
         if (message_get_data(msg) != NULL)
         {
-            hooklist_run(p->postget,msg); //todo: error handling
+            if(!hooklist_run(p->postget,msg))
+                continue;
             //TODO: check success
             producer_produce(p, msg);
             //message was handled: free it
             free(message_get_data(msg));
             message_set_data(msg, NULL);
-
             metadata_free(message_get_metadata(msg));
         }
     }

@@ -170,10 +170,22 @@ int
 queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 {
     MessageList newmsg;
-    /* Todo:
-     *      Reorder this function (mutexes)
-     *      Pass Message msg to this function
-     */
+
+    /* We can afford to allocate the message before
+     * checking queue length */
+
+    newmsg = message_list_init();
+    if (newmsg == NULL)
+        return ENOMEM;
+    newmsg->msg->datalen = datalen;
+    newmsg->msg->data = data;
+    newmsg->msg->xmark = xmark;
+    newmsg->msg->metadata = *md;
+    newmsg->next = NULL;
+
+    if(!hooklist_run(q->postadd,newmsg->msg))
+        return EBADMSG;
+
     pthread_mutex_lock(&q->mutex);
 
     while (q->length > MAX_QUEUE_SIZE)
@@ -181,24 +193,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
         pthread_cond_wait(&q->consumer_cond, &q->mutex);
     }
 
-    newmsg = message_list_init();
-    if (newmsg == NULL)
-    {
-        pthread_mutex_unlock(&q->mutex);
-        return ENOMEM;
-    }
 
-    if (datalen != 0)
-    {
-        newmsg->msg->datalen = datalen;
-    }
-    newmsg->msg->data = data;
-    newmsg->msg->xmark = xmark;
-    newmsg->msg->metadata = *md;
-
-    hooklist_run(q->postadd,newmsg->msg);
-
-    newmsg->next = NULL;
     if (q->last == NULL)
     {
         q->last = newmsg;
@@ -315,7 +310,8 @@ queue_get(Queue q, Message msg)
     message_list_free(&firstrec);
     pthread_mutex_unlock(&q->mutex);
 
-    hooklist_run(q->preget,msg);
+    if(!hooklist_run(q->preget,msg))
+        return EBADMSG;
 
     return 0;
 }
