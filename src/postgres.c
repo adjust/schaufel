@@ -233,7 +233,8 @@ postgres_producer_produce(Producer p, Message msg)
             "\0\0\0\0"  // flags field (only bit 16 relevant)
             "\0\0\0\0"; // Header extension area
 
-    if (buf[len] != '\0')
+    // a binary message ends on 0xffff and is not treated as a string
+    if (m->cpyfmt != POSTGRES_BINARY && buf[len] != '\0')
     {
         logger_log("payload doesn't end on null terminator");
         return;
