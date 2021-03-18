@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "utils/config.h"
+#include "utils/bintree.h"
 #include "queue.h"
 #include "hooks.h"
 
@@ -95,6 +96,8 @@ typedef struct MessageList
 {
     Message msg;
     MessageList next;
+    MessageList prev;
+    MessageList xnext;
 } *MessageList;
 
 MessageList
@@ -115,6 +118,15 @@ message_list_free(MessageList *msglist)
     *msglist = NULL;
 }
 
+typedef struct Xmark
+{
+    MessageList first;
+    MessageList last;
+    pthread_cond_t producer_cond;
+    pthread_cond_t consumer_cond;
+    int64_t count;
+} *Xmark;
+
 typedef struct Queue
 {
     struct timespec timeout;
@@ -128,6 +140,7 @@ typedef struct Queue
     MessageList last;
     Hooklist postadd;
     Hooklist preget;
+    void *xtree;
 } *Queue;
 
 Queue
@@ -166,11 +179,67 @@ queue_init(config_setting_t *conf)
     return q;
 }
 
+static void _xmark_free(Node n)
+{
+    Xmark x = (Xmark) n->data;
+    pthread_cond_destroy(&x->consumer_cond);
+    pthread_cond_destroy(&x->producer_cond);
+    free(n->data);
+    free(n);
+}
+
+
+static inline Xmark
+_xmark_find(Queue q, uint32_t mark)
+{
+    Xmark x;
+    struct node n;
+    Node res;
+    n.elem = mark;
+    res = bin_find((void **) &q->xtree,&n,&bin_intcomp);
+
+    if(!res)
+    {
+        // allocate new element
+        if((res = calloc(1,sizeof(*res))) == NULL)
+            goto error;
+        res->elem = mark;
+        if((x = calloc(1,sizeof(*x))) == NULL)
+            goto error;
+
+        if((pthread_cond_init(&x->consumer_cond, NULL)) != 0)
+            goto error;
+        if((pthread_cond_init(&x->producer_cond, NULL)) != 0)
+        {
+            pthread_cond_destroy(&x->consumer_cond);
+            goto error;
+        }
+        res->data = (void *) x;
+        res->free = &_xmark_free;
+
+        // insert into tree
+        res = bin_search((void **) &q->xtree,res,&bin_intcomp);
+        if(res == NULL) {
+            pthread_cond_destroy(&x->consumer_cond);
+            pthread_cond_destroy(&x->producer_cond);
+            goto error;
+        }
+    } else
+        x = (Xmark) res->data;
+
+    return x;
+
+    error:  // ENOMEM, return NULL
+    if(res)
+        free(res->data);
+    free(res);
+    return NULL;
+}
+
 int
 queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 {
     MessageList newmsg;
-
     /* We can afford to allocate the message before
      * checking queue length */
 
@@ -182,18 +251,41 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
     newmsg->msg->xmark = xmark;
     newmsg->msg->metadata = *md;
     newmsg->next = NULL;
+    newmsg->prev = NULL;
+    newmsg->xnext = NULL;
 
     if(!hooklist_run(q->postadd,newmsg->msg))
         return EBADMSG;
 
     pthread_mutex_lock(&q->mutex);
 
+    Xmark x = _xmark_find(q,xmark);
+    if(x == NULL)
+    {
+        pthread_mutex_unlock(&q->mutex);
+        return ENOMEM;
+    }
+
+
     while (q->length > MAX_QUEUE_SIZE)
     {
         pthread_cond_wait(&q->consumer_cond, &q->mutex);
     }
 
+    // add to xmark queue
+    if (x->last == NULL)
+    {
+        x->last = newmsg;
+        x->first = newmsg;
+    }
+    else
+    {
+        x->last->xnext = newmsg;
+        x->last = newmsg;
+    }
+    x->count++;
 
+    // add to global queue
     if (q->last == NULL)
     {
         q->last = newmsg;
@@ -201,6 +293,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
     }
     else
     {
+        newmsg->prev = q->last;
         q->last->next = newmsg;
         q->last = newmsg;
     }
@@ -219,12 +312,14 @@ int
 queue_get(Queue q, Message msg)
 {
     MessageList firstrec;
-    MessageList cur, prev = NULL;
+    MessageList next = NULL, prev = NULL;
+
     int ret = 0;
     if (q == NULL || msg == NULL)
         return EINVAL;
 
     pthread_mutex_lock(&q->mutex);
+    Xmark x = _xmark_find(q,msg->xmark);
 
     struct timeval now;
     gettimeofday(&now, NULL);
@@ -249,45 +344,31 @@ queue_get(Queue q, Message msg)
         return ret;
     }
 
-    /* todo : optimize this part to be done without locks
-     * as it is O(n) while holding a mutex
-     */
-
-    // find message matching consumers xmark
-    cur = q->first;
-
-    do {
-        // match xmark of caller
-        if (cur->msg->xmark == msg->xmark)
-            break;
-        prev = cur;
-        cur = cur->next;
-    } while (prev->next != NULL);
-
-    if (cur == NULL) // This will cause cpu cycles wasted on polling queue
+    // Todo: condition broadcast per xmark.
+    if (x->first == NULL)
     {
         pthread_mutex_unlock(&q->mutex);
         return ETIMEDOUT;
     }
 
-    if (prev == NULL) {
-        // pop from start
-        firstrec = q->first;
-        q->first = q->first->next;
-    } else {
-        // splice element out of list
-        firstrec = cur;
+    firstrec = x->first;
+    x->first = x->first->xnext; // either a message or NULL
 
-        if (cur->next) // element is in list
-            prev->next = cur->next;
-        else           // element is last
-        {
-            prev->next = NULL;
-            q->last = prev;
-        }
-    }
+    /*splice element out of global list*/
+    next = firstrec->next;
+    prev = firstrec->prev;
+
+    if (next)
+        next->prev = prev;  // either a message or NULL
+    else
+        q->last = prev;
+    if (prev)
+        prev->next = next;  // either a message or NULL
+    else
+        q->first = next;
 
 
+    x->count--;
     q->length--;
     q->delivered++;
 
@@ -295,6 +376,12 @@ queue_get(Queue q, Message msg)
     {
         q->last = NULL;
         q->length = 0;
+    }
+
+    if (x->first == NULL)
+    {
+        x->last = NULL;
+        x->count = 0;
     }
 
     msg->data = firstrec->msg->data;
@@ -345,6 +432,7 @@ queue_free(Queue *q)
     hook_free((*q)->postadd);
     hook_free((*q)->preget);
 
+    bin_destroy((*q)->xtree);
     free(*q);
     *q = NULL;
     return ret;
