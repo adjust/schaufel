@@ -266,7 +266,6 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
         return ENOMEM;
     }
 
-
     while (q->length > MAX_QUEUE_SIZE)
     {
         pthread_cond_wait(&q->consumer_cond, &q->mutex);
@@ -283,7 +282,6 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
         x->last->xnext = newmsg;
         x->last = newmsg;
     }
-    x->count++;
 
     // add to global queue
     if (q->last == NULL)
@@ -298,9 +296,13 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
         q->last = newmsg;
     }
 
+    // unblock waiting threads
     if(q->length == 0)
         pthread_cond_broadcast(&q->producer_cond);
+    if(x->count == 0)
+        pthread_cond_broadcast(&x->producer_cond);
 
+    x->count++;
     q->length++;
     q->added++;
     pthread_mutex_unlock(&q->mutex);
@@ -344,11 +346,23 @@ queue_get(Queue q, Message msg)
         return ret;
     }
 
-    // Todo: condition broadcast per xmark.
-    if (x->first == NULL)
+    abstimeout.tv_sec  = now.tv_sec + q->timeout.tv_sec;
+    abstimeout.tv_nsec = (now.tv_usec*1000) + q->timeout.tv_nsec;
+    if (abstimeout.tv_nsec >= 1000000000)
+    {
+        abstimeout.tv_sec++;
+        abstimeout.tv_nsec -= 1000000000;
+    }
+
+    while(x->first == NULL && ret != ETIMEDOUT)
+    {
+        ret = pthread_cond_timedwait(&x->producer_cond, &q->mutex, &abstimeout);
+    }
+
+    if (ret == ETIMEDOUT)
     {
         pthread_mutex_unlock(&q->mutex);
-        return ETIMEDOUT;
+        return ret;
     }
 
     firstrec = x->first;
@@ -394,6 +408,7 @@ queue_get(Queue q, Message msg)
     // msg->xmark = firstrec->msg->xmark;
 
     pthread_cond_broadcast(&q->consumer_cond);
+    pthread_cond_broadcast(&x->consumer_cond);
     message_list_free(&firstrec);
     pthread_mutex_unlock(&q->mutex);
 

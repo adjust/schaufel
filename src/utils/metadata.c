@@ -6,6 +6,10 @@
 #include "utils/scalloc.h"
 #include "utils/metadata.h"
 
+/* todo: hsearch_r (etc.pp.) are GNUisms
+ * we should be able to fall back to a standalone implementation
+ * or use bintrees */
+
 static inline Metadata
 _metadata_init()
 {

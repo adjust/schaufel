@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <search.h>
 #include <stddef.h>
 
@@ -47,6 +46,9 @@ bin_free(void *data)
 void
 bin_destroy(void *root)
 {
+    /* todo: this is a rare GNUism
+     * it can be easily replaced by a treewalk function
+     * which then calls bin_free */
     tdestroy(root, bin_free);
     return;
 }
