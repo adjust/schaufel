@@ -484,3 +484,38 @@ queue_delivered(Queue q)
     pthread_mutex_unlock(&q->mutex);
     return delivered;
 }
+
+
+bool
+queue_validate(config_setting_t *config)
+{
+    bool ret = true;
+    config_setting_t *child = NULL;
+
+    if (config == NULL)
+    {
+        ret = false;
+        goto error;
+    }
+
+    if (!config_setting_is_group(config))
+    {
+        ret = false;
+        goto error;
+    }
+
+    child = config_setting_get_member(config,"postadd");
+    if (!child)
+        child = config_setting_add(config,"postadd",CONFIG_TYPE_LIST);
+    if(!CONF_IS_LIST(child,"postadd must be a list"))
+        ret = false;
+
+    child = config_setting_get_member(config,"preget");
+    if (!child)
+        child = config_setting_add(config,"preget",CONFIG_TYPE_LIST);
+    if(!CONF_IS_LIST(child,"preget must be a list"))
+        ret = false;
+
+    error:
+    return ret;
+}

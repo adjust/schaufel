@@ -5,6 +5,8 @@
 
 #include "utils/config.h"
 #include "utils/logger.h"
+#include "queue.h"
+
 #include "validator.h"
 
 
@@ -189,13 +191,24 @@ bool config_validate(config_t* config)
     setting = config_lookup(config, "logger");
     if (!setting)
     {
+        // todo: default to stdout logger
         fprintf(stderr, "Need a logger defined\n");
         res = false;
         goto error;
     }
-    if(!logger_validate(setting)) {
+
+    if(!logger_validate(setting))
         res = false;
+
+    // check queue
+    setting = config_lookup(config, "queue");
+    if (!setting)
+    {   // create default group
+        config_setting_t *parent = config_root_setting(config);
+        setting = config_setting_add(parent,"queue",CONFIG_TYPE_GROUP);
     }
+    if(!queue_validate(setting))
+        res = false;
 
     //check consumers
     if(!_thread_validate(config, SCHAUFEL_TYPE_CONSUMER))

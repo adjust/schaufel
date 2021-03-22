@@ -31,4 +31,6 @@ long queue_added(Queue q);
 long queue_delivered(Queue q);
 int  queue_free(Queue *q);
 
+bool queue_validate(config_setting_t *config);
+
 #endif
