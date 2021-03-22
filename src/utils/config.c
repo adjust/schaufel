@@ -5,6 +5,7 @@
 
 #include "utils/config.h"
 #include "utils/logger.h"
+#include "hooks.h"
 #include "queue.h"
 
 #include "validator.h"
@@ -154,8 +155,23 @@ static bool _thread_validate(config_t* config, int type)
         }
 
         child = config_setting_get_elem(setting, i);
-        config_setting_lookup_string(child, "type", &conf_str);
 
+        // test hooklist
+        config_setting_t *hooklist =
+            config_setting_get_member(child,"hooks");
+        if(hooklist == NULL)
+            hooklist = config_setting_add(child,"hooks",CONFIG_TYPE_LIST);
+        if(!config_setting_is_list(hooklist))
+        {
+           fprintf(stderr, "%s %d: hooklist must be a list!",
+            __FILE__, __LINE__);
+            ret = false;
+            goto error;
+        }
+        ret &= hooks_validate(hooklist);
+
+        // test producer/consumer
+        config_setting_lookup_string(child, "type", &conf_str);
         v = validator_init(conf_str);
         if(!v) {
             fprintf(stderr, "Type %s has no validator!\n", conf_str);
@@ -164,6 +180,7 @@ static bool _thread_validate(config_t* config, int type)
         }
 
         if(type == SCHAUFEL_TYPE_CONSUMER) {
+
             if(!v->validate_consumer(child)) {
                 ret = false;
                 goto error;
@@ -484,4 +501,3 @@ void config_set_default_string(config_setting_t *parent,
     if (s)
         config_setting_set_string(s, value);
 }
-

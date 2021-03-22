@@ -28,5 +28,6 @@ void hook_free(Hooklist hooks);
 void hooks_register();
 void hooks_deregister();
 bool hooklist_run();
+bool hooks_validate(config_setting_t *conf);
 
 #endif

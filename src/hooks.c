@@ -18,6 +18,10 @@ Hptr *hooks_available;
 static Hptr _find_hook(const char *name)
 {
     Hptr res = NULL;
+
+    if(hooks_available == NULL)
+        return NULL;
+
     Hptr ha = *hooks_available;
     while(ha->name)
     {
@@ -84,30 +88,77 @@ inline bool hooklist_run(Hooklist h, Message msg)
     return true;
 }
 
-void hooks_add(Hooklist h, config_setting_t *conf)
+bool hooks_validate(config_setting_t *conf)
 {
+    bool res = true;
+
     size_t list;
     config_setting_t *hook = NULL, *type = NULL;
-    Hptr hookptr;
+    Hptr hookptr = NULL;
 
-    if(!config_setting_is_list(conf))
-        return;
+    if(!config_setting_is_list(conf)) {
+        res = false;
+        goto error;
+    }
 
     list = config_setting_length(conf);
 
     for (size_t i = 0; i < list; ++i)
     {
         hook = config_setting_get_elem(conf, i);
-        if(hook == NULL)
+        if(hook == NULL) // this error is fatal
             abort();
+
+        if(!(type = CONF_GET_MEM(hook, "type", "hooks need a type!")))
+        {
+            res = false;
+            goto next;
+        }
+
+        const char *name = config_setting_get_string(type);
+        if(name == NULL)
+        {
+            fprintf(stderr, "%s %d: hook is not of type string!",
+                __FILE__, __LINE__);
+            res = false;
+            goto next;
+        }
+
+        hookptr = _find_hook(name);
+        if(hookptr == NULL)
+        {
+            fprintf(stderr, "%s %d: %s not a valid hook type",
+                __FILE__, __LINE__, name);
+            res = false;
+            goto next;
+        }
+
+        res &= hookptr->validate(hook);
+
+        next:
+        free(hookptr);
+    }
+
+    error:
+    return res;
+}
+
+void hooks_add(Hooklist h, config_setting_t *conf)
+{
+    size_t list;
+    config_setting_t *hook = NULL, *type = NULL;
+    Hptr hookptr;
+
+    list = config_setting_length(conf);
+
+    for (size_t i = 0; i < list; ++i)
+    {
+        hook = config_setting_get_elem(conf, i);
 
         if(!(type = CONF_GET_MEM(hook, "type", "hooks need a type!")))
             abort();
 
         hookptr = _find_hook(config_setting_get_string(type));
-
-        if (hookptr == NULL)
-            abort(); //TODO: error message
 
         // this code is ugly
         h->num++;

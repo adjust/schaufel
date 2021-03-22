@@ -259,7 +259,8 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 
     pthread_mutex_lock(&q->mutex);
 
-    Xmark x = _xmark_find(q,xmark);
+    // xmark might have changed on running hooks
+    Xmark x = _xmark_find(q,newmsg->msg->xmark);
     if(x == NULL)
     {
         pthread_mutex_unlock(&q->mutex);
@@ -509,12 +510,16 @@ queue_validate(config_setting_t *config)
         child = config_setting_add(config,"postadd",CONFIG_TYPE_LIST);
     if(!CONF_IS_LIST(child,"postadd must be a list"))
         ret = false;
+    else
+        ret &= hooks_validate(child);
 
     child = config_setting_get_member(config,"preget");
     if (!child)
         child = config_setting_add(config,"preget",CONFIG_TYPE_LIST);
     if(!CONF_IS_LIST(child,"preget must be a list"))
         ret = false;
+    else
+        ret &= hooks_validate(child);
 
     error:
     return ret;

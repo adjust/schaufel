@@ -101,11 +101,27 @@ void h_xmark_free(Context ctx)
 bool h_xmark_validate(config_setting_t *config)
 {
     uint32_t xmark = 0;
+    bool ret = true;
+    const char *res;
 
     // signedness of xmark should not matter in twos complement archs
     if(!(CONF_L_IS_INT(config, "xmark", (int32_t *) &xmark,
         "Hook XMARK requires integer xmark (as a fallback)")))
-        abort();
+        ret = false;
 
-    return true;
+    config_setting_t *child = NULL;
+    child = config_setting_get_member(config, "field");
+    if(child) {
+        if(!CONF_L_IS_STRING(config,"field", &res, "field must be a string"))
+            ret = false;
+        if(!CONF_L_IS_STRING(config,"hash", &res, "hash must be a string"))
+            ret = false;
+
+        child = config_setting_get_member(config, "fold");
+        if(child)
+            if(!CONF_L_IS_STRING(config,"fold", &res, "fold must be a string"))
+                ret = false;
+    }
+
+    return ret;
 }

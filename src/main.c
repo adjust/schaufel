@@ -340,6 +340,7 @@ main(int argc, char **argv)
 
     config_merge(&config, o);
 
+    hooks_register();
     if(!config_validate(&config)) {
         if(!o.config)
             print_usage();
@@ -352,7 +353,6 @@ main(int argc, char **argv)
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
 
-    hooks_register();
     q = queue_init(config_lookup(&config,"queue"));
     if (!q) {
         logger_log("%s %d: Failed to init queue\n", __FILE__, __LINE__);
