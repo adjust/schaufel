@@ -899,6 +899,10 @@ exporter_validate(UNUSED config_setting_t *config)
         config_setting_remove_elem(setting,0);
     }
 
+    /* deprecation warning */
+    fprintf(stderr, "%s %d: exports.c is redundant with hooks/jsonexport.c and postgres.c\n"
+        "It will be removed in future releases!\n", __FILE__, __LINE__);
+
     return true;
     error:
     return false;
