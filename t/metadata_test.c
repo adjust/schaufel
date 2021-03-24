@@ -28,10 +28,11 @@ int main()
     metadata_insert(&meta,"6",md6);
     MDatum md7 = mdatum_init(MTYPE_INT,num,sizeof(*num));
     metadata_insert(&meta,"7",md7);
-    MDatum md8 = mdatum_init(MTYPE_STRING,strdup("qoui"),strlen("quoi"));
-    metadata_insert(&meta,"8",md8);
 
-    // Test max Elements
+    // Test max elements (8)
+    MDatum md8 = mdatum_init(MTYPE_STRING,strdup("qoui"),strlen("quoi"));
+    res = metadata_insert(&meta,"8",md8);
+    pretty_assert(res != NULL);
     res = metadata_insert(&meta,"9",md8);
     pretty_assert(res == NULL);
 

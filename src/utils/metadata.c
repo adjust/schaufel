@@ -63,7 +63,7 @@ metadata_insert(Metadata *md, char *key, MDatum value)
         m = _metadata_init();
         *md = m;
     }
-    else if ((m->nel)+1 >= MAXELEM)
+    else if ((m->nel)+1 > MAXELEM)
         goto error;
 
     e.key = key;
