@@ -11,7 +11,7 @@ bin_intcomp(const void *a, const void *b)
     if (j < k)
         return -1;
     if (j > k)
-        return -1;
+        return 1;
     return 0;
 }
 
