@@ -37,9 +37,7 @@ static Hptr _find_hook(const char *name)
 
 void hooks_register()
 {
-    /* todo: validators
-     *       dynamic module adding
-     */
+    /* todo:  dynamic module adding */
     struct hptr dummy =
         {"dummy",&h_dummy,&h_dummy_init,&h_dummy_validate,&h_dummy_free,NULL};
     struct hptr xmark =
@@ -118,7 +116,7 @@ bool hooks_validate(config_setting_t *conf)
         const char *name = config_setting_get_string(type);
         if(name == NULL)
         {
-            fprintf(stderr, "%s %d: hook is not of type string!",
+            fprintf(stderr, "%s %d: hook is not of type string!\n",
                 __FILE__, __LINE__);
             res = false;
             goto next;
@@ -127,7 +125,7 @@ bool hooks_validate(config_setting_t *conf)
         hookptr = _find_hook(name);
         if(hookptr == NULL)
         {
-            fprintf(stderr, "%s %d: %s not a valid hook type",
+            fprintf(stderr, "%s %d: %s not a valid hook type!\n",
                 __FILE__, __LINE__, name);
             res = false;
             goto next;
