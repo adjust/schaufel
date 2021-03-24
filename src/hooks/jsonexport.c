@@ -34,7 +34,7 @@ typedef struct Internal {
     Needles        *needles;
     uint32_t       *leapyears;  // leapyears are globally shared
     uint16_t        ncount; // count of needles
-    uint16_t        rows; // number of rows inserted into postgres
+    uint16_t        fields; // number of fields inserted into postgres
 } *Internal;
 
 static bool _json_to_pqtext (json_object *needle, Needles current);
@@ -407,7 +407,7 @@ _needles(config_setting_t *needlestack, Internal internal)
     Needles *needles = SCALLOC(list,sizeof(*needles));
     internal->leapyears = _leapyear();
 
-    internal->rows = 0;
+    internal->fields = 0;
 
     for(int i = 0; i < list; i++) {
         Needles current = SCALLOC(list,sizeof(*current));
@@ -438,7 +438,7 @@ _needles(config_setting_t *needlestack, Internal internal)
         current->action = action_types[actiontype].action;
         current->store = action_types[actiontype].store;
         if (current->store)
-            internal->rows++;
+            internal->fields++;
 
         member = config_setting_get_elem(setting, 3);
         filtertype = _filtertype_enum(config_setting_get_string(member));
@@ -487,11 +487,28 @@ _deref(json_object *haystack, Internal internal)
     return 0;
 }
 
+// Thread safety copy
+static inline Internal
+_copy_internal(Internal global)
+{
+    Internal cpy = SCALLOC(1,sizeof(*cpy));
+    memcpy(cpy, global,sizeof(*global));
+    cpy->needles = SCALLOC(cpy->ncount,sizeof(Needles));
+    for (uint16_t i = 0; i < global->ncount; i++)
+    {
+       Needles current =  SCALLOC(1,sizeof(*current));
+       cpy->needles[i] = current;
+       memcpy(current,global->needles[i],sizeof(*current));
+    }
+    return cpy;
+}
+
 bool
 h_jsonexport(Context ctx, Message msg)
 {
-    Internal internal = (Internal) ctx->data;
+    Internal internal = _copy_internal((Internal) ctx->data);
     Needles *needles = internal->needles;
+
     json_object *haystack = NULL;
     char *buf;
     size_t bufpos = 0, buflen = 0;
@@ -502,7 +519,7 @@ h_jsonexport(Context ctx, Message msg)
     Metadata *md = message_get_metadata(msg);
 
     // postgres is big endian internally
-    uint16_t rows = htons(internal->rows);
+    uint16_t fields = htons(internal->fields);
 
     if (data[len] != '\0')
     {
@@ -529,7 +546,7 @@ h_jsonexport(Context ctx, Message msg)
 
     buf = SCALLOC(1,2);
     buflen = 2;
-    memcpy(buf+bufpos,&rows,2);
+    memcpy(buf+bufpos,&fields,2);
     bufpos += 2;
 
     for (int i = 0; i < internal->ncount; i++) {
