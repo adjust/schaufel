@@ -98,8 +98,9 @@ int main()
     message_set_len(msg,strlen(message_get_data(msg)));
 
     pretty_assert(h_jsonexport(ctx,msg) == false);
-
+    free(message_get_data(msg));
     metadata_free(md);
+    message_free(&msg);
     h_jsonexport_free(ctx);
     config_destroy(&root);
     return 0;
