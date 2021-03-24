@@ -503,6 +503,19 @@ _copy_internal(Internal global)
     return cpy;
 }
 
+static inline void
+_free_internal(Internal internal)
+{
+    for (int i = 0; i < internal->ncount; i++ ) {
+        internal->needles[i]->free(
+            &(internal->needles[i]->result));
+        free(internal->needles[i]);
+    }
+
+    free(internal->needles);
+    free(internal);
+}
+
 bool
 h_jsonexport(Context ctx, Message msg)
 {
@@ -579,10 +592,12 @@ h_jsonexport(Context ctx, Message msg)
     message_set_len(msg,buflen);
     free(data);
     json_object_put(haystack);
+    _free_internal(internal);
     return true;
 
     error:
     fail:
+    _free_internal(internal);
     json_object_put(haystack);
 
     return false;
