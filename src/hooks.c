@@ -13,7 +13,7 @@ typedef struct hooklist {
     Hptr *hptrarray;
 } *Hooklist;
 
-Hptr *hooks_available;
+Hptr hooks_available;
 
 static Hptr _find_hook(const char *name)
 {
@@ -22,7 +22,7 @@ static Hptr _find_hook(const char *name)
     if(hooks_available == NULL)
         return NULL;
 
-    Hptr ha = *hooks_available;
+    Hptr ha = hooks_available;
     while(ha->name)
     {
         if(strcmp(name,ha->name) == 0) {
@@ -45,14 +45,13 @@ void hooks_register()
     struct hptr jsonexport =
         {"jsonexport",&h_jsonexport,&h_jsonexport_init,&h_jsonexport_validate,&h_jsonexport_free,NULL};
 
-    hooks_available = SCALLOC(1,sizeof(Hptr));
-    *hooks_available = SCALLOC(4,sizeof(struct hptr)); // null terminator
+    hooks_available = SCALLOC(4,sizeof(struct hptr)); // null terminator
 
-    memcpy((*hooks_available),(void *) &dummy,
+    memcpy(hooks_available,(void *) &dummy,
         sizeof(struct hptr));
-    memcpy((*hooks_available)+1,(void *) &xmark,
+    memcpy(hooks_available+1,(void *) &xmark,
         sizeof(struct hptr));
-    memcpy((*hooks_available)+2,(void *) &jsonexport,
+    memcpy(hooks_available+2,(void *) &jsonexport,
         sizeof(struct hptr));
 
     return;
@@ -60,8 +59,8 @@ void hooks_register()
 
 void hooks_deregister(void)
 {
-    free(*hooks_available);
     free(hooks_available);
+    hooks_available = NULL;
     return;
 }
 
