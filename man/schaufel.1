@@ -24,6 +24,11 @@ and consumers, and/or only use in a trusted environment.
 Schaufel replication is a simple process of writing to multiple sources
 independently.  This is a feature which is supported by some producers
 such as PostgreSQL, but not on all.
+.LP
+Many of schaufels more advanced features are not available from the
+commandline. These include multiple producers, multiple consumers,
+transformation of data and the routing of data. Please refer
+to \fBschaufel.conf\fP(5).
 .SH OPTIONS
 Schaufel needs a certain amount of configuration. You always need to tell
 where it should log to, what it should read from, where it should write to,
@@ -35,7 +40,7 @@ will not fit), schaufel supports a config file format. Command line
 options always overwrite sections of the config file.
 .TP
 .B \-C \fIschaufel.conf\fR
-Set configuration file path See \fBschaufel.conf\fP(8).
+Set configuration file path See \fBschaufel.conf\fP(5).
 .TP
 .B \-i \fR[\fId\fR|\fIf\fR|\fIk\fR|\fIr\fR]
 Set consumer (input) kind. See the \fBPRODUCERS/CONSUMERS\fR section for
@@ -107,6 +112,9 @@ The exporter is also a postgres producer. It has no consumer. It takes a
 json message and dereferences elements (using json pointers) into postgres
 tuples which it then copies in binary. It is not invokable by command line
 because it requires a config file.
+.LP
+Note: exports is going to be deprecated in favour of a hook based system,
+as it duplicates code from the postgres producer.
 .SH EXAMPLES
 .TP
 Read from file, output to redis:

@@ -163,6 +163,29 @@ producers = (
     });
 
 .RE
+.SS postgres
+The postgres producer can copy data to a table. The default format
+is \fIbagger\fR (copying to a predefined schema). Alternatively, the format
+can be given as \fBcsv\fR or \fBbinary\fR.
+.PP
+The postgres producer commits every 2000 messages and does no error handling
+if copy should fail to commit succesfully.
+.RS
+producers = (
+  {
+    threads = 1;
+    type = "postgres";
+    host = "localhost:5432";
+    dbname = "data";
+    topic = "import";
+    format = "csv";
+  } );
+.RE
+.PP
+Should the format be \fBbinary\fR, schaufel adds a binary header on its own
+(as it commits every 2000 messages it needs to do so anyway). Please omit
+any binary header. Adding OIDs is not supported at the moment.
+.PP
 .SS bagger
 Bagger is essentially a producer of the \fIpostgres\fR type. Through the
 \fIhost\fR string one can define a list of postgres databases and message
@@ -308,5 +331,145 @@ producers = (
         );
     } );
 .RE
+
+.SH DATA PROCESSING
+.SS messages
+Messages are schaufels abstraction data envelopes used for queueing. They
+hold the \fBmessage data\fR, an \fBxmark\fR for routing purposes (mark
+a message for a specific consumer) and \fBmetadata\fR.
+.PP
+Metadata can be used by producers, consumers and hooks to implement various
+features like callback functions, dynamic routing or even the transfer of
+the original metadata of a message (think transfering a kafka timestamp).
+.PP
+Due to the implementation, a message can only hold 8 metadata points.
+
+.SS xmark routing
+Schaufel can route messages depending on a property called \fBxmark\fR.
+Xmarks can be set on a message using the \fBxmark\fR hook. A producer will
+then match this xmark and take it from the queue.
+.PP
+The standard \fBxmark\fR is \fI0\fR.
+.PP
+If you are using this feature, you are responsible for providing a producer
+for each xmark you assign. If you do not do this, you will fill up the queue!
+
+.SS hooks
+Hooks are a way of transforming messages (mangling) on their way through
+schaufel. At the moment, there are three hook kinds:
+.TS
+box, center, tab (@);
+ c | c
+CfCB | CfCB.
+hook@description
+=
+dummy@return true
+xmark@mark message with xmark
+jsonexport@turn json into postgres binary
+.TE
+.PP
+Hooks can be added to four possible places:
+
+.TS
+box, center, tab (@);
+ c | c | c
+CfCB | CfCB | CfCB.
+position@hook name@execution point
+=
+consumer@hooks@before adding to the queue
+queue@postadd@when the message arrives in the queue
+queue@preget@when the message is taken from the queue
+producer@hooks@after message is taken from queue
+.TE
+
+Important is that consumer/producer hooks run in a local context,
+whereas queue hooks run in a global context (all messages are touched by them).
+.PP
+This (nonsensical) example writes all data to stdout and none to the file:
+.RS
+queue =
+{
+    preadd = (
+        {
+            type = "xmark";
+            xmark = 1;
+        }
+    );
+};
+
+producers =
+(
+    {
+        xmark = 1;
+        type = "dummy";
+    },
+    {
+        type = "file";
+        file = "/tmp/out";
+    }
+);
+.RE
+.PP
+
+.SS xmark
+The xmark hook can mark a message with an xmark. It can either mark statically
+with an xmark, or dynamically.
+.PP
+Dynamic marking works by selecting a metadata field, and then applying a hash
+function to it. At the moment only \fBfnv32a_str\fR and \fBfnv32a_int\fR are
+defined hashes. This will result in a 32 bit hash. Since this is too large
+for any application, this can be \fIxor folded to a power of 2\fR.
+.PP
+Fold functions that fold to powers of to are called \fBfold\fR\fIn\fR.
+For example, \fBfold2\fR will output xmarks 0 and 1. \ffold16\fR will
+output xmarks between 0 and 65535.
+.PP
+.RS
+queue = {
+    postadd = (
+        {
+            type = "xmark";
+            field = "jpointer";
+            hash = "fnv32a_str";
+            fold = "fold2"
+            xmark = 1;
+        }
+    );
+};
+
+.RE
+.PP
+In the future, murmur as a hash and ketama as a distribution system could be
+added here.
+
+.SS jsonexport
+\fBjsonexport\fR as a hook is equivalent to \fBexports\fR (as exports
+duplicated code with the postgres producer and there is no conceivable
+consumer).
+.PP
+It only adds one feature over exports, it can add a \fBmetadata\fR field to the
+message if you use \fBstore_meta\fR as an action. The metadata field will be
+called \fBjpointer\fR.
+.RS
+.PP
+producers = ( {
+    type = redis;
+    host = "localhost:6379";
+    topic = "events";
+    hooks = (
+        {
+            type = "jsonexport";
+            jpointers = (
+                [ "/token", "text", "store_meta" ],
+                "/message",
+                [ "/timestamp", "timestamp" ]
+            );
+        }
+    );
+}
+);
+.RE
+
+.SS PLEASE CONTRIBUTE
 .PP
 As always, feel free to implement more of what you need.
