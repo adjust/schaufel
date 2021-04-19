@@ -12,7 +12,7 @@ int main()
     pretty_assert(fold16 !=  NULL);
     pretty_assert(fold1 !=  NULL);
 
-    // hurz hashes to 0x60bdfa92
+    // hurz hashes to 0x60bdfa92 (in fnv-1a 32 bit)
     res = fnv("hurz",strlen("hurz"));
     pretty_assert(0x60bdfa92 == res);
 

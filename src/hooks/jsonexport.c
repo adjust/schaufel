@@ -654,9 +654,9 @@ h_jsonexport_validate(config_setting_t *config)
         goto error;
 
     /* We need to create an array which holds jpointer, pqtype, action
-     * and filter. We do this by taking the first element, deleting it
-     * and appending a completely populated element at the end.
-     */
+     * and filter. We do this by taking the first element of the existing array,
+     * deleting it and in exchange appending a completely populated element at the
+     * end. We repeat this until we've normalised all elements. */
     for (int i = 0; i < config_setting_length(setting); i++) {
         child = config_setting_get_elem(setting, 0);
         if (child == NULL) {

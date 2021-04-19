@@ -164,12 +164,12 @@ producers = (
 
 .RE
 .SS postgres
-The postgres producer can copy data to a table. The default format
+The postgres producer can copy data into a table. The default format
 is \fIbagger\fR (copying to a predefined schema). Alternatively, the format
 can be given as \fBcsv\fR or \fBbinary\fR.
 .PP
-The postgres producer commits every 2000 messages and does no error handling
-if copy should fail to commit succesfully.
+The producer commits every 2000 messages. No error handling is done after commit,
+if commiting data should fail the data is lost.
 .RS
 producers = (
   {
@@ -184,7 +184,7 @@ producers = (
 .PP
 Should the format be \fBbinary\fR, schaufel adds a binary header on its own
 (as it commits every 2000 messages it needs to do so anyway). Please omit
-any binary header. Adding OIDs is not supported at the moment.
+any binary header.
 .PP
 .SS bagger
 Bagger is essentially a producer of the \fIpostgres\fR type. Through the
@@ -439,8 +439,9 @@ queue = {
 
 .RE
 .PP
-In the future, murmur as a hash and ketama as a distribution system could be
-added here.
+In the future, murmur as a hash <https://en.wikipedia.org/wiki/MurmurHash>
+and ketama <https://github.com/RJ/ketama> as a consistent hashing system
+could be added.
 
 .SS jsonexport
 \fBjsonexport\fR as a hook is equivalent to \fBexports\fR (as exports

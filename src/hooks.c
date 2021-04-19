@@ -103,7 +103,9 @@ bool hooks_validate(config_setting_t *conf)
     for (size_t i = 0; i < list; ++i)
     {
         hook = config_setting_get_elem(conf, i);
-        if(hook == NULL) // this error is fatal
+        /* if the list elemnt is undefined, we have walked into
+         * a libconfig bug. */
+        if(hook == NULL)
             abort();
 
         if(!(type = CONF_GET_MEM(hook, "type", "hooks need a type!")))
