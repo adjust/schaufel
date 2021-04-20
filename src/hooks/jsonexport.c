@@ -313,7 +313,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     }
 
     // If a timestamp is not like 2000-01-01T00:00:01.000000Z
-    // or 2000-01-01T:00:00:01Z it's considered invalid
+    // or 2000-01-01T00:00:01Z it's considered invalid
     // Z stands for Zulu/UTC
     if (ts[T_MONTH-1] != '-' || ts[T_DAY-1] != '-' || ts[T_HOUR-1] != 'T'
             || ts[T_MINUTE-1] != ':' || ts[T_SECOND-1] != ':'
@@ -350,8 +350,9 @@ _json_to_pqtimestamp(json_object *found, Needles current)
             __FILE__, __LINE__, ts);
         goto error;
     }
+    // Postgres accepts leap seconds and normalizes them into the next minute
     if(tm.month < 1 || tm.month > 12 || tm.day >31
-        || tm.hour > 23 || tm.minute > 59 || tm.second > 59) {
+        || tm.hour > 23 || tm.minute > 59 || tm.second > 60) {
         logger_log("%s %d: Datestring %s not a date",
             __FILE__, __LINE__, ts);
         goto error;
