@@ -91,7 +91,6 @@ bool hooks_validate(config_setting_t *conf)
 
     size_t list;
     config_setting_t *hook = NULL, *type = NULL;
-    Hptr hookptr = NULL;
 
     if(!config_setting_is_list(conf)) {
         res = false;
@@ -102,6 +101,7 @@ bool hooks_validate(config_setting_t *conf)
 
     for (size_t i = 0; i < list; ++i)
     {
+        Hptr hookptr = NULL;
         hook = config_setting_get_elem(conf, i);
         /* if the list elemnt is undefined, we have walked into
          * a libconfig bug. */
