@@ -159,15 +159,16 @@ void hooks_add(Hooklist h, config_setting_t *conf)
 
         hookptr = _find_hook(config_setting_get_string(type));
 
-        // this code is ugly
-        h->num++;
-        h->hptrarray = realloc(h->hptrarray,(h->num*(sizeof(hookptr))));
+        size_t size = (h->num+1) * sizeof(hookptr);
+        h->hptrarray = realloc(h->hptrarray,size);
 
         if (h->hptrarray == NULL)
             abort();
-
         hookptr->ctx = hookptr->init(hook);
-        *(h->hptrarray+(h->num)-1) = hookptr;
+
+        *(h->hptrarray+h->num) = hookptr;
+
+        h->num++;
     }
     return;
 }
