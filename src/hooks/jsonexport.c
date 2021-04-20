@@ -216,10 +216,11 @@ _action_discard_true(bool filter_ret, UNUSED json_object *found,
 }
 
 static bool
-_action_store_meta(UNUSED bool filter_ret, UNUSED json_object *found,
+_action_store_meta(UNUSED bool filter_ret, json_object *found,
     Needles current)
 {
-    current->metadata = true;
+    if(found)
+        current->metadata = true;
     return true;
 }
 
@@ -580,6 +581,7 @@ h_jsonexport(Context ctx, Message msg)
             needles[i]->free(&needles[i]->result);
             bufpos += needles[i]->length;
         }
+        // metadata can only be true if result is true
         if(needles[i]->metadata) {
             char *res = SCALLOC(1,(needles[i]->length)+1);
             memcpy(res, needles[i]->result, needles[i]->length);
