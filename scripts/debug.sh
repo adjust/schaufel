@@ -1,3 +1,3 @@
 #!/bin/sh
-CFLAGS='-Werror -Og -ggdb'
-make test && make
+make clean
+CFLAGS='-Werror -Og -ggdb' make test && make

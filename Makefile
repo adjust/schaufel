@@ -17,9 +17,10 @@ CFLAGS += -D_XOPEN_SOURCE=700
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += -I$(libpq_srcdir)
-LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
+LIB = $(LDFLAGS)
+LIB += -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
 INC = -Isrc/
-
+VALGRIND ?= valgrind -q --leak-check=full
 OBJDIR = obj
 OUT = bin/schaufel
 
@@ -65,7 +66,7 @@ $(OBJDIR)/%.o: src/%.c
 $(OBJDIR)/%.o: t/%.c
 	$(CC) $(INC) $(CFLAGS) -c $< -o $@
 	$(LD) $(LIBDIR) $(OBJ_TEST) $@ $(LIB) -o bin/$(subst .o, ,$(notdir $@))
-	valgrind -q --leak-check=full bin/$(subst .o, ,$(notdir $@))
+	$(VALGRIND) bin/$(subst .o, ,$(notdir $@))
 
 install: all
 	$(INSTALL) bin/schaufel $(DESTDIR)$(BINDIR)/schaufel
