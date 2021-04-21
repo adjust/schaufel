@@ -245,7 +245,11 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 
     newmsg = message_list_init();
     if (newmsg == NULL)
+    {
+        // freeing messages should be up to the caller
+        free(data);
         return ENOMEM;
+    }
     newmsg->msg->datalen = datalen;
     newmsg->msg->data = data;
     newmsg->msg->xmark = xmark;
@@ -255,8 +259,13 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
     newmsg->xnext = NULL;
 
     if(!hooklist_run(q->postadd,newmsg->msg))
+    {
+        // freeing messages should be up to the caller
+        free(data);
+        metadata_free(md);
+        message_list_free(&newmsg);
         return EBADMSG;
-
+    }
     pthread_mutex_lock(&q->mutex);
 
     // xmark might have changed on running hooks
@@ -264,6 +273,10 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
     if(x == NULL)
     {
         pthread_mutex_unlock(&q->mutex);
+        // freeing messages should be up to the caller
+        free(data);
+        metadata_free(md);
+        message_list_free(&newmsg);
         return ENOMEM;
     }
 
