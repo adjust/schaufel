@@ -24,6 +24,10 @@ _metadata_init()
     return m;
 }
 
+/*
+ * metadata_find
+ *      find metadatum in metadata
+ */
 MDatum
 metadata_find(Metadata *md, char *key)
 {
@@ -40,6 +44,10 @@ metadata_find(Metadata *md, char *key)
     return (MDatum) ret->data;
 }
 
+/*
+ * mdatum_init
+ *      initialise metadata value
+ */
 MDatum
 mdatum_init(MTypes type, void *value, uint64_t len)
 {
@@ -50,6 +58,12 @@ mdatum_init(MTypes type, void *value, uint64_t len)
     return datum;
 }
 
+/*
+ * metadata_insert
+ *      insert key/value into metadata
+ *      initialise metadata if it doesn't yet exist
+ *      if entry already exists, return NULL
+ */
 MDatum
 metadata_insert(Metadata *md, char *key, MDatum value)
 {

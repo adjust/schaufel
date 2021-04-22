@@ -64,6 +64,11 @@ void hooks_deregister(void)
     return;
 }
 
+
+/*
+ * hooklist_run
+ *      Run all hooks registered at a hookpoint
+ */
 inline bool hooklist_run(Hooklist h, Message msg)
 {
     bool res;
@@ -85,6 +90,10 @@ inline bool hooklist_run(Hooklist h, Message msg)
     return true;
 }
 
+/*
+ * hooks_validate
+ *      call each validator of all hooks registered
+ */
 bool hooks_validate(config_setting_t *conf)
 {
     bool res = true;
@@ -93,6 +102,8 @@ bool hooks_validate(config_setting_t *conf)
     config_setting_t *hook = NULL, *type = NULL;
 
     if(!config_setting_is_list(conf)) {
+        fprintf(stderr, "%s %d: hooks need to be a list!\n",
+            __FILE__, __LINE__);
         res = false;
         goto error;
     }
@@ -142,6 +153,11 @@ bool hooks_validate(config_setting_t *conf)
     return res;
 }
 
+
+/*
+ * hooks_add
+ *      add all hooks in a config to a hookpoint
+ */
 void hooks_add(Hooklist h, config_setting_t *conf)
 {
     size_t list;

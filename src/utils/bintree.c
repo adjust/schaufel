@@ -3,6 +3,13 @@
 
 #include "utils/bintree.h"
 
+
+/*
+ * bin_intcomp
+ *      standard comparison function for bintree
+ *      compares integers in Node data structure
+ *      use this as a compare functionin bin_{search,find}
+ */
 int
 bin_intcomp(const void *a, const void *b)
 {
@@ -15,6 +22,10 @@ bin_intcomp(const void *a, const void *b)
     return 0;
 }
 
+/*
+ * bin_search
+ *      find or insert node in binary tree (using compare function)
+ */
 Node
 bin_search(void **root, Node node, int compare(const void *,const void *))
 {
@@ -25,6 +36,10 @@ bin_search(void **root, Node node, int compare(const void *,const void *))
     return NULL;
 }
 
+/*
+ * bin_find
+ *      find node in binary tree (using compare function)
+ */
 Node
 bin_find(void **root, Node node, int compare(const void *,const void *))
 {

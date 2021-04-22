@@ -399,6 +399,11 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     return false;
 }
 
+/*
+ * _needles
+ *      intitialises json pointers (needles) into an array,
+ *      adds that array to the Internal data structure
+ */
 static Needles *
 _needles(config_setting_t *needlestack, Internal internal)
 {
@@ -454,6 +459,11 @@ _needles(config_setting_t *needlestack, Internal internal)
     return needles;
 }
 
+/*
+ * _deref
+ *      calls every needle on the tokenized json
+ *      stores results according to the configuration of the needle
+ */
 static int
 _deref(json_object *haystack, Internal internal)
 {

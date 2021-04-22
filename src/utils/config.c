@@ -238,6 +238,9 @@ bool config_validate(config_t* config)
     return res;
 }
 
+/* config_merge
+ *      mergess libconfig file and command line options
+ */
 void
 config_merge(config_t* config, Options o)
 {
