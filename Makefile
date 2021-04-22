@@ -6,6 +6,9 @@ MAN5DIR = $(MANDIR)/man5
 DOCDIR ?= $(PREFIX)/share/doc/schaufel
 INSTALL ?= install -D
 
+PG_CONFIG ?= pg_config
+libpq_srcdir := $(shell $(PG_CONFIG) --includedir)
+
 CC ?= gcc
 LD = $(CC)
 CFLAGS += -Wall -Wextra -pedantic
@@ -13,6 +16,7 @@ CFLAGS += -std=c11
 CFLAGS += -D_XOPEN_SOURCE=700
 CFLAGS += -D_SCHAUFEL_VERSION='"$(SCHAUFEL_VERSION)"'
 CFLAGS += -D_GNU_SOURCE
+CFLAGS += -I$(libpq_srcdir)
 LIB = -lpthread -lhiredis -lrdkafka -lpq -lconfig -ljson-c
 INC = -Isrc/
 
