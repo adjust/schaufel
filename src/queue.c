@@ -260,8 +260,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
 
     if(!hooklist_run(q->postadd,newmsg->msg))
     {
-        // freeing messages should be up to the caller
-        free(data);
+        // Bad Message is already free'd
         metadata_free(md);
         message_list_free(&newmsg);
         return EBADMSG;
