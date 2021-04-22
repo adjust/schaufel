@@ -198,10 +198,10 @@ Hooklist hook_init()
 
 void hook_free(Hooklist h)
 {
-    Hptr *hooks = h->hptrarray;
-    Hptr hook;
     if(!h)
         return;
+    Hptr *hooks = h->hptrarray;
+    Hptr hook;
 
     if(hooks)
     {
