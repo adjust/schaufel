@@ -17,7 +17,7 @@ int main()
         "   \"/text\","
         "   [ \"/timestamp\", \"timestamp\" ], "
         "   [  \"/token\", \"text\", \"store_meta\" ],"
-        "   [  \"/recursive/discard\", \"text\", \"discard_true\", \"exists\" ],"
+        "   [  \"/recursive/discard\", \"text\", \"discard_true\", \"exists\" ]"
         "   );"
         "};");
     pretty_assert(res == CONFIG_TRUE);
