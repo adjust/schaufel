@@ -12,6 +12,6 @@ typedef struct node {
 int bin_intcomp(const void *a, const void *b);
 Node bin_search(void **root, Node node, int compare(const void *,const void *));
 Node bin_find(void **root, Node node, int compare(const void *,const void *));
-void bin_destroy(void *root);
+void bin_destroy(void *root, int compare(const void *, const void*));
 
 #endif

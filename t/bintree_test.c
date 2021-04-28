@@ -45,6 +45,6 @@ int main()
     pretty_assert(strncmp("moep",(char *) res->data,4) == 0);
 
     // let bintree destroy all elements
-    bin_destroy(binroot);
+    bin_destroy(binroot,&bin_intcomp);
     return 0;
 }

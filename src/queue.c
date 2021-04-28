@@ -166,10 +166,10 @@ queue_init(config_setting_t *conf)
         return NULL;
     }
 
+    // The following calls abort on ENOMEM
     q->postadd = hook_init();
     q->preget = hook_init();
 
-    /* todo: error handling */
     hooks_add(q->postadd,config_setting_get_member(conf, "postadd"));
     hooks_add(q->postadd,config_setting_get_member(conf, "preget"));
 
@@ -460,7 +460,7 @@ queue_free(Queue *q)
     hook_free((*q)->postadd);
     hook_free((*q)->preget);
 
-    bin_destroy((*q)->xtree);
+    bin_destroy((*q)->xtree,&bin_intcomp);
     free(*q);
     *q = NULL;
     return ret;

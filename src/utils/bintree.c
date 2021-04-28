@@ -1,5 +1,6 @@
 #include <search.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #include "utils/bintree.h"
 
@@ -59,11 +60,13 @@ bin_free(void *data)
 }
 
 void
-bin_destroy(void *root)
+bin_destroy(void *root, int compare(const void *, const void*))
 {
-    /* todo: this is a rare GNUism
-     * it can be easily replaced by a treewalk function
-     * which then calls bin_free */
-    tdestroy(root, bin_free);
+    while(root != NULL)
+    {
+        Node node = *(Node *) root;
+        tdelete(node, &root, compare);
+        bin_free(node);
+    }
     return;
 }
