@@ -19,16 +19,6 @@ bool lookup_str(config_t* config, const char *string, const char *test)
     return true;
 }
 
-bool lookup_int(config_t* config, const char *string, int test)
-{
-    int retval = 0;
-    if(config_lookup_int(config, string, &retval) != CONFIG_TRUE)
-        return false;
-    if(retval != test)
-        return false;
-    return true;
-}
-
 void _t_group_apply(const char *key, const char *value, void *arg)
 {
     const char *elem = NULL;
