@@ -186,6 +186,7 @@ postgres_meta_free(Meta *m)
     pthread_mutex_destroy(&(*m)->commit_mutex);
 
     free((*m)->conninfo);
+    free((*m)->cpycmd);
     PQfinish((*m)->conn_master);
     if ((*m)->conninfo_replica == NULL)
         PQfinish((*m)->conn_replica);
