@@ -11,10 +11,13 @@
 
 
 static void
-dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, UNUSED void *opaque)
+dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque)
 {
+    const char *broker = opaque;
     if (rkmessage->err)
-        logger_log("%s %d: Message delivery failed: %s partition: %d\n", __FILE__, __LINE__, rd_kafka_err2str(rkmessage->err), rkmessage->partition);
+        logger_log("%s %d: %s: Message delivery failed: %s partition: %d\n",
+        __FILE__, __LINE__, broker,
+        rd_kafka_err2str(rkmessage->err), rkmessage->partition);
 }
 
 static void
@@ -30,10 +33,46 @@ print_partition_list (const rd_kafka_topic_partition_list_t *partitions)
 }
 
 static void
-rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err, rd_kafka_topic_partition_list_t *partitions, UNUSED void *opaque)
+err_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err, const char *reason, void *opaque)
+{
+    const char *broker = opaque;
+    if (err == RD_KAFKA_RESP_ERR__FATAL) {
+        char errstr[512];
+        err = rd_kafka_fatal_error(rk, errstr, sizeof(errstr));
+        logger_log("%s %d: %s: FATAL ERROR CALLBACK: %s: %s: %s\n",
+            __FILE__, __LINE__, broker,
+            rd_kafka_name(rk), rd_kafka_err2str(err), errstr);
+    } else {
+        logger_log("%s %d: %s: ERROR CALLBACK: %s: %s: %s\n",
+            __FILE__, __LINE__, broker,
+            rd_kafka_name(rk), rd_kafka_err2str(err), reason);
+    }
+}
+
+static void
+offset_commit_cb(UNUSED rd_kafka_t *rk, rd_kafka_resp_err_t err, UNUSED rd_kafka_topic_partition_list_t *partitions, void *opaque)
+{
+    const char *broker = opaque;
+
+    // Not considered an error, no offset to commit
+    if (err == RD_KAFKA_RESP_ERR__NO_OFFSET)
+        return;
+
+    if (err)
+    {
+        logger_log("%s %d: %s: OFFSET COMMIT CALLBACK: %s\n",
+            __FILE__, __LINE__, broker,
+            rd_kafka_err2str(err));
+    }
+}
+
+static void
+rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err, rd_kafka_topic_partition_list_t *partitions, void *opaque)
 {
 
-    logger_log("Consumer group rebalanced:");
+    const char *broker = opaque;
+    logger_log("%s %d: %s: Consumer group rebalanced:",
+        __FILE__, __LINE__, broker);
 
     switch (err)
     {
@@ -153,6 +192,7 @@ kafka_producer_meta_init(const char *broker,
     rd_kafka_topic_conf_t  *topic_conf;
 
     conf = rd_kafka_conf_new();
+    rd_kafka_conf_set_opaque(conf, (void *) broker);
     config_group_apply(kafka_options, kafka_set_option, conf);
 
     topic_conf = rd_kafka_topic_conf_new();
@@ -164,12 +204,14 @@ kafka_producer_meta_init(const char *broker,
     rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
     if (!rk)
     {
-        logger_log("%s %d: Failed to create new producer: %s\n", __FILE__, __LINE__, errstr);
+        logger_log("%s %d: %s: Failed to create new producer: %s\n",
+            __FILE__, __LINE__, broker, errstr);
         abort();
     }
     if (rd_kafka_brokers_add(rk, broker) == 0)
     {
-        logger_log("%s %d: Failed to add broker: %s\n", __FILE__, __LINE__, broker);
+        logger_log("%s %d: %s: Failed to add broker: %s\n",
+            __FILE__, __LINE__, broker, broker);
         abort();
     }
 
@@ -177,9 +219,8 @@ kafka_producer_meta_init(const char *broker,
 
     if (!rkt)
     {
-        logger_log("%s %d: Failed to create topic object: %s\n",
-            __FILE__,
-            __LINE__,
+        logger_log("%s %d: %s: Failed to create topic object: %s\n",
+            __FILE__, __LINE__, broker,
             rd_kafka_err2str(rd_kafka_last_error()));
         rd_kafka_destroy(rk);
         abort();
@@ -206,11 +247,12 @@ kafka_consumer_meta_init(const char *broker,
     rd_kafka_topic_conf_t  *topic_conf;
 
     conf = rd_kafka_conf_new();
+    rd_kafka_conf_set_opaque(conf, (void *) broker);
     config_group_apply(kafka_options, kafka_set_option, conf);
 
     if (rd_kafka_conf_set(conf, "group.id", groupid, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, errstr);
+        logger_log("%s %d: %s: %s", __FILE__, __LINE__, broker, errstr);
         abort();
     }
 
@@ -218,12 +260,14 @@ kafka_consumer_meta_init(const char *broker,
     config_group_apply(topic_options, kafka_topic_set_option, topic_conf);
     rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
 
+    rd_kafka_conf_set_offset_commit_cb(conf, offset_commit_cb);
     rd_kafka_conf_set_rebalance_cb(conf, rebalance_cb);
-
+    rd_kafka_conf_set_error_cb(conf, err_cb);
     rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk)
     {
-        logger_log("%s %d: Failed to create new consumer: %s\n", __FILE__, __LINE__, errstr);
+        logger_log("%s %d: %s: Failed to create new consumer: %s\n",
+            __FILE__, __LINE__, broker, errstr);
         abort();
     }
 
@@ -235,7 +279,8 @@ kafka_consumer_meta_init(const char *broker,
     rkt = rd_kafka_topic_new(rk, topic, NULL);
     if (!rkt)
     {
-        logger_log("%s %d: Failed to create topic object: %s\n", __FILE__, __LINE__, rd_kafka_err2str(rd_kafka_last_error()));
+        logger_log("%s %d: %s: Failed to create topic object: %s\n",
+            __FILE__, __LINE__, broker, rd_kafka_err2str(rd_kafka_last_error()));
         rd_kafka_destroy(rk);
         abort();
     }
