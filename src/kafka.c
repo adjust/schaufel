@@ -163,7 +163,7 @@ static void kafka_consumer_defaults(config_setting_t *c)
          * are default values, they're only here to be explicit */
         config_set_default_string(kafka_options, "enable_auto_commit", "true");
         config_set_default_string(kafka_options, "enable_auto_offset_store", "true");
-        config_set_default_string(kafka_options, "auto_commit_interval_ms", "10");
+        config_set_default_string(kafka_options, "auto_commit_interval_ms", "5000");
     }
 
     // naively assume you don't want to touch past data
