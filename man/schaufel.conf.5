@@ -16,17 +16,36 @@ Schaufel expects three sections: \fBlogger\fR, \fBconsumers\fR and
 .SS logger
 The logger section defines the workings of schaufels logging.
 .PP
-It expects you to set a \fItype\fR, which at the moment only supports
-logging to \fIfile\fR.
+It expects you to set a \fItype\fR. Types supported are
+\fBsyslog\fR|\fBstderr\fR|\fBstdout\fR|\fBnull\fR|\fBfile\fR.
+.PP
+\fBfile\fR as a type supports \fBmode\fR as octal and requires \fBfile\fR
+as a path. The standard mode is 0640.
+
 .RS
 .PP
  logger =
  {
     file = "/var/log/schaufel/schaufel.log";
     type = "file";
+    mode = 0644;
  };
 .RE
 .PP
+\fBsyslog\fR as a type supports \fBident\fR and \fBfacility\fR and strings.
+\fBident\fR is the string your schaufel instance identifies as.
+\fBfacility\fR is the logging facility, the default is facility \fIdaemon\fR.
+.RS
+.PP
+ logger =
+ {
+    type = "syslog";
+    ident = "schaufel_test";
+    facility = "user";
+ };
+.RE
+.PP
+
 .SS consumers
 Consumers are of the libconfig list type as there may be multiple
 consumers defined. The necessary minimum configuration is a \fItype\fR

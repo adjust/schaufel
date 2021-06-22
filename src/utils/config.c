@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
+#include <sys/stat.h>
 
 #include "utils/config.h"
 #include "utils/logger.h"
@@ -239,7 +241,7 @@ bool config_validate(config_t* config)
 }
 
 /* config_merge
- *      mergess libconfig file and command line options
+ *      merges libconfig file and command line options
  */
 void
 config_merge(config_t* config, Options o)
@@ -254,15 +256,19 @@ config_merge(config_t* config, Options o)
     config_setting_t *croot = NULL, *parent = NULL, *setting = NULL;
     croot = config_root_setting(config);
 
-    setting = config_lookup(config, "logger");
     if (o.logger) {
-        // cmdline logger only knows of files
         parent = _add_node(croot, "logger", CONFIG_TYPE_GROUP);
-        setting = _add_member(parent, "file", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, o.logger);
+        logger_parse(o.logger,parent);
+    }
+
+    // default to stdout if no logger exists
+    setting = config_lookup(config, "logger");
+    if (!setting)
+    {
+        parent = _add_node(croot, "logger", CONFIG_TYPE_GROUP);
         setting = _add_member(parent, "type", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, "file");
-    } // TODO : default to stderr
+        config_setting_set_string(setting, "stderr");
+    }
 
     //consumers
     if (o.input) {
@@ -503,4 +509,123 @@ void config_set_default_string(config_setting_t *parent,
     /* if setting wasn't set before set it now */
     if (s)
         config_setting_set_string(s, value);
+}
+
+/*
+ * logger_parse
+ *      Turn logger argv into config_setting_t group
+ */
+void logger_parse(char *c, config_setting_t *logger)
+{
+    config_setting_t *type;
+    regex_t regex;
+    int ri;
+    regmatch_t matches[8] = {0};
+
+    if(c == NULL || logger == NULL)
+        return;
+
+    type = _add_member(logger, "type", CONFIG_TYPE_STRING);
+
+    // Todo: Write a general case parser+api for argv splitting
+    ri = regcomp(&regex,
+        "^(STDOUT$|STDERR$|NULL$)|"
+        "^(FILE):([0-7]{3,4}:)?(.+$)|"
+        "^(SYSLOG(:[^:]+)?(:[[:alnum:]]+$)|SYSLOG$)",
+        REG_EXTENDED);
+
+    if (ri)
+    { // we should never end up here
+        fprintf(stderr, "%s %d: failed to compile logger regex!\n",
+            __FILE__, __LINE__);
+        abort();
+    }
+
+    ri = regexec(&regex, c, 8, matches, 0);
+
+    if (ri == REG_NOMATCH)
+    {   // file without mode
+        config_setting_set_string(type, "file");
+        config_setting_t *child = _add_member(logger,
+            "file", CONFIG_TYPE_STRING);
+        config_setting_set_string(child, c);
+        child = _add_member(logger, "mode", CONFIG_TYPE_INT);
+        config_setting_set_int(child, 0640);
+    }
+
+    if (matches[1].rm_eo > 0)
+    {   // output to anything but a file
+        int len = matches[1].rm_eo + 1;
+        if (strncmp(c,"STDOUT",len) == 0)
+            config_setting_set_string(type, "stdout");
+        else if (strncmp(c,"STDERR",len) == 0)
+            config_setting_set_string(type, "stderr");
+        else if (strncmp(c,"NULL",len) == 0)
+            config_setting_set_string(type, "null");
+        else
+            abort();
+    }
+
+    if (matches[2].rm_eo > 0)
+    {   // output to file (with mode)
+        config_setting_set_string(type, "file");
+
+        if (matches[3].rm_eo > 0)
+        {
+            char *s = c + matches[3].rm_so;
+            char *e = c + matches[3].rm_eo - 1;
+            // Convert mode to octal;
+            mode_t m = strtol(s, &e, 8);
+
+            if (m & (S_ISVTX | S_ISGID | S_ISUID))
+            {
+                fprintf(stderr,
+                    "%s %d: Cowardly refusing to create file mode %04o\n",
+                    __FILE__, __LINE__, m);
+                abort();
+            }
+
+            config_setting_t *child = _add_member(logger,
+                "mode", CONFIG_TYPE_INT);
+            config_setting_set_int(child, m);
+        }
+
+        if (matches[4].rm_eo < 1)
+        { // we also shouldn't be able to end up here
+            fprintf(stderr, "%s %d: expected a file name!\n",
+                __FILE__, __LINE__);
+            abort();
+        }
+
+        config_setting_t *child = _add_member(logger,
+            "file", CONFIG_TYPE_STRING);
+        config_setting_set_string(child, c+matches[4].rm_so);
+    }
+
+    if (matches[5].rm_eo > 0)
+    {   //syslog
+        config_setting_set_string(type, "syslog");
+        if (matches[7].rm_eo >1)
+        { // we have a syslog facility
+            regoff_t offset = matches[7].rm_so + 1; // skip :
+            config_setting_t *child = _add_member(logger,
+                "facility", CONFIG_TYPE_STRING);
+            config_setting_set_string(child, c + offset);
+        }
+        if (matches[6].rm_eo > 1)
+        {
+            regoff_t offset = matches[6].rm_so + 1; // skip :
+            size_t len = matches[6].rm_eo - offset;
+            if(len > 510)
+                len = 510;
+            char buf[512] = {0};
+            strncpy(buf, c + offset, len);
+            config_setting_t *child = _add_member(logger,
+                "ident", CONFIG_TYPE_STRING);
+            config_setting_set_string(child, buf);
+        }
+    }
+
+    regfree(&regex);
+    return;
 }

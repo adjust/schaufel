@@ -11,6 +11,7 @@
 
 typedef void (*group_func)(const char *key, const char *value, void *arg);
 
+void logger_parse(char *, config_setting_t *);
 
 void read_config(config_t *config, char *cfile);
 

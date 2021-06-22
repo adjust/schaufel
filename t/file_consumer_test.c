@@ -18,6 +18,8 @@ main(void)
 
     //logger
     logger = config_setting_add(croot,"logger",CONFIG_TYPE_GROUP);
+    setting = config_setting_add(logger, "type", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "file");
     setting = config_setting_add(logger, "file", CONFIG_TYPE_STRING);
     config_setting_set_string(setting, "sample/dummy_log");
     //file
