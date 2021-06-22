@@ -82,8 +82,16 @@ Redis consumer/producer pipelining. Batch n commands before inspecting
 the result. Upstream recommends no more than 10000 commands be batched.
 This feature is purely optional.
 .TP
-.B \-l \fIfilename
-Set the logger output filename
+.B \-l \fIlogstring\fR
+Configure logger. Possible values are
+\fBFILE:mode:filename\fR | \fBFILE:filename\fR | \fBfilename\fR |
+\fBSTDOUT\fR | \fBSTDERR\fR | \fBNULL\fB | \fBSYSLOG:ident:facility\fR |
+\fB SYSLOG:facility \fR | \fBSYSLOG\fR
+Any string that is not parsed is treated as a filename. This is to maintain
+backwards compatibility. The standard mode of files created by the logger
+is \fB0640\fR.
+If no logger is specified, schaufel with log to stderr.
+
 .TP
 .B \-V
 Print schaufel version

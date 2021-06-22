@@ -15,4 +15,12 @@ void logger_init(config_setting_t *config);
 void logger_free();
 void logger_log(const char *fmt, ...) FORMAT_PRINTF(1,2);
 
+enum loglevel {
+    FATAL,
+    ERROR,
+    WARN,
+    INFO,
+    DEBUG,
+};
+
 #endif

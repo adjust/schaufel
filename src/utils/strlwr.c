@@ -3,6 +3,7 @@
 // win32 check
 #ifndef strlwr
 #include <ctype.h>
+#include <stddef.h>
 /* strlwr converts upper case string to lower case
  * returns pointer to start of string
  *
@@ -16,5 +17,6 @@ strlwr(char *s1)
     for (; *s1; s1++) *s1 = tolower(*s1);
     return ret;
 }
+
 #endif
 #endif
