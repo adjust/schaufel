@@ -33,7 +33,7 @@ OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR)/%.o, $(TEST_SOURCES))
 
 DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
 
-SCHAUFEL_VERSION ?= 0.9
+SCHAUFEL_VERSION ?= 0.10
 
 all: release
 
