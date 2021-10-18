@@ -69,9 +69,11 @@ redis_meta_get_reply(Meta m)
 
     if ((ret = redisGetReply(m->c, (void *)&reply)) == REDIS_OK)
         m->reply = reply;
-    else
+    else {
         logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
                    m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+         abort();
+    }
     return ret;
 }
 
@@ -118,10 +120,27 @@ redis_producer_produce(Producer p, Message msg)
     Meta m = (Meta)p->meta;
 
     if (m->pipe_max == 0) { /* No pipelining. */
-        m->reply = redisCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
+        m->reply = redisCommand(m->c, "LPUSH %s %b",m->topic,
+            (char *) message_get_data(msg),
+            message_get_len(msg)
+        );
+        if(!m->reply) {
+            logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
+                       m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+            abort();
+        }
         freeReplyObject(m->reply);
     } else { /* Pipelining */
-        redisAppendCommand(m->c, "LPUSH %s %b",m->topic, (char *) message_get_data(msg), message_get_len(msg));
+        int ret = redisAppendCommand(m->c, "LPUSH %s %b",m->topic,
+            (char *) message_get_data(msg),
+            message_get_len(msg)
+        );
+        if(ret != REDIS_OK) {
+            logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
+                       m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+            abort();
+        }
+
         m->pipe_cur++;
         redis_meta_check_pipeline(m, true);
     }
@@ -157,8 +176,16 @@ redis_consumer_init(config_setting_t *config)
 }
 
 static void
-redis_consumer_handle_reply(const redisReply *reply, Message msg)
+redis_consumer_handle_reply(Meta m, Message msg)
 {
+
+    const redisReply *reply = m->reply;
+    // Todo: handle reconnect
+    if (!reply) {
+        logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
+                   m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+        abort();
+    }
     if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2)
     {
         char *result = calloc(reply->element[1]->len + 1, sizeof(*result));
@@ -172,6 +199,8 @@ redis_consumer_handle_reply(const redisReply *reply, Message msg)
     }
 }
 
+
+
 int
 redis_consumer_consume(Consumer c, Message msg)
 {
@@ -180,14 +209,18 @@ redis_consumer_consume(Consumer c, Message msg)
     if (m->pipe_max == 0) {
         /* No pipelining. */
         m->reply = redisCommand(m->c, "BLPOP %s 1", m->topic);
-        redis_consumer_handle_reply(m->reply, msg);
+        redis_consumer_handle_reply(m, msg);
         freeReplyObject(m->reply);
         return 0;
     }
 
     /* Pipelining */
     if (m->pipe_cur < m->pipe_max) {
-        redisAppendCommand(m->c, "BLPOP %s 1", m->topic);
+        if (redisAppendCommand(m->c, "BLPOP %s 1", m->topic) != REDIS_OK) {
+            logger_log("%s %d: %s %s", __FILE__, __LINE__, m->c->errstr,
+                       m->c->err == REDIS_ERR_IO ? strerror(errno) : "");
+            abort();
+        }
         m->pipe_cur++;
     }
 
@@ -196,8 +229,11 @@ redis_consumer_consume(Consumer c, Message msg)
 
     if (m->pipe_full) {
         if (redis_meta_get_reply(m) == REDIS_OK) {
-            redis_consumer_handle_reply(m->reply, msg);
+            redis_consumer_handle_reply(m, msg);
             freeReplyObject(m->reply);
+        } else {
+            logger_log("%s %d failed redis_meta_get_reply", __FILE__, __LINE__);
+            abort();
         }
         m->pipe_cur--;
         if (m->pipe_cur == 0)
