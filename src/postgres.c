@@ -40,15 +40,13 @@ _connectinfo(const char *host, const char *dbname, const char *user)
     if (parse_connstring(host, &hostname, &port) == -1)
         abort();
 
-    ret = asprintf(&conninfo,
-                   "dbname=%s user=%s host=%s port=%d",
-                   dbname, user, hostname, port);
-    if (ret == -1)
-    {
-        logger_log("%s %d: Cannot allocate connection string",
-                   __FILE__, __LINE__);
+    char *fmt = "dbname=%s user=%s host=%s port=%d";
+    int len = strlen(fmt) + strlen(host) + strlen(dbname) + strlen(user) + 20;
+
+    conninfo = SCALLOC(len, 1);
+    ret = snprintf(conninfo, len, fmt, dbname, user, hostname, port);
+    if (ret < 0)
         abort();
-    }
 
     free(hostname);
     return conninfo;
@@ -92,14 +90,23 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
 
     int ret;
     if (fmt == POSTGRES_CSV || fmt == POSTGRES_BINARY)
-        ret = asprintf(&cpycmd, "COPY %s FROM STDIN (FORMAT %s)", generation, format);
-    else
-        ret = asprintf(&cpycmd, "COPY %s_%d_%s.data FROM STDIN (FORMAT %s)",
-                       hostname, port, generation, format);
-
-    if (ret == -1)
     {
-        logger_log("%s %d: Cannot allocate COPY query string",
+        char *fmt = "COPY %s FROM STDIN (FORMAT %s)";
+        int len = strlen(fmt) + strlen(generation) + strlen(format) + 20;
+        cpycmd = SCALLOC(len, 1);
+        ret = snprintf(cpycmd, len, fmt, generation, format);
+    }
+    else
+    {
+        char *fmt = "COPY %s_%d_%s.data FROM STDIN (FORMAT %s)";
+        int len = strlen(fmt) + strlen(hostname) + strlen(generation) + strlen(format) + 20;
+        cpycmd = SCALLOC(len, 1);
+        ret = snprintf(cpycmd, len, fmt, hostname, port, generation, format);
+    }
+
+    if (ret < 0)
+    {
+        logger_log("%s %d: error while formatting COPY query string",
                    __FILE__, __LINE__);
         abort();
     }
