@@ -294,7 +294,7 @@ static void log_fd(char *buf, size_t len)
 
 static void log_syslog(char *buf, UNUSED size_t len)
 {
-    syslog(LOG_INFO | LOG_USER, buf);
+    syslog(LOG_INFO | LOG_USER, "%s", buf);
 }
 
 static void log_syslog_free(void)
