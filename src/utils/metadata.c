@@ -13,14 +13,8 @@
 static inline Metadata
 _metadata_init()
 {
-    Metadata m = SCALLOC(1,sizeof(*m));
-
-    m->mdata = SCALLOC(8,sizeof(*(m->mdata)));
-    m->htab = SCALLOC(1,sizeof(*(m->htab)));
-
-    if(!hcreate_r(MAXELEM,(m->htab)))
-        abort(); // todo: assert?
-
+    Metadata m = SCALLOC(1, sizeof(*m));
+    m->entries = NULL;
     return m;
 }
 
@@ -32,16 +26,16 @@ MDatum
 metadata_find(Metadata *md, char *key)
 {
     Metadata m = *md;
-    ENTRY e, *ret;
-    e.key = key;
 
     if(m == NULL)
         return NULL;
 
-    if(hsearch_r(e,FIND,&ret,m->htab) == 0)
+    mdatum_hash_entry *entry;
+    HASH_FIND(hh, m->entries, key, strlen(key), entry);
+    if (entry)
+        return entry->datum;
+    else
         return NULL;
-
-    return (MDatum) ret->data;
 }
 
 /*
@@ -68,7 +62,7 @@ MDatum
 metadata_insert(Metadata *md, char *key, MDatum value)
 {
     Metadata m = *md;
-    ENTRY e, *retval;
+    mdatum_hash_entry *entry = SCALLOC(1, sizeof(mdatum_hash_entry));
 
     if(value == NULL)
         goto error;
@@ -80,17 +74,15 @@ metadata_insert(Metadata *md, char *key, MDatum value)
     else if ((m->nel)+1 > MAXELEM)
         goto error;
 
-    e.key = key;
-    e.data = (void *) value;
+    entry->key = key;
+    entry->datum = value;
 
-    if((hsearch_r(e,ENTER,&retval,m->htab))== 0)
-        goto error;
-
-    *((m->mdata)+m->nel) = value;
+    HASH_ADD_KEYPTR(hh, m->entries, key, strlen(key), entry);
     m->nel++;
 
-    return (MDatum) retval->data;
-    error:
+    return value;
+
+error:
     return NULL;
 }
 
@@ -103,16 +95,15 @@ metadata_free(Metadata *md)
     if(m == NULL)
         return;
 
-    for(uint8_t i=0; i < m->nel; i++)
+    mdatum_hash_entry *entry, *tmp_entry;
+    HASH_ITER(hh, m->entries, entry, tmp_entry)
     {
-        MDatum mdatum = *((m->mdata)+i);
-        free(mdatum->value);
-        free(mdatum);
+        free(entry->datum->value);
+        free(entry->datum);
+        HASH_DEL(m->entries, entry);
+        free(entry);
     }
-
-    free(m->mdata);
-    hdestroy_r(m->htab);
-    free(m->htab);
+    HASH_CLEAR(hh, m->entries);
     free(m);
 
     md = NULL;

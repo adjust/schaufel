@@ -2,6 +2,7 @@
 #define _SCHAUFEL_UTILS_METADATA_H
 
 #include <stdint.h>
+#include "uthash.h"
 
 #define MAXELEM 8
 
@@ -17,10 +18,15 @@ typedef struct mdatum {
     MTypes   type;
 } *MDatum;
 
+typedef struct mdatum_hash_entry {
+    MDatum datum;
+    char *key;
+    UT_hash_handle hh;
+} mdatum_hash_entry;
+
 typedef struct Metadata {
-    MDatum *mdata;
     uint8_t nel;
-    struct hsearch_data *htab;
+    struct mdatum_hash_entry *entries;
 } *Metadata;
 
 MDatum metadata_find(Metadata *m, char *key);
