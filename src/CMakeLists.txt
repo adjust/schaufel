@@ -45,6 +45,7 @@ target_link_libraries(schaufel PRIVATE
 	${JSONC_LDFLAGS}
 	${RDKAFKA_LIBRARIES}
 	-L${PGSQL_LIBDIR} pq
+	Threads::Threads
 )
 target_compile_options(schaufel PRIVATE
 	-Wall -Wextra -pedantic

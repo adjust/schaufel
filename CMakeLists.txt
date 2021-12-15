@@ -24,6 +24,9 @@ pkg_check_modules(HIREDIS REQUIRED hiredis)
 find_path(RDKAFKA_INCLUDE_DIRS librdkafka/rdkafka.h)
 find_library(RDKAFKA_LIBRARIES rdkafka REQUIRED)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 exec_program(${PG_CONFIG} ARGS --includedir OUTPUT_VARIABLE PGSQL_INCLUDEDIR)
 exec_program(${PG_CONFIG} ARGS --libdir OUTPUT_VARIABLE PGSQL_LIBDIR)
 add_subdirectory (src)

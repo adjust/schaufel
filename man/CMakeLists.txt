@@ -3,7 +3,6 @@ set (files
     schaufel.conf.5
 )
 
-
 add_custom_target(docs)
 
 foreach(file ${files})
