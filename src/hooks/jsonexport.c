@@ -12,7 +12,7 @@
 #include "utils/logger.h"
 #include "utils/postgres.h"
 #include "utils/scalloc.h"
-#include "utils/endian.h"
+#include "utils/portable_endian.h"
 #include "utils/metadata.h"
 
 typedef struct Needles *Needles;
@@ -747,14 +747,14 @@ h_jsonexport_validate(config_setting_t *config)
             if(filter_types[_filtertype_enum(filter)].needs_data) {
                 member = config_setting_get_elem(child,4);
                 if(member == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration: %s\n",
-                    __FILE__, __LINE__, conf);
+                    fprintf(stderr, "%s %d: filter needs configuration\n",
+                    __FILE__, __LINE__);
                     goto error;
                 }
                 conf = config_setting_get_string(member);
                 if(conf == NULL) {
-                    fprintf(stderr, "%s %d: filter needs configuration: %s\n",
-                    __FILE__, __LINE__, conf);
+                    fprintf(stderr, "%s %d: filter needs configuration\n",
+                    __FILE__, __LINE__);
                     goto error;
                 }
                     data = conf;

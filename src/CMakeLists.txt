@@ -27,6 +27,24 @@ set(src
 	hooks/jsonexport.c
 	hooks/xmark.c
 )
+
+include(CheckFunctionExists)
+check_function_exists(__builtin_bswap64 HAVE__BUILTIN_BSWAP64)
+if (HAVE__BUILTIN_BSWAP64)
+    add_compile_definitions(HAVE__BUILTIN_BSWAP64)
+endif()
+
+check_function_exists(__builtin_bswap32 HAVE__BUILTIN_BSWAP32)
+if (HAVE__BUILTIN_BSWAP32)
+    add_compile_definitions(HAVE__BUILTIN_BSWAP32)
+endif()
+
+include (TestBigEndian)
+TEST_BIG_ENDIAN(WORDS_BIGENDIAN)
+if (WORDS_BIGENDIAN)
+    add_compile_definitions(WORDS_BIGENDIAN)
+endif()
+
 add_executable(schaufel ${src})
 target_include_directories(schaufel
 	PRIVATE
