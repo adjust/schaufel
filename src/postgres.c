@@ -67,8 +67,6 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
         case POSTGRES_BINARY:
             format = "binary";
             break;
-        case POSTGRES_JSON:
-            __attribute__((fallthrough));
         default:
             format = "text";
             break;
