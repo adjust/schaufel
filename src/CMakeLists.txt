@@ -70,3 +70,4 @@ target_compile_options(schaufel PRIVATE
 	-D_XOPEN_SOURCE=700
 	-D_SCHAUFEL_VERSION=\"${CMAKE_PROJECT_VERSION}\"
 )
+install(TARGETS schaufel DESTINATION bin)
