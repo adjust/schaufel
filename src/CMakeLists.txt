@@ -45,26 +45,27 @@ if (WORDS_BIGENDIAN)
     add_compile_definitions(WORDS_BIGENDIAN)
 endif()
 
-add_executable(schaufel ${src})
-target_include_directories(schaufel
-	PRIVATE
-		${schaufel_SOURCE_DIR}/src
-		${schaufel_SOURCE_DIR}/src/utils
-		${schaufel_SOURCE_DIR}/src/hooks
-		${PGSQL_INCLUDEDIR}
-		${LIBCONFIG_INCLUDE_DIRS}
-		${RDKAFKA_INCLUDE_DIRS}
-		${JSONC_INCLUDE_DIRS}
-		${HIREDIS_INCLUDE_DIRS}
-)
-target_link_libraries(schaufel PRIVATE
+add_library(schaufel_lib INTERFACE)
+target_link_libraries(schaufel_lib INTERFACE
 	${LIBCONFIG_LDFLAGS}
 	${HIREDIS_LDFLAGS}
 	${JSONC_LDFLAGS}
-	${RDKAFKA_LIBRARIES}
-	-L${PGSQL_LIBDIR} pq
+	kafka
+	pq_lib
 	Threads::Threads
 )
+
+add_executable(schaufel ${src})
+target_include_directories(schaufel
+	PUBLIC
+		${schaufel_SOURCE_DIR}/src
+		${schaufel_SOURCE_DIR}/src/utils
+		${schaufel_SOURCE_DIR}/src/hooks
+		${LIBCONFIG_INCLUDE_DIRS}
+		${JSONC_INCLUDE_DIRS}
+		${HIREDIS_INCLUDE_DIRS}
+)
+target_link_libraries(schaufel PRIVATE schaufel_lib)
 target_compile_options(schaufel PRIVATE
 	-Wall -Wextra -pedantic
 	-D_XOPEN_SOURCE=700

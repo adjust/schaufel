@@ -391,7 +391,7 @@ _json_to_pqtimestamp(json_object *found, Needles current)
     epoch *= 1000000;
     epoch += tm.micro;
 
-    *((uint64_t *) current->result) = htobe64(epoch);
+    *((uint64_t *) current->result) = sc_htobe64(epoch);
     current->length = sizeof(uint64_t);
 
     return true;
@@ -577,7 +577,7 @@ h_jsonexport(Context ctx, Message msg)
     for (int i = 0; i < internal->ncount; i++) {
         if(!needles[i]->store)
             continue;
-        uint32_t length =  htobe32(needles[i]->length);
+        uint32_t length =  sc_htobe32(needles[i]->length);
 
         buflen += 4;
         buf = realloc(buf,buflen);

@@ -247,6 +247,7 @@ init_threads(config_t* config, int type, pthread_t *threads)
     }
 }
 
+#ifndef TESTING
 int
 main(int argc, char **argv)
 {
@@ -390,3 +391,4 @@ main(int argc, char **argv)
     logger_free();
     return 0;
 }
+#endif

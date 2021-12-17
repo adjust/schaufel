@@ -56,13 +56,13 @@ bswap64(uint64_t x)
 
 #ifdef WORDS_BIGENDIAN
 
-#define htobe32(x)		(x)
-#define htobe64(x)		(x)
+#define sc_htobe32(x)		(x)
+#define sc_htobe64(x)		(x)
 
 #else
 
-#define htobe32(x)		bswap32(x)
-#define htobe64(x)		bswap64(x)
+#define sc_htobe32(x)		bswap32(x)
+#define sc_htobe64(x)		bswap64(x)
 
 #endif							/* WORDS_BIGENDIAN */
 
