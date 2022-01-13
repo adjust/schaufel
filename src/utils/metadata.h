@@ -2,6 +2,9 @@
 #define _SCHAUFEL_UTILS_METADATA_H
 
 #include <stdint.h>
+#ifdef HAVE_CONFIG_H
+#include "../config.h"
+#endif
 
 #define MAXELEM 8
 
