@@ -69,8 +69,6 @@ case "${CFLAGS}" in
         ;;
 esac
 AC_CHECK_FUNC(strdup,,AC_MSG_ERROR([can't find strdup!]))
-#todo: remove gnu extension asprintf
-AC_CHECK_FUNC(asprintf,,AC_MSG_ERROR([can't find asprintf!]))
 AC_CHECK_FUNC(getline,,AC_MSG_ERROR([can't find getline!]))
 #todo: remove gnu extension h*_r
 AC_CHECK_FUNC(hcreate_r,,AC_MSG_ERROR([can't find hcreate_r!]))
