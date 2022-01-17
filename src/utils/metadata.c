@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include <stdlib.h>
 #include <errno.h>
 #include <stdbool.h>

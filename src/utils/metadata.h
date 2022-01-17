@@ -1,10 +1,8 @@
 #ifndef _SCHAUFEL_UTILS_METADATA_H
 #define _SCHAUFEL_UTILS_METADATA_H
 
+#include "schaufel.h"
 #include <stdint.h>
-#ifdef HAVE_CONFIG_H
-#include "../config.h"
-#endif
 
 #define MAXELEM 8
 
