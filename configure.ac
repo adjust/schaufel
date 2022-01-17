@@ -32,6 +32,28 @@ AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 
 ############################################################
+# Check required system headers
+############################################################
+AC_CHECK_HEADERS([assert.h],,AC_MSG_ERROR([pthread.h is required!]))
+AC_CHECK_HEADERS([ctype.h],,AC_MSG_ERROR([ctype.h is required!]))
+AC_CHECK_HEADERS([errno.h],,AC_MSG_ERROR([errno.h is required!]))
+AC_CHECK_HEADERS([fcntl.h],,AC_MSG_ERROR([fcntl.h is required!]))
+AC_CHECK_HEADERS([regex.h],,AC_MSG_ERROR([regex.h is required!]))
+AC_CHECK_HEADERS([search.h],,AC_MSG_ERROR([search.h is required!]))
+AC_CHECK_HEADERS([signal.h],,AC_MSG_ERROR([signal.h is required!]))
+AC_CHECK_HEADERS([stdarg.h],,AC_MSG_ERROR([stdarg.h is required!]))
+AC_CHECK_HEADERS([stdatomic.h],,AC_MSG_ERROR([stdatomic.h is required!]))
+AC_CHECK_HEADERS([stdbool.h],,AC_MSG_ERROR([stdbool.h is required!]))
+AC_CHECK_HEADERS([stddef.h],,AC_MSG_ERROR([stddef.h is required!]))
+#Todo: move all stdint.h includes to schaufel.h
+AC_CHECK_HEADERS([stdint.h],,AC_MSG_ERROR([stdint.h is required!]))
+AC_CHECK_HEADERS([stdlib.h],,AC_MSG_ERROR([stdlib.h is required!]))
+AC_CHECK_HEADERS([string.h],,AC_MSG_ERROR([string.h is required!]))
+AC_CHECK_HEADERS([syslog.h],,AC_MSG_ERROR([syslog.h is required!]))
+AC_CHECK_HEADERS([time.h],,AC_MSG_ERROR([time.h is required!]))
+AC_CHECK_HEADERS([unistd.h],,AC_MSG_ERROR([unistd.h is required!]))
+
+############################################################
 # Check required C functions
 ############################################################
 AC_FUNC_MALLOC #todo: replace malloc with CALLOC everywhere
@@ -40,7 +62,10 @@ AC_CHECK_FUNC(strdup,,AC_MSG_ERROR([can't find strdup!]))
 #todo: remove gnu extension asprintf
 AC_CHECK_FUNC(asprintf,,AC_MSG_ERROR([can't find asprintf!]))
 AC_CHECK_FUNC(getline,,AC_MSG_ERROR([can't find getline!]))
-
+#todo: remove gnu extension h*_r
+AC_CHECK_FUNC(hcreate_r,,AC_MSG_ERROR([can't find hcreate_r!]))
+AC_CHECK_FUNC(hsearch_r,,AC_MSG_ERROR([can't find hsearch_r!]))
+AC_CHECK_FUNC(hdestroy_r,,AC_MSG_ERROR([can't find hdestroy_r!]))
 
 ############################################################
 # Check libpthread
