@@ -1,18 +1,24 @@
 AC_PREREQ([2.60])
 AC_INIT([schaufel], [0.11], [ops@adjust.com], [https://github.com/adjust/schaufel])
-AM_INIT_AUTOMAKE([-Wall subdir-objects])
+AM_INIT_AUTOMAKE([subdir-objects])
 
 ############################################################
 # Check for C compiler
 ############################################################
+AC_USE_SYSTEM_EXTENSIONS()
 AC_PROG_CC
+AX_CHECK_COMPILE_FLAG([-std=c11],,
+    AC_MSG_ERROR([Schaufel requires C11 (compiles with C99 but unsupported)])
+)
+AX_APPEND_FLAG("-std=c11", CFLAGS)
+AX_CHECK_COMPILE_FLAG([-Wall],AX_APPEND_FLAG("-Wall", CFLAGS),)
+AX_CHECK_COMPILE_FLAG([-Wextra],AX_APPEND_FLAG("-Wextra", CFLAGS),)
+AX_CHECK_COMPILE_FLAG([-Wpedantic],AX_APPEND_FLAG("-Wpedantic", CFLAGS),)
 
 ############################################################
 # build config.h
 ############################################################
-AC_CONFIG_HEADERS([config.h])
-# todo: remove. hash_r functions require gnu source atm
-AC_DEFINE([_GNU_SOURCE], 1, [Enable _GNU_SOURCE])
+AC_CONFIG_HEADERS([src/schaufel_config.h])
 # Features for questionable systems
 AC_HEADER_STDBOOL
 AC_C_INLINE
@@ -24,6 +30,17 @@ AC_TYPE_INT32_T
 AC_TYPE_INT64_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
+
+############################################################
+# Check required C functions
+############################################################
+AC_FUNC_MALLOC #todo: replace malloc with CALLOC everywhere
+AC_FUNC_REALLOC
+AC_CHECK_FUNC(strdup,,AC_MSG_ERROR([can't find strdup!]))
+#todo: remove gnu extension asprintf
+AC_CHECK_FUNC(asprintf,,AC_MSG_ERROR([can't find asprintf!]))
+AC_CHECK_FUNC(getline,,AC_MSG_ERROR([can't find getline!]))
+
 
 ############################################################
 # Check libpthread
@@ -88,6 +105,28 @@ AC_RUN_IFELSE([
     [
         AC_MSG_RESULT([no])
         AC_MSG_ERROR([libconfig needs to be at least version 1.7!])
+    ]
+)
+
+############################################################
+# Check libjson-c
+############################################################
+AC_CHECK_HEADERS([json-c/json.h],,AC_MSG_ERROR([json.h is required!]))
+LIBS="$LIBS -ljson-c"
+
+AC_MSG_CHECKING([libjson-c >= 0.14])
+AC_RUN_IFELSE([
+    AC_LANG_PROGRAM(
+        [#include <json-c/json.h>],
+        [
+            if (json_c_version_num() < (0<<16 | 14<<8))
+                return 1;
+        ]
+    )],
+    [AC_MSG_RESULT([yes])],
+    [
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([json-c needs to be at least version 0.14!])
     ]
 )
 

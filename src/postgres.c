@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include <assert.h>
 #include <libpq-fe.h>
 #include <pthread.h>

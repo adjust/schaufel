@@ -6,4 +6,4 @@ schaufel_SOURCES = \
 	utils/array.c utils/fnv.c utils/metadata.c utils/strlwr.c utils/bintree.c \
 	utils/helper.c utils/postgres.c utils/config.c utils/logger.c utils/scalloc.c
 
-schaufel_LDFLAGS = -lconfig -lhiredis -lpq -lrdkafka -ljson-c
+schaufel_LDFLAGS = @LIBS@
