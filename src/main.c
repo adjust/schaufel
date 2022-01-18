@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>

@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifdef HAVE_CONFIG_H
-#include "../config.h"
+#include "schaufel_config.h"
 
 /* implementation of uint32 bswap32(uint32) */
 #if defined(HAVE__BUILTIN_BSWAP32)
