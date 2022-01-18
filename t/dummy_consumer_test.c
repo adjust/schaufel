@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include <stdio.h>
 #include <string.h>
 

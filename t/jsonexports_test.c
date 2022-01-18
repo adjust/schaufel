@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include <arpa/inet.h>
 #include "test/test.h"
 #include "hooks/jsonexport.h"

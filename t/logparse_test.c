@@ -1,3 +1,4 @@
+#include "schaufel.h"
 #include "test/test.h"
 #include "utils/config.h"
 
