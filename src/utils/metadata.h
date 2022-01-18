@@ -1,7 +1,7 @@
 #ifndef _SCHAUFEL_UTILS_METADATA_H
 #define _SCHAUFEL_UTILS_METADATA_H
 
-#include "schaufel.h"
+#include "../schaufel.h"
 #include <stdint.h>
 
 #define MAXELEM 8
