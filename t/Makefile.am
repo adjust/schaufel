@@ -4,8 +4,9 @@ check_PROGRAMS = dummy_consumer_test jsonexports_test parse_hostinfo array \
 		fnv_test metadata_test config_test hooks_test parse_connstring
 TESTS = $(check_PROGRAMS)
 
-common_sources = $(top_builddir)/src/utils/config.c $(top_builddir)/src/queue.c $(top_builddir)/src/consumer.c $(top_builddir)/src/producer.c $(top_builddir)/src/hooks.c $(top_builddir)/src/validator.c $(top_builddir)/src/utils/logger.c $(top_builddir)/src/utils/scalloc.c $(top_builddir)/src/hooks/dummy.c $(top_builddir)/src/hooks/xmark.c $(top_builddir)/src/hooks/jsonexport.c $(top_builddir)/src/utils/metadata.c $(top_builddir)/src/utils/fnv.c $(top_builddir)/src/utils/bintree.c $(top_builddir)/src/file.c $(top_builddir)/src/exports.c $(top_builddir)/src/postgres.c $(top_builddir)/src/redis.c $(top_builddir)/src/kafka.c $(top_builddir)/src/utils/helper.c $(top_builddir)/src/utils/array.c $(top_builddir)/src/utils/postgres.c $(top_builddir)/src/dummy.c $(top_builddir)/src/utils/strlwr.c
+test : check-am
 
+common_sources = $(top_builddir)/src/utils/config.c $(top_builddir)/src/queue.c $(top_builddir)/src/consumer.c $(top_builddir)/src/producer.c $(top_builddir)/src/hooks.c $(top_builddir)/src/validator.c $(top_builddir)/src/utils/logger.c $(top_builddir)/src/utils/scalloc.c $(top_builddir)/src/hooks/dummy.c $(top_builddir)/src/hooks/xmark.c $(top_builddir)/src/hooks/jsonexport.c $(top_builddir)/src/utils/metadata.c $(top_builddir)/src/utils/fnv.c $(top_builddir)/src/utils/bintree.c $(top_builddir)/src/file.c $(top_builddir)/src/exports.c $(top_builddir)/src/postgres.c $(top_builddir)/src/redis.c $(top_builddir)/src/kafka.c $(top_builddir)/src/utils/helper.c $(top_builddir)/src/utils/array.c $(top_builddir)/src/utils/postgres.c $(top_builddir)/src/dummy.c $(top_builddir)/src/utils/strlwr.c
 
 dummy_consumer_test_SOURCES = $(common_sources) dummy_consumer_test.c
 dummy_producer_test_SOURCES = $(common_sources) jsonexports_test.c
