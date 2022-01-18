@@ -23,6 +23,7 @@ AC_CONFIG_HEADERS([src/schaufel_config.h])
 AC_HEADER_STDBOOL
 AC_C_INLINE
 AC_C_CONST
+AC_C_VOLATILE       # not having volatile will possibly drop messages
 AC_TYPE_UINT8_T
 AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
@@ -54,7 +55,7 @@ AC_CHECK_HEADERS([time.h],,AC_MSG_ERROR([time.h is required!]))
 AC_CHECK_HEADERS([unistd.h],,AC_MSG_ERROR([unistd.h is required!]))
 
 ############################################################
-# Check required C functions
+# Check required C functionality
 ############################################################
 AC_FUNC_MALLOC #todo: replace malloc with CALLOC everywhere
 AC_FUNC_REALLOC
@@ -66,6 +67,28 @@ AC_CHECK_FUNC(getline,,AC_MSG_ERROR([can't find getline!]))
 AC_CHECK_FUNC(hcreate_r,,AC_MSG_ERROR([can't find hcreate_r!]))
 AC_CHECK_FUNC(hsearch_r,,AC_MSG_ERROR([can't find hsearch_r!]))
 AC_CHECK_FUNC(hdestroy_r,,AC_MSG_ERROR([can't find hdestroy_r!]))
+
+# atomic support
+
+AC_LINK_IFELSE([
+    AC_LANG_PROGRAM(
+        [#include <stdatomic.h>
+         #include <stdbool.h>],
+        [
+            #ifdef __STDC_NO_ATOMICS__
+                #error c11 atomics are not supported
+            #else
+            static volatile atomic_bool produce_state = ATOMIC_VAR_INIT(true);
+            return 0;
+            #endif
+        ]
+    )],
+    [AC_MSG_RESULT([yes])],
+    [
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([C compiler doesn't support c11 atomics!])
+    ]
+)
 
 ############################################################
 # Check libpthread
