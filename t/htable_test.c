@@ -120,6 +120,7 @@ int main()
 		);
 
 	run_test(&htable_data);
+    htable_free_items(&htable_data);
 
 	return 0;
 }
