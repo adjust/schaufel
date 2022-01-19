@@ -48,6 +48,19 @@ to remove all gnuisms. It does compile with libmusl.
     a libc that supports hcreate_r/tdestroy
 
 ### Building
+#### Makefile based build
+    make
+    make install
 
-      make
-      make install
+#### Autotools based build
+    autoreconf -fi
+    ./configure
+    make
+
+# Tests #
+    * make test
+        run testsuite (do not run in parallel if using old Makefile)
+    * scripts/debug.sh
+        run testsuite with Werror and debug symbols
+    * scripts/sanitize.sh
+        run sanitizer and valgrind testsuite
