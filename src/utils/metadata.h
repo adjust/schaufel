@@ -2,7 +2,9 @@
 #define _SCHAUFEL_UTILS_METADATA_H
 
 #include "../schaufel.h"
+#include "utils/htable.h"
 #include <stdint.h>
+
 
 #define MAXELEM 8
 
@@ -12,16 +14,27 @@ typedef enum {
     MTYPE_BIGINT
 } MTypes;
 
+/*
+typedef struct
+{
+	HTableNode node;
+	char expression[128];
+	int value;
+} ExpressionTableNodeData;
+*/
+
 typedef struct mdatum {
-    void    *value;
-    uint64_t len;
-    MTypes   type;
+    HTableNode node;
+    char      *key;
+    void      *value;
+    uint64_t   len;
+    MTypes     type;
 } *MDatum;
 
 typedef struct Metadata {
-    MDatum *mdata;
-    uint8_t nel;
-    struct hsearch_data *htab;
+//    MDatum *mdata;
+//    uint8_t nel;
+    HTable *htab;
 } *Metadata;
 
 MDatum metadata_find(Metadata *m, char *key);

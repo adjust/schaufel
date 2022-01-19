@@ -1,12 +1,14 @@
 check_PROGRAMS = dummy_consumer_test jsonexports_test parse_hostinfo array \
 		dummy_producer_test logger_test queue_test bintree_test \
 		file_consumer_test logparse_test strlwr_test config_merge_test \
-		fnv_test metadata_test config_test hooks_test parse_connstring
+		fnv_test metadata_test config_test hooks_test parse_connstring \
+		htable_test
+
 TESTS = $(check_PROGRAMS)
 
 test : check-am
 
-common_sources = $(top_builddir)/src/utils/config.c $(top_builddir)/src/queue.c $(top_builddir)/src/consumer.c $(top_builddir)/src/producer.c $(top_builddir)/src/hooks.c $(top_builddir)/src/validator.c $(top_builddir)/src/utils/logger.c $(top_builddir)/src/utils/scalloc.c $(top_builddir)/src/hooks/dummy.c $(top_builddir)/src/hooks/xmark.c $(top_builddir)/src/hooks/jsonexport.c $(top_builddir)/src/utils/metadata.c $(top_builddir)/src/utils/fnv.c $(top_builddir)/src/utils/bintree.c $(top_builddir)/src/file.c $(top_builddir)/src/exports.c $(top_builddir)/src/postgres.c $(top_builddir)/src/redis.c $(top_builddir)/src/kafka.c $(top_builddir)/src/utils/helper.c $(top_builddir)/src/utils/array.c $(top_builddir)/src/utils/postgres.c $(top_builddir)/src/dummy.c $(top_builddir)/src/utils/strlwr.c
+common_sources = $(top_builddir)/src/utils/config.c $(top_builddir)/src/queue.c $(top_builddir)/src/consumer.c $(top_builddir)/src/producer.c $(top_builddir)/src/hooks.c $(top_builddir)/src/validator.c $(top_builddir)/src/utils/logger.c $(top_builddir)/src/utils/scalloc.c $(top_builddir)/src/hooks/dummy.c $(top_builddir)/src/hooks/xmark.c $(top_builddir)/src/hooks/jsonexport.c $(top_builddir)/src/utils/metadata.c $(top_builddir)/src/utils/fnv.c $(top_builddir)/src/utils/bintree.c $(top_builddir)/src/file.c $(top_builddir)/src/exports.c $(top_builddir)/src/postgres.c $(top_builddir)/src/redis.c $(top_builddir)/src/kafka.c $(top_builddir)/src/utils/helper.c $(top_builddir)/src/utils/array.c $(top_builddir)/src/utils/postgres.c $(top_builddir)/src/dummy.c $(top_builddir)/src/utils/strlwr.c $(top_builddir)/src/utils/htable.c
 
 dummy_consumer_test_SOURCES = $(common_sources) dummy_consumer_test.c
 dummy_producer_test_SOURCES = $(common_sources) jsonexports_test.c
@@ -25,3 +27,4 @@ fnv_test_SOURCES = $(common_sources) fnv_test.c
 metadata_test_SOURCES = $(common_sources) metadata_test.c
 hooks_test_SOURCES = $(common_sources) hooks_test.c
 parse_connstring_SOURCES = $(common_sources) parse_connstring.c
+htable_test_SOURCES = $(common_sources) htable_test.c

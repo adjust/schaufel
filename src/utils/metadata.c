@@ -2,26 +2,64 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "utils/metadata.h"
 #include "utils/scalloc.h"
 
-#include <search.h>
-
 /* todo: hsearch_r (etc.pp.) are GNUisms
  * we should be able to fall back to a standalone implementation
  * or use bintrees */
+
+void mdatum_free(HTableNode *, void *);
+MDatum mdatum_init(MTypes type, void *value, uint64_t len);
+
+static void*
+alloc_func(size_t size, void *arg)
+{
+    return SCALLOC(1,size);
+}
+
+static bool
+keyeq_func(const HTableNode* a_, const HTableNode* b_, void *arg)
+{
+    MDatum a = (MDatum)a_;
+    MDatum b = (MDatum)b_;
+    return (strcmp(a->key, b->key) == 0);
+}
+
+static uint32_t
+hash_func(const HTableNode *a_, void *arg)
+{
+    MDatum a = (MDatum)a_;
+    return htable_default_hash(a->key, sizeof(a->key));
+}
+
+static void
+free_func(void* mem, void *arg)
+{
+    free(mem);
+}
 
 static inline Metadata
 _metadata_init()
 {
     Metadata m = SCALLOC(1,sizeof(*m));
 
-    m->mdata = SCALLOC(8,sizeof(*(m->mdata)));
+    // next line makes no sense anylonger
+//    m->mdata = SCALLOC(8,sizeof(*(m->mdata)));
     m->htab = SCALLOC(1,sizeof(*(m->htab)));
 
-    if(!hcreate_r(MAXELEM,(m->htab)))
-        abort(); // todo: assert?
+    htable_create(
+            m->htab,
+            sizeof(struct mdatum),
+            hash_func,
+            keyeq_func,
+            alloc_func,
+            free_func,
+            mdatum_free,
+            NULL
+    );
 
     return m;
 }
@@ -34,16 +72,15 @@ MDatum
 metadata_find(Metadata *md, char *key)
 {
     Metadata m = *md;
-    ENTRY e, *ret;
-    e.key = key;
 
     if(m == NULL)
         return NULL;
+    struct mdatum query;
+    query.key = key;
+    MDatum ret = (MDatum) htable_find(m->htab, (HTableNode *) &query);
+    if(!ret) return NULL;
 
-    if(hsearch_r(e,FIND,&ret,m->htab) == 0)
-        return NULL;
-
-    return (MDatum) ret->data;
+    return ret;
 }
 
 /*
@@ -61,6 +98,20 @@ mdatum_init(MTypes type, void *value, uint64_t len)
 }
 
 /*
+ * mdatum_free
+ *      free metadatum
+ */
+void
+mdatum_free(HTableNode* n, void *arg)
+{
+    MDatum m = (MDatum) n;
+
+    if(m->type == MTYPE_STRING)
+        free(m->value);
+    return;
+}
+
+/*
  * metadata_insert
  *      insert key/value into metadata
  *      initialise metadata if it doesn't yet exist
@@ -70,8 +121,6 @@ MDatum
 metadata_insert(Metadata *md, char *key, MDatum value)
 {
     Metadata m = *md;
-    ENTRY e, *retval;
-
     if(value == NULL)
         goto error;
 
@@ -79,19 +128,16 @@ metadata_insert(Metadata *md, char *key, MDatum value)
         m = _metadata_init();
         *md = m;
     }
-    else if ((m->nel)+1 > MAXELEM)
-        goto error;
+    bool isNewNode;
+    value->key = key;
+    htable_insert(m->htab, (HTableNode *) value, &isNewNode);
+    MDatum ret = (MDatum) htable_find(m->htab, (HTableNode *) value);
+    free(value);
 
-    e.key = key;
-    e.data = (void *) value;
+    // key already exists
+    if (!isNewNode) goto error;
 
-    if((hsearch_r(e,ENTER,&retval,m->htab))== 0)
-        goto error;
-
-    *((m->mdata)+m->nel) = value;
-    m->nel++;
-
-    return (MDatum) retval->data;
+    return ret;
     error:
     return NULL;
 }
@@ -104,16 +150,7 @@ metadata_free(Metadata *md)
     Metadata m = *md;
     if(m == NULL)
         return;
-
-    for(uint8_t i=0; i < m->nel; i++)
-    {
-        MDatum mdatum = *((m->mdata)+i);
-        free(mdatum->value);
-        free(mdatum);
-    }
-
-    free(m->mdata);
-    hdestroy_r(m->htab);
+    htable_free_items(m->htab);
     free(m->htab);
     free(m);
 
