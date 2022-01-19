@@ -66,4 +66,8 @@ stamp-h1
 .deps
 .dirstamp
 /src/schaufel_config.h
-
+*.trs
+*.log
+src/schaufel
+/t/*
+!/t/*.c
