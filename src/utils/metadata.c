@@ -56,7 +56,7 @@ static uint32_t
 _hash_func(const HTableNode *a_, UNUSED void *arg)
 {
     MDatum a = (MDatum)a_;
-    return htable_default_hash(a->key, sizeof(a->key));
+    return htable_default_hash(a->key, strlen(a->key));
 }
 
 /*
