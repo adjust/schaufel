@@ -22,8 +22,7 @@ mdatum_free(HTableNode* n, UNUSED void *arg)
 {
     MDatum m = (MDatum) n;
 
-    if(m->type == MTYPE_STRING)
-        free(m->value);
+    free(m->value);
     return;
 }
 
