@@ -38,3 +38,32 @@
 bin/
 *.swp
 log/
+
+# testsuite
+sample/dummy_log
+
+# autotools
+/config.h
+*.in
+*.in~
+*.ac~
+/aclocal.m4
+/autom4te.cache
+/config.guess
+/config.log
+/config.status
+/config.sub
+Makefile
+Makefile.in
+/INSTALL
+/configure*
+/compile
+/depcomp
+/install-sh
+/missing
+stamp-h1
+/test-driver
+.deps
+.dirstamp
+/src/schaufel_config.h
+
