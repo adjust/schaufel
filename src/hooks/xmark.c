@@ -33,7 +33,7 @@ bool h_xmark(Context ctx, Message msg)
             goto fallback;
         }
 
-        uint32_t xmark = i->fold(i->hash(md->value,(md->len-1)));
+        uint32_t xmark = i->fold(i->hash((md->value).value,(md->len-1)));
         message_set_xmark(msg,xmark);
     } else {
         message_set_xmark(msg,i->xmark);

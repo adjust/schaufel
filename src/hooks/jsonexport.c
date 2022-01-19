@@ -594,8 +594,9 @@ h_jsonexport(Context ctx, Message msg)
         }
         // metadata can only be true if result is true
         if(needles[i]->metadata) {
-            char *res = SCALLOC(1,(needles[i]->length)+1);
-            memcpy(res, needles[i]->result, needles[i]->length);
+            Datum res;
+            res.string = SCALLOC(1,(needles[i]->length)+1);
+            memcpy(res.string, needles[i]->result, needles[i]->length);
             MDatum datum =
                 mdatum_init(MTYPE_STRING,res,(needles[i]->length)+1);
             metadata_insert(md,"jpointer",datum);

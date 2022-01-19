@@ -44,7 +44,7 @@ int main()
     Metadata *md = message_get_metadata(msg);
     MDatum m = metadata_find(md,"jpointer");
     pretty_assert(m->type == MTYPE_STRING);
-    pretty_assert(strncmp((char *) m->value,"argh",4) == 0);
+    pretty_assert(strncmp(m->value.string,"argh",4) == 0);
 
     char *data = message_get_data(msg);
     // we should insert three rows here

@@ -22,7 +22,13 @@ mdatum_free(HTableNode* n, UNUSED void *arg)
 {
     MDatum m = (MDatum) n;
 
-    free(m->value);
+    // todo: is it good to run callbacks on free?
+    if(m->type == MTYPE_FUNC)
+    {
+        bool (*func)(void) = (m->value).func;
+        (void) func();
+    }
+    free((m->value).ptr);
     return;
 }
 
@@ -116,7 +122,7 @@ metadata_find(Metadata *md, char *key)
  *      initialise metadata value
  */
 MDatum
-mdatum_init(MTypes type, void *value, uint64_t len)
+mdatum_init(MTypes type, Datum value, uint64_t len)
 {
     MDatum datum = SCALLOC(1,sizeof(*datum));
     datum->type = type;

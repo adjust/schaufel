@@ -10,25 +10,34 @@ int main()
 {
     Metadata meta = NULL;
     MDatum res = NULL;
-    uint32_t *num = calloc(1,sizeof(*num));
-    *num = 0xffff;
+    Datum num;
+    num.value = calloc(1,sizeof(num.value));
+    *num.value = 0xffff;
 
-    MDatum md1 = mdatum_init(MTYPE_STRING,strdup("hurz"),strlen("hurz"));
+    Datum d;
+    d.string = strdup("hurz");
+    MDatum md1 = mdatum_init(MTYPE_STRING,d,strlen("hurz"));
     res = metadata_insert(&meta,"1",md1);
     pretty_assert(res != NULL);
     if (res == NULL) goto error;
-    pretty_assert(strncmp(res->value,"hurz",4) == 0);
-    MDatum md2 = mdatum_init(MTYPE_STRING,strdup("huch"),strlen("huch"));
+    pretty_assert(strncmp((res->value).string,"hurz",4) == 0);
+
+    d.string = strdup("huch");
+    MDatum md2 = mdatum_init(MTYPE_STRING,d,strlen("huch"));
     metadata_insert(&meta,"2",md2);
-    MDatum md3 = mdatum_init(MTYPE_STRING,strdup("moep"),strlen("moep"));
+    d.string = strdup("moep");
+    MDatum md3 = mdatum_init(MTYPE_STRING,d,strlen("moep"));
     metadata_insert(&meta,"3",md3);
-    MDatum md4 = mdatum_init(MTYPE_STRING,strdup("argh"),strlen("argh"));
+    d.string = strdup("argh");
+    MDatum md4 = mdatum_init(MTYPE_STRING,d,strlen("argh"));
     metadata_insert(&meta,"4",md4);
-    MDatum md5 = mdatum_init(MTYPE_STRING,strdup("blah"),strlen("blah"));
+    d.string = strdup("blah");
+    MDatum md5 = mdatum_init(MTYPE_STRING,d,strlen("blah"));
     metadata_insert(&meta,"5",md5);
-    MDatum md6 = mdatum_init(MTYPE_STRING,strdup("blub"),strlen("blub"));
+    d.string = strdup("blub");
+    MDatum md6 = mdatum_init(MTYPE_STRING,d,strlen("blub"));
     metadata_insert(&meta,"6",md6);
-    MDatum md7 = mdatum_init(MTYPE_INT,num,sizeof(*num));
+    MDatum md7 = mdatum_init(MTYPE_INT,num,sizeof(*num.value));
     metadata_insert(&meta,"7",md7);
 
     /*
@@ -45,13 +54,13 @@ int main()
     pretty_assert(res != NULL);
     if (res == NULL) goto error;
     pretty_assert(res->type == MTYPE_INT);
-    pretty_assert((*(uint32_t *)(res->value)) == 0xffff);
+    pretty_assert(*(res->value).value == 0xffff);
 
     // Find string
     res = metadata_find(&meta,"4");
     pretty_assert(res != NULL);
     pretty_assert(res->type == MTYPE_STRING);
-    pretty_assert(strncmp(res->value,"argh",4) == 0);
+    pretty_assert(strncmp((res->value).string,"argh",4) == 0);
 
     error:
     metadata_free(&meta);
