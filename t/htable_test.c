@@ -4,8 +4,9 @@
 #include <unistd.h>
 #include "test/test.h"
 #include "utils/htable.h"
+#include "utils/helper.h"
 
-#define N 100
+#define N 10
 
 typedef struct
 {
@@ -17,7 +18,7 @@ typedef struct
 typedef ExpressionTableNodeData *ExpressionTableNode;
 
 static bool
-keyeq_func(const HTableNode* a_, const HTableNode* b_, void *arg)
+keyeq_func(const HTableNode* a_, const HTableNode* b_, UNUSED void *arg)
 {
     ExpressionTableNode a = (ExpressionTableNode)a_;
     ExpressionTableNode b = (ExpressionTableNode)b_;
@@ -25,20 +26,20 @@ keyeq_func(const HTableNode* a_, const HTableNode* b_, void *arg)
 }
 
 static uint32_t
-hash_func(const HTableNode* a_, void *arg)
+hash_func(const HTableNode* a_, UNUSED void *arg)
 {
     ExpressionTableNode a = (ExpressionTableNode)a_;
     return htable_default_hash(a->expression, strlen(a->expression));
 }
 
 static void*
-alloc_func(size_t size, void *arg)
+alloc_func(size_t size, UNUSED void *arg)
 {
     return malloc(size);
 }
 
 static void
-free_func(void* mem, void *arg)
+free_func(void* mem, UNUSED void *arg)
 {
     free(mem);
 }
@@ -105,7 +106,6 @@ run_test(HTable* htable)
 
 int main()
 {
-    int i;
     HTable htable_data;
 
     htable_create(
@@ -120,6 +120,7 @@ int main()
         );
 
     run_test(&htable_data);
+    /* Todo: there shouldn't be any item remaining */
     htable_free_items(&htable_data);
 
     return 0;
