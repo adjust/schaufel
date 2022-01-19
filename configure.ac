@@ -57,8 +57,16 @@ AC_CHECK_HEADERS([unistd.h],,AC_MSG_ERROR([unistd.h is required!]))
 ############################################################
 # Check required C functionality
 ############################################################
-AC_FUNC_MALLOC #todo: replace malloc with CALLOC everywhere
-AC_FUNC_REALLOC
+# asan replaces malloc/realloc, making tests fail
+case "${CFLAGS}" in
+    *-fsanitize=address*)
+        AC_MSG_NOTICE([asan compilation detected. Skipping malloc/realloc test!])
+        ;;
+    *)
+        AC_FUNC_MALLOC #todo: replace malloc with CALLOC everywhere
+        AC_FUNC_REALLOC
+        ;;
+esac
 AC_CHECK_FUNC(strdup,,AC_MSG_ERROR([can't find strdup!]))
 #todo: remove gnu extension asprintf
 AC_CHECK_FUNC(asprintf,,AC_MSG_ERROR([can't find asprintf!]))
@@ -68,8 +76,8 @@ AC_CHECK_FUNC(hcreate_r,,AC_MSG_ERROR([can't find hcreate_r!]))
 AC_CHECK_FUNC(hsearch_r,,AC_MSG_ERROR([can't find hsearch_r!]))
 AC_CHECK_FUNC(hdestroy_r,,AC_MSG_ERROR([can't find hdestroy_r!]))
 
-# atomic support
-
+# c11 atomics support
+AC_MSG_CHECKING([c11 atomics support])
 AC_LINK_IFELSE([
     AC_LANG_PROGRAM(
         [#include <stdatomic.h>
