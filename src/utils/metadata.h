@@ -14,15 +14,6 @@ typedef enum {
     MTYPE_BIGINT
 } MTypes;
 
-/*
-typedef struct
-{
-	HTableNode node;
-	char expression[128];
-	int value;
-} ExpressionTableNodeData;
-*/
-
 typedef struct mdatum {
     HTableNode node;
     char      *key;
@@ -31,11 +22,8 @@ typedef struct mdatum {
     MTypes     type;
 } *MDatum;
 
-typedef struct Metadata {
-//    MDatum *mdata;
-//    uint8_t nel;
-    HTable *htab;
-} *Metadata;
+/* alias htable pointer as Metadata */
+typedef struct HTable *Metadata;
 
 MDatum metadata_find(Metadata *m, char *key);
 MDatum metadata_insert(Metadata *m, char *key, MDatum datum);

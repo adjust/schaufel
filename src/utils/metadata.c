@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "helper.h"
 #include "utils/metadata.h"
 #include "utils/scalloc.h"
 
@@ -11,57 +12,85 @@
  * we should be able to fall back to a standalone implementation
  * or use bintrees */
 
-void mdatum_free(HTableNode *, void *);
-MDatum mdatum_init(MTypes type, void *value, uint64_t len);
+/*
+ * mdatum_free
+ *      free metadatum
+ *      required as free function for hashtable
+ */
+void
+mdatum_free(HTableNode* n, UNUSED void *arg)
+{
+    MDatum m = (MDatum) n;
 
+    if(m->type == MTYPE_STRING)
+        free(m->value);
+    return;
+}
+
+/*
+ * _alloc_func
+ *      allocate internal copy of hashtable entry
+ */
 static void*
-alloc_func(size_t size, void *arg)
+_alloc_func(size_t size, UNUSED void *arg)
 {
     return SCALLOC(1,size);
 }
 
+/*
+ * _keyeq_func
+ *      hashtable function to prove key equality
+ */
 static bool
-keyeq_func(const HTableNode* a_, const HTableNode* b_, void *arg)
+_keyeq_func(const HTableNode* a_, const HTableNode* b_, UNUSED void *arg)
 {
     MDatum a = (MDatum)a_;
     MDatum b = (MDatum)b_;
     return (strcmp(a->key, b->key) == 0);
 }
 
+/*
+ * _hash_func
+ *      define what key to hash on
+ */
 static uint32_t
-hash_func(const HTableNode *a_, void *arg)
+_hash_func(const HTableNode *a_, UNUSED void *arg)
 {
     MDatum a = (MDatum)a_;
     return htable_default_hash(a->key, sizeof(a->key));
 }
 
+/*
+ * _free_func
+ *      free internal copy of metadatum in hashtable
+ */
 static void
-free_func(void* mem, void *arg)
+_free_func(void* mem, UNUSED void *arg)
 {
     free(mem);
 }
 
+/*
+ * _metadata_init
+ *      initialize hashtable
+ */
+
 static inline Metadata
 _metadata_init()
 {
-    Metadata m = SCALLOC(1,sizeof(*m));
-
-    // next line makes no sense anylonger
-//    m->mdata = SCALLOC(8,sizeof(*(m->mdata)));
-    m->htab = SCALLOC(1,sizeof(*(m->htab)));
-
+    HTable *m = SCALLOC(1,sizeof(*m));
     htable_create(
-            m->htab,
+            m,
             sizeof(struct mdatum),
-            hash_func,
-            keyeq_func,
-            alloc_func,
-            free_func,
+            _hash_func,
+            _keyeq_func,
+            _alloc_func,
+            _free_func,
             mdatum_free,
             NULL
     );
 
-    return m;
+    return (Metadata) m;
 }
 
 /*
@@ -77,7 +106,7 @@ metadata_find(Metadata *md, char *key)
         return NULL;
     struct mdatum query;
     query.key = key;
-    MDatum ret = (MDatum) htable_find(m->htab, (HTableNode *) &query);
+    MDatum ret = (MDatum) htable_find((HTable *) m, (HTableNode *) &query);
     if(!ret) return NULL;
 
     return ret;
@@ -97,19 +126,6 @@ mdatum_init(MTypes type, void *value, uint64_t len)
     return datum;
 }
 
-/*
- * mdatum_free
- *      free metadatum
- */
-void
-mdatum_free(HTableNode* n, void *arg)
-{
-    MDatum m = (MDatum) n;
-
-    if(m->type == MTYPE_STRING)
-        free(m->value);
-    return;
-}
 
 /*
  * metadata_insert
@@ -130,8 +146,10 @@ metadata_insert(Metadata *md, char *key, MDatum value)
     }
     bool isNewNode;
     value->key = key;
-    htable_insert(m->htab, (HTableNode *) value, &isNewNode);
-    MDatum ret = (MDatum) htable_find(m->htab, (HTableNode *) value);
+    htable_insert((HTable *) m, (HTableNode *) value, &isNewNode);
+    MDatum ret = (MDatum) htable_find((HTable *)m, (HTableNode *) value);
+
+    // the hashtable creates an internal copy of MDatum
     free(value);
 
     // key already exists
@@ -142,6 +160,10 @@ metadata_insert(Metadata *md, char *key, MDatum value)
     return NULL;
 }
 
+/*
+ * metadata_free
+ *      destroy hashtable
+ */
 void
 metadata_free(Metadata *md)
 {
@@ -150,8 +172,7 @@ metadata_free(Metadata *md)
     Metadata m = *md;
     if(m == NULL)
         return;
-    htable_free_items(m->htab);
-    free(m->htab);
+    htable_free_items((HTable *)m);
     free(m);
 
     md = NULL;
