@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdatomic.h>
