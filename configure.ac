@@ -1,4 +1,5 @@
-AC_PREREQ([2.60])
+AC_PREREQ([2.62])
+AC_CONFIG_MACRO_DIR(m4)
 AC_INIT([schaufel], [0.11], [ops@adjust.com], [https://github.com/adjust/schaufel])
 AM_INIT_AUTOMAKE([subdir-objects])
 
@@ -234,7 +235,14 @@ AC_RUN_IFELSE([
 ############################################################
 # Check libpq
 ############################################################
+# get postgresqls server includedir from pg_config
+AX_PG_CONFIG()
+CFLAGS="$CFLAGS $POSTGRESQL_CFLAGS"
+# stupid hack for the preprocessor header check (uses CPPFLAGS)
+CPPFLAGS_SAFE="$CPPFLAGS"
+CPPFLAGS="$CFLAGS"
 AC_CHECK_HEADERS([libpq-fe.h],,AC_MSG_ERROR([libpq-fe.h is required!]))
+CPPFLAGS="$CPPFLAGS_SAFE"
 LIBS="$LIBS -lpq"
 
 AC_MSG_CHECKING([lipq-fe >= 9.6])
