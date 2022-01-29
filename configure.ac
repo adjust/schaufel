@@ -145,7 +145,7 @@ LIBS="$safeLIBS"
 AC_CHECK_HEADERS([libconfig.h],,AC_MSG_ERROR([libconfig.h is required!]))
 AC_CHECK_LIB([config],config_init,,AC_MSG_ERROR([libconfig is required!]))
 
-AC_MSG_CHECKING([libconfig version >= 1.7])
+AC_MSG_CHECKING([libconfig version >= 1.5])
 AC_RUN_IFELSE([
     AC_LANG_PROGRAM(
         [#include <libconfig.h>],
@@ -153,7 +153,7 @@ AC_RUN_IFELSE([
             #if LIBCONFIG_VER_MAJOR < 1
             return 1;
             #endif
-            #if (LIBCONFIG_VER_MAJOR == 1 && LIBCONFIG_VER_MINOR < 7)
+            #if (LIBCONFIG_VER_MAJOR == 1 && LIBCONFIG_VER_MINOR < 5)
             return 1;
             #endif
         ]
@@ -161,7 +161,7 @@ AC_RUN_IFELSE([
     [AC_MSG_RESULT([yes])],
     [
         AC_MSG_RESULT([no])
-        AC_MSG_ERROR([libconfig needs to be at least version 1.7!])
+        AC_MSG_ERROR([libconfig needs to be at least version 1.5!])
     ]
 )
 
@@ -171,19 +171,19 @@ AC_RUN_IFELSE([
 AC_CHECK_HEADERS([json-c/json.h],,AC_MSG_ERROR([json.h is required!]))
 LIBS="$LIBS -ljson-c"
 
-AC_MSG_CHECKING([libjson-c >= 0.14])
+AC_MSG_CHECKING([libjson-c >= 0.13])
 AC_RUN_IFELSE([
     AC_LANG_PROGRAM(
         [#include <json-c/json.h>],
         [
-            if (json_c_version_num() < (0<<16 | 14<<8))
+            if (json_c_version_num() < (0<<16 | 13<<8))
                 return 1;
         ]
     )],
     [AC_MSG_RESULT([yes])],
     [
         AC_MSG_RESULT([no])
-        AC_MSG_ERROR([json-c needs to be at least version 0.14!])
+        AC_MSG_ERROR([json-c needs to be at least version 0.13!])
     ]
 )
 
@@ -193,19 +193,19 @@ AC_RUN_IFELSE([
 AC_CHECK_HEADERS([librdkafka/rdkafka.h],,AC_MSG_ERROR([librdfkafka.h is required!]))
 LIBS="$LIBS -lrdkafka"
 
-AC_MSG_CHECKING([librdkafka version >= 1.6])
+AC_MSG_CHECKING([librdkafka version >= 1.2.1])
 AC_RUN_IFELSE([
     AC_LANG_PROGRAM(
         [#include <librdkafka/rdkafka.h>],
         [
-            if (rd_kafka_version() < 0x010600ff)
+            if (rd_kafka_version() < 0x010201ff)
                 return 1;
         ]
     )],
     [AC_MSG_RESULT([yes])],
     [
         AC_MSG_RESULT([no])
-        AC_MSG_ERROR([librdkafka needs to be at least version 1.6!])
+        AC_MSG_ERROR([librdkafka needs to be at least version 1.2.1!])
     ]
 )
 
