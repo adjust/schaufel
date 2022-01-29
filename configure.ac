@@ -215,12 +215,12 @@ AC_RUN_IFELSE([
 AC_CHECK_HEADERS([hiredis/hiredis.h],,AC_MSG_ERROR([hiredis.h is required!]))
 AC_CHECK_LIB([hiredis],redisConnect,,AC_MSG_ERROR([libhiredis is required!]))
 
-AC_MSG_CHECKING([libhiredis version >= 0.14])
+AC_MSG_CHECKING([libhiredis version >= 0.13])
 AC_RUN_IFELSE([
     AC_LANG_PROGRAM(
         [#include <hiredis/hiredis.h>],
         [
-            #if (HIREDIS_MAJOR == 0 && HIREDIS_MINOR < 14)
+            #if (HIREDIS_MAJOR == 0 && HIREDIS_MINOR < 13)
             return 1;
             #endif
         ]
@@ -228,7 +228,7 @@ AC_RUN_IFELSE([
     [AC_MSG_RESULT([yes])],
     [
         AC_MSG_RESULT([no])
-        AC_MSG_ERROR([libhiredis needs to be at least version 0.14!])
+        AC_MSG_ERROR([libhiredis needs to be at least version 0.13!])
     ]
 )
 
