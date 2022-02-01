@@ -9,7 +9,11 @@
 /* implementation of uint32 bswap32(uint32) */
 #if defined(HAVE__BUILTIN_BSWAP32)
 
+/* BSD expects bswap32 to be defined with _BSD_SOURCE
+ * in sys/types.h and glibc copies that behaviour */
+#ifndef bswap32
 #define bswap32(x) __builtin_bswap32(x)
+#endif
 
 /* If we ever do CMAKE, we can have these just in case */
 #elif defined(_MSC_VER)
@@ -33,7 +37,11 @@ bswap32(uint32_t x)
 /* implementation of uint64 bswap64(uint64) */
 #if defined(HAVE__BUILTIN_BSWAP64)
 
+/* BSD expects bswap64 to be defined with _BSD_SOURCE
+ * in sys/types.h and glibc copies that behaviour */
+#ifndef bswap64
 #define bswap64(x) __builtin_bswap64(x)
+#endif
 
 /* If we ever do CMAKE, we can have these just in case */
 #elif defined(_MSC_VER)
