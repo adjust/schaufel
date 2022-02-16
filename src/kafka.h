@@ -18,6 +18,7 @@ Consumer kafka_consumer_init(config_setting_t *config);
 void kafka_consumer_free(Consumer *c);
 
 int kafka_consumer_consume(Consumer c, Message msg);
+int kafka_simple_consumer_consume(Consumer c, Message msg);
 
 Validator kafka_validator_init();
 
