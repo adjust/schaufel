@@ -645,7 +645,18 @@ kafka_validator(config_setting_t *config)
         goto error;
 
     /*  grammar of kafka names:
-     *  ^([[:alpha:]._-]+)(:([0-9]+(-[0-9]+)?,?)+)?$
+     *  ^(
+     *      [[:alpha:]._-]+
+     *   )
+     *   (:
+     *      ((
+     *          [0-9]+
+     *          (
+     *              -[0-9]+
+     *          )?,
+     *       ?)+)
+     *   )?
+     *  $
      *  kafka takes an alphanumeric string with .-_
      *  optionally, we can specify partion numbers after :
      *  e.g.
@@ -653,7 +664,7 @@ kafka_validator(config_setting_t *config)
      */
 
     res = regcomp(&top_par,
-        "^([[:alnum:]._-]+)(:([0-9]+(-[0-9]+)?,?))+)?$", REG_EXTENDED);
+        "^([[:alnum:]._-]+)(:(([0-9]+(-[0-9]+)?,?)+))?$", REG_EXTENDED);
 
     if(res)
     {
