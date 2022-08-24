@@ -2,7 +2,7 @@ check_PROGRAMS = dummy_consumer_test jsonexports_test parse_hostinfo array \
 		dummy_producer_test logger_test queue_test bintree_test \
 		file_consumer_test logparse_test strlwr_test config_merge_test \
 		fnv_test metadata_test config_test hooks_test parse_connstring \
-		htable_test
+		htable_test kafka_validator
 
 TESTS = $(check_PROGRAMS)
 
@@ -28,3 +28,4 @@ metadata_test_SOURCES = $(common_sources) metadata_test.c
 hooks_test_SOURCES = $(common_sources) hooks_test.c
 parse_connstring_SOURCES = $(common_sources) parse_connstring.c
 htable_test_SOURCES = $(common_sources) htable_test.c
+kafka_validator_SOURCES = $(common_sources) kafka_validator.c
