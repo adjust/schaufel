@@ -1,0 +1,59 @@
+name: Test Schaufel
+
+# Run this workflow every time a new commit pushed to your repository
+on:
+  push:
+    #branches: '**'
+    #branches-ignore: 'main'
+
+  pull_request:
+    #branches: '**'
+    #branches-ignore: 'main'
+
+  workflow_dispatch:
+
+
+defaults:
+  run:
+    shell: bash
+
+
+jobs:
+  pr-test:
+    name: Test Schaufel
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # also test 'latest', eventually this will be upgraded to a newer version and might fail early
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-latest]
+        #os: [ubuntu-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Versions
+        run: echo "${{ matrix.os }}"
+
+      # install build tools
+      - name: Install build-essential and other tools
+        run: sudo apt-get install -y build-essential ruby curl ca-certificates gnupg clang
+
+      # install dependencies
+      - name: Install Deps
+        run: sudo apt-get install libhiredis-dev librdkafka-dev libconfig-dev libjson-c-dev
+
+      # do the actual compilation
+      - name: Configure
+        run: autoreconf --force -i && ./configure
+
+      - name: Run testsuite
+        run: make test
+
+      - name: Make
+        run: make
+
+      # install schaufel
+      - name: Install Schaufel
+        run: sudo make install
+
