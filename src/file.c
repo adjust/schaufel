@@ -90,12 +90,24 @@ file_consumer_consume(Consumer c, Message msg)
     char   *line = NULL;
     size_t  bufsize = 0;
     ssize_t read;
+    int8_t err = errno;
+    errno = 0;
     if ((read = getline(&line, &bufsize, ((Meta) c->meta)->fp)) == -1)
     {
-        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+        /* if a line buffer was allocated, it needs freeing.
+         * If it was not allocated, it is NULL and therefore save
+         * to free */
+        free(line);
+
+        /* We have reached EOF */
+        if(!(errno == EINVAL || errno == ENOMEM))
+            logger_log("%s %d: reached EOF", __FILE__, __LINE__);
+        else
+            logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+
         return -1;
     }
-
+    errno = err;
     message_set_data(msg, line);
     message_set_len(msg, (size_t) read);
     return 0;
