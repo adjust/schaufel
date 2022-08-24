@@ -70,10 +70,6 @@ case "${CFLAGS}" in
 esac
 AC_CHECK_FUNC(strdup,,AC_MSG_ERROR([can't find strdup!]))
 AC_CHECK_FUNC(getline,,AC_MSG_ERROR([can't find getline!]))
-#todo: remove gnu extension h*_r
-AC_CHECK_FUNC(hcreate_r,,AC_MSG_ERROR([can't find hcreate_r!]))
-AC_CHECK_FUNC(hsearch_r,,AC_MSG_ERROR([can't find hsearch_r!]))
-AC_CHECK_FUNC(hdestroy_r,,AC_MSG_ERROR([can't find hdestroy_r!]))
 
 # c11 atomics support
 AC_MSG_CHECKING([c11 atomics support])
