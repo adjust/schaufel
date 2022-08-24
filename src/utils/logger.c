@@ -260,7 +260,12 @@ void logger_free()
         return;
     if(logger.free)
         logger.free();
-    close(logger.fd);
+    /* Do not close stdout/stderr. These are useful for tools
+     * like asan/lsan/msan. If these are closed, then exit handlers
+     * can not display errors, leading to exits with failures without
+     * errors displayed! */
+    if(!(logger.fd == fileno(stdout) || logger.fd == fileno(stderr)))
+        close(logger.fd);
     log_buffer[0] = '\0';
     logger.fd = -1;
 }
