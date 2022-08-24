@@ -57,3 +57,18 @@ jobs:
       - name: Install Schaufel
         run: sudo make install
 
+      # run lib asan schaufel test
+      - name: Configure Clang ASAN
+        run: make clean && CC=clang LDFLAGS='-fsanitize=address -fno-omit-frame-pointer' CFLAGS='-Og -fsanitize=address -fno-omit-frame-pointer' ./configure
+
+      - name: Run testsuite with ASAN
+        run: make test
+
+      - name: Make schaufel with ASAN
+        run: make
+
+      - name: Run simple schaufel test
+        run: src/schaufel -c 1 -i f -p 1 -o f -f src/main.c -F main.c
+
+      - name: test output
+        run: diff -q src/main.c main.c
