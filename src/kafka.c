@@ -766,6 +766,7 @@ kafka_validator(config_setting_t *config)
                 regfree(&par);
                 goto error;
             }
+            regfree(&par);
         }
         else if(config_setting_type(partitions) == CONFIG_TYPE_INT)
         {
