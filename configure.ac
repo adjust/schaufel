@@ -13,6 +13,10 @@ case $host_os in
     # happens at each compile step because autotools appends
     # -L/usr/local/lib to each command, not only at linking
     AX_APPEND_FLAG("-Wno-unused-command-line-argument",CFLAGS)
+    # implicitly add /usr/include, should config.guess not
+    # do the right thing
+    AX_APPEND_FLAG("-I/usr/local/include",CFLAGS)
+    AX_APPEND_FLAG("-L/usr/local/lib",LDFLAGS)
     ;;
 esac
 
