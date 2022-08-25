@@ -19,8 +19,8 @@ defaults:
 
 
 jobs:
-  pr-test:
-    name: Test Schaufel
+  pr-test-ubuntu:
+    name: Test Schaufel on Ubuntu
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -41,7 +41,7 @@ jobs:
 
       # install dependencies
       - name: Install Deps
-        run: sudo apt-get install libhiredis-dev librdkafka-dev libconfig-dev libjson-c-dev
+        run: sudo apt-get install libhiredis-dev librdkafka-dev libconfig-dev libjson-c-dev libpq-dev
 
       # do the actual compilation
       - name: Configure
@@ -72,3 +72,27 @@ jobs:
 
       - name: test output
         run: diff -q src/main.c main.c
+  pr-test-freebsd:
+    name: Test Schaufel on FreeBSD
+    runs-on: macos-12
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run FreeBSD test
+        id: test
+        uses: vmactions/freebsd-vm@v0
+        with:
+          usesh: true
+          prepare: |
+            # install dependencies
+            pkg install -y autotools librdkafka hiredis json-c postgresql14-client libconfig
+
+          run: |
+            autoreconf --force -i
+            ./configure
+            make test
+            make
+            make install
+            src/schaufel -c 1 -i f -p 1 -o f -f src/main.c -F main.c
+            diff -q src/main.c main.c
