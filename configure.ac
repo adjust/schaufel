@@ -4,6 +4,19 @@ AC_INIT([schaufel], [0.11], [ops@adjust.com], [https://github.com/adjust/schaufe
 AM_INIT_AUTOMAKE([subdir-objects])
 
 ############################################################
+# Handle host specific features
+############################################################
+AC_CANONICAL_HOST
+case $host_os in
+*bsd*)
+    # pkg installs into /usr/local. Therefore a warning
+    # happens at each compile step because autotools appends
+    # -L/usr/local/lib to each command, not only at linking
+    AX_APPEND_FLAG("-Wno-unused-command-line-argument",CFLAGS)
+    ;;
+esac
+
+#`###########################################################
 # Check for C compiler
 ############################################################
 AC_USE_SYSTEM_EXTENSIONS()
