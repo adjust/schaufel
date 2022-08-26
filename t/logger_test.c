@@ -40,6 +40,7 @@ int main()
     logger = _config_init(&root);
     logger_parse("./schaufel_logtest2",logger);
     pretty_assert(logger_validate(logger) == true);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger = config_lookup(&root,"logger");
     printf("%s %d: here", __FILE__, __LINE__);
     logger_init(logger);

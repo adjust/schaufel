@@ -119,7 +119,7 @@ jobs:
         run: autoreconf --force -i && ./configure
 
       - name: Run testsuite
-        run: VERBOSE=1 make test 2>&1
+        run: VERBOSE=1 make test 2>&1 || cat t/logger_test.log
 
       - name: Make
         run: make
