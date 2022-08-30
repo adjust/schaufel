@@ -10,6 +10,59 @@
 #include "utils/logger.h"
 #include "utils/scalloc.h"
 
+/*
+ *  this function is meant as a callback
+ *  for metadata based transactions
+ */
+static bool consumer_commit_offset(Message msg)
+{
+    rd_kafka_message_t *rkm;
+    rd_kafka_resp_err_t resp_err;
+
+    Metadata *md = message_get_metadata(msg);
+    MDatum rk_message = metadata_find(md, "rk_message");
+    if(!rk_message)
+    {
+        logger_log("%s %d: FATAL transactional message but no "
+            "rdkafka envelope", __FILE__, __LINE__);
+        abort();
+    }
+
+    /* nothing left to do here */
+    if(rk_message == NULL || rk_message->type != MTYPE_OPAQUE)
+        goto error;
+
+    rkm = (rd_kafka_message_t *) rk_message->value.ptr;
+    resp_err = rd_kafka_offset_store(rkm->rkt, rkm->partition, rkm->offset);
+
+    /* bail out to not store any later offsets */
+    if(resp_err)
+    {
+        logger_log("%s %d: FATAL failed to store offsets: %s",
+            __FILE__, __LINE__, rd_kafka_err2str(resp_err));
+        abort();
+    }
+
+    rd_kafka_message_destroy(rkm);
+    rk_message->value.ptr = NULL;
+    // we never owned this pointer in the first place
+    // rkm owned message data, give it up
+    message_set_data(msg, NULL);
+
+    return true;
+
+    error:
+    return false;
+}
+
+typedef struct Meta {
+    rd_kafka_t *rk;
+    rd_kafka_topic_t *rkt;
+    rd_kafka_conf_t *conf;
+    rd_kafka_topic_partition_list_t *topics;
+    rd_kafka_queue_t *rkqu;
+    int transactional;
+} *Meta;
 
 static void
 dr_msg_cb (UNUSED rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque)
@@ -238,14 +291,6 @@ static void kafka_consumer_defaults(config_setting_t *c)
     config_set_default_string(c, "topic_options/auto_offset_reset", "latest");
 }
 
-typedef struct Meta {
-    rd_kafka_t *rk;
-    rd_kafka_topic_t *rkt;
-    rd_kafka_conf_t *conf;
-    rd_kafka_topic_partition_list_t *topics;
-    rd_kafka_queue_t *rkqu;
-} *Meta;
-
 Meta
 kafka_producer_meta_init(const char *broker,
                          const char *topic,
@@ -306,7 +351,8 @@ kafka_consumer_meta_init(const char *broker,
                          const int32_t *partarray,
                          const char *groupid,
                          const config_setting_t *kafka_options,
-                         const config_setting_t *topic_options)
+                         const config_setting_t *topic_options,
+                         int transactional)
 {
     Meta m = SCALLOC(1, sizeof(*m));
     char errstr[512];
@@ -388,6 +434,7 @@ kafka_consumer_meta_init(const char *broker,
     m->conf = conf;
     m->topics = topics;
     m->rkqu = rkqu;
+    m->transactional = transactional;
     return m;
 }
 
@@ -409,7 +456,8 @@ kafka_consumer_meta_free(Meta *m)
     rd_kafka_topic_partition_list_destroy((*m)->topics);
     rd_kafka_topic_destroy((*m)->rkt);
     rd_kafka_destroy((*m)->rk);
-    rd_kafka_queue_destroy((*m)->rkqu);
+    if((*m)->rkqu)
+        rd_kafka_queue_destroy((*m)->rkqu);
     free(*m);
     *m = NULL;
 }
@@ -486,8 +534,10 @@ Consumer
 kafka_consumer_init(config_setting_t *config)
 {
     const char *broker = NULL, *topic = NULL, *groupid = NULL;
-    config_setting_t *kafka_options, *topic_options, *kpart = NULL;
+    int transactional = 0;
+    config_setting_t *kafka_options, *topic_options, *kpart;
     int32_t *partarray = NULL;
+
     kafka_consumer_defaults(config);
 
     config_setting_lookup_string(config, "broker", &broker);
@@ -495,7 +545,9 @@ kafka_consumer_init(config_setting_t *config)
     config_setting_lookup_string(config, "groupid", &groupid);
 
     if((kpart = config_setting_lookup(config, "partitions")))
-        partarray = explode_partitions(config_setting_get_string(kpart)); 
+        partarray = explode_partitions(config_setting_get_string(kpart));
+
+    config_setting_lookup_bool(config, "transactional", &transactional);
 
     kafka_options = config_setting_get_member(config, "kafka_options");
     topic_options = config_setting_get_member(config, "topic_options");
@@ -504,10 +556,14 @@ kafka_consumer_init(config_setting_t *config)
 
     kafka->meta = kafka_consumer_meta_init(broker, topic, partarray, groupid,
                                            kafka_options,
-                                           topic_options);
+                                           topic_options,
+                                           transactional
+                                           );
     kafka->consumer_free = kafka_consumer_free;
-    if(groupid)
+    if(groupid && !transactional)
         kafka->consume = kafka_consumer_consume;
+    else if (transactional)
+        kafka->consume = kafka_transactional_consumer_consume;
     else
         kafka->consume = kafka_simple_consumer_consume;
 
@@ -575,6 +631,73 @@ kafka_simple_consumer_consume(Consumer c, Message msg)
 }
 
 int
+kafka_transactional_consumer_consume(Consumer c, Message msg)
+{
+    rd_kafka_t *rk = ((Meta) c->meta)->rk;
+    rd_kafka_message_t *rkmessage;
+
+    rkmessage = rd_kafka_consumer_poll(rk, 10000);
+
+    if (!rkmessage)
+        return 0;
+
+    if (rkmessage->err)
+    {
+        switch(rkmessage->err)
+        {
+            case RD_KAFKA_RESP_ERR__PARTITION_EOF:
+                break;
+
+            case RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION:
+            case RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC:
+                _rkmessage_log(rkmessage);
+                abort();
+                break;
+
+            default:
+                _rkmessage_log(rkmessage);
+        }
+        rd_kafka_message_destroy(rkmessage);
+        return 0;
+    }
+
+    message_set_data(msg, rkmessage->payload);
+    message_set_len(msg, (size_t)rkmessage->len);
+
+    /* Provide callback functionality:
+     *  - callback function for commiting offsets
+     *  - rk_message * envelope for ocmmit offsets
+     */
+    Datum cb, rkm;
+    cb.func = &consumer_commit_offset;
+    rkm.ptr = rkmessage;
+
+    Metadata *md = message_get_metadata(msg);
+
+    MDatum rk_callback = mdatum_init(MTYPE_FUNC,
+        cb, sizeof(void *));
+    if(!rk_callback)
+    {
+        logger_log("%s %d: Failed to alloc!",
+            __FILE__, __LINE__);
+        abort();
+    }
+    metadata_insert(md,"callback", rk_callback);
+
+    MDatum rk_message = mdatum_init(MTYPE_OPAQUE,
+        rkm, sizeof(void *));
+    if(!rk_message)
+    {
+        logger_log("%s %d: Failed to alloc!",
+            __FILE__, __LINE__);
+        abort();
+    }
+    metadata_insert(md,"rk_message", rk_message);
+
+    return 0;
+}
+
+int
 kafka_consumer_consume(Consumer c, Message msg)
 {
     rd_kafka_t *rk = ((Meta) c->meta)->rk;
@@ -635,6 +758,7 @@ kafka_validator(config_setting_t *config)
         return false;
     result = NULL;
 
+    // todo: this is a bug, causes segfault if topic doesn't exist
     if(config_setting_type(config_setting_lookup(config, "topic")) ==
         CONFIG_TYPE_LIST)
     {
@@ -673,6 +797,7 @@ kafka_validator(config_setting_t *config)
         fprintf(stderr, "%s %d: compiling kafka topic/partition regex failed: %s\n",
             __FILE__, __LINE__, buf);
 
+        regfree(&top_par);
         goto error;
     }
 
@@ -681,10 +806,11 @@ kafka_validator(config_setting_t *config)
     {
         fprintf(stderr, "%s %d: %s isn't a kafka topic/partition name\n",
             __FILE__, __LINE__, result);
-            goto error;
+
+        regfree(&top_par);
+        goto error;
     }
     regfree(&top_par);
-
     // we have found a partition specifier
     if(pmatch[2].rm_so > 0)
     {
@@ -734,8 +860,6 @@ kafka_validator(config_setting_t *config)
             }
             config_setting_set_string(auto_commit, "false");
         }
-
-
     }
 
     config_setting_t *partitions = NULL;
@@ -802,26 +926,47 @@ kafka_validator(config_setting_t *config)
     return true;
 
     error:
-    regfree(&top_par);
     return false;
 }
 
 bool
 kafka_producer_validator(config_setting_t *config)
 {
+    int int_val = 0;
+    const char *val = NULL;
+    bool res =  config_setting_lookup_bool(config,"transactional", &int_val);
+
+    if (res == CONFIG_TRUE && int_val)
+    {
+        fprintf(stderr, "%s %d: Transactional producer detected\n"
+            "Setting enable.idempotence=true\n", __FILE__, __LINE__);
+
+        config_setting_t *rkopts
+            = config_create_path(config, "kafka_options", CONFIG_TYPE_GROUP);
+        config_set_default_string(rkopts, "enable_idempotence", "true");
+
+        res = config_setting_lookup_string(config, "kafka_opts/transactional_id",
+            &val);
+
+        if(res)
+        {
+            fprintf(stderr, "%s %d: No support for transactional.id!\n",
+                __FILE__, __LINE__);
+            goto err;
+        }
+    }
+
     return kafka_validator(config);
+
+    err:
+    return false;
 }
 
 bool
 kafka_consumer_validator(config_setting_t *config)
 {
     const char *groupid = NULL;
-    /*
-    if(!CONF_L_IS_STRING(config, "groupid", &groupid,
-        "kafka: consumer needs a group!"))
-        return false;
-    */
-    if(config_setting_lookup_string(config, "groupid", &groupid) != CONFIG_TRUE)
+    if (config_setting_lookup_string(config, "groupid", &groupid) != CONFIG_TRUE)
     {
         fprintf(stderr, "%s %d: Warning: No groupid found. Disabling"
             " high level consumer!\n", __FILE__, __LINE__);
@@ -829,7 +974,31 @@ kafka_consumer_validator(config_setting_t *config)
             "false");
     }
 
+    int value = 0;
+    bool res = config_setting_lookup_bool(config, "transactional", &value);
+    if (res == CONFIG_TRUE && value)
+    {
+        if(!groupid)
+        {
+            fprintf(stderr, "%s %d: transactional consumer but no group!\n",
+                __FILE__, __LINE__);
+            goto err;
+        }
+
+        fprintf(stderr, "%s %d: Transactional consumer detected. "
+            "Setting enable.auto.offset.store=false\n", __FILE__, __LINE__);
+
+        config_setting_t *rkopts
+            = config_create_path(config, "kafka_options", CONFIG_TYPE_GROUP);
+        config_set_default_string(rkopts, "enable_auto_offset_store", "false");
+        // this should be user supplied
+        // config_set_default_string(rkopts, "isolation_level", "read_committed");
+    }
+
     return kafka_validator(config);
+    err:
+
+    return false;
 }
 
 Validator

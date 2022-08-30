@@ -23,13 +23,25 @@ mdatum_free(HTableNode* n, UNUSED void *arg)
     MDatum m = (MDatum) n;
 
     // todo: is it good to run callbacks on free?
-    if(m->type == MTYPE_FUNC)
-    {
-        bool (*func)(void) = (m->value).func;
-        (void) func();
-    }
-    free((m->value).ptr);
+    if(m->type != MTYPE_FUNC)
+        free(m->value.ptr);
+    else // disown function pointer
+        m->value.func = NULL;
     return;
+}
+
+
+bool
+metadata_callback_run(Metadata *md, Message msg)
+{
+    MDatum m = metadata_find(md, "callback");
+    if(m == NULL) return true;
+
+    // This should throw an error
+    if(m->type != MTYPE_FUNC || m->value.func == NULL)
+        return false;
+
+    return m->value.func(msg);
 }
 
 /*

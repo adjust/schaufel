@@ -196,6 +196,9 @@ produce(void *config)
                 continue;
             //TODO: check success
             producer_produce(p, msg);
+            // run callbacks
+            Metadata *m = message_get_metadata(msg);
+            metadata_callback_run(m,msg);
             //message was handled: free it
             free(message_get_data(msg));
             message_set_data(msg, NULL);

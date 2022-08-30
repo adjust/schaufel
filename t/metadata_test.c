@@ -3,8 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "queue.h"
 #include "test/test.h"
 #include "utils/metadata.h"
+
+bool callback(Message msg)
+{
+    if(msg == NULL)
+        return false;
+    return true;
+}
 
 int main()
 {
@@ -15,6 +23,11 @@ int main()
     *num.value = 0xffff;
 
     Datum d;
+    d.func = &callback;
+    MDatum md0 = mdatum_init(MTYPE_FUNC,d,sizeof(d.func));
+    res = metadata_insert(&meta,"callback",md0);
+    pretty_assert(res != NULL);
+
     d.string = strdup("hurz");
     MDatum md1 = mdatum_init(MTYPE_STRING,d,strlen("hurz"));
     res = metadata_insert(&meta,"1",md1);
@@ -61,6 +74,15 @@ int main()
     pretty_assert(res != NULL);
     pretty_assert(res->type == MTYPE_STRING);
     pretty_assert(strncmp((res->value).string,"argh",4) == 0);
+
+    res = metadata_find(&meta,"callback");
+    pretty_assert(res != NULL);
+    if (res == NULL) goto error;
+    pretty_assert(res->type == MTYPE_FUNC);
+    Message msg = message_init();
+    pretty_assert(res->value.func(msg) == true);
+    pretty_assert(metadata_callback_run(&meta,msg) == true);
+    message_free(&msg);
 
     error:
     metadata_free(&meta);
