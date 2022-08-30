@@ -1,0 +1,8 @@
+v0.11
+ - support for callbacks via metadata (transactional producers)
+ - full autoconf build system
+ - full endian.h portability
+ - full freebsd compatibility
+ - deprecated hash_r gnuism
+ - deprecated asprintf gnuism
+ - various smaller bugfixes
