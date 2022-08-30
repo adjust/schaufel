@@ -180,8 +180,39 @@ producers = (
             compression_codec = "zstd";
         };
     });
-
+.PP
 .RE
+Kafka supports a transactional producer and consumer. This only works on
+a single cluster though. Schaufel tries to implement the next best thing:
+idempotent production of messages and only commiting consumer offsets
+after they have been produced (at least once delivery with good guarantees).
+
+To enable these features, add \fBtransactional = true\fR to your rdkafka
+config:
+
+.RS
+.PP
+consumers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        topic = "schaufel_queue";
+        group = "schaufel_queue_1";
+        transactional = true;
+    });
+.PP
+producers = (
+    {
+        type = "kafka";
+        threads = 10;
+        broker = "kafka-1.host.name";
+        topic = "schaufel_new_queue";
+        transactional = true;
+    });
+.PP
+.RE
+
 .SS postgres
 The postgres producer can copy data into a table. The default format
 is \fIbagger\fR (copying to a predefined schema). Alternatively, the format
