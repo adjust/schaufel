@@ -25,34 +25,47 @@ int main()
 
     // test full file definition
     logger = _config_init(&root);
-    logger_parse("FILE:0644:/tmp/schaufel_logtest",logger);
+    logger_parse("FILE:0644:./schaufel_logtest",logger);
     pretty_assert(logger_validate(logger) == true);
     logger = config_lookup(&root,"logger");
     logger_init(logger);
     logger_log("testmessage file 1");
     // We can't actually compare mode because
     // umask might influence result
-    unlink("/tmp/schaufel_logtest");
+    unlink("./schaufel_logtest");
 
     logger_free();
 
     // test file
     logger = _config_init(&root);
-    logger_parse("/tmp/schaufel_logtest2",logger);
+    logger_parse("./schaufel_logtest2",logger);
     pretty_assert(logger_validate(logger) == true);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger = config_lookup(&root,"logger");
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_init(logger);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_log("testmessage file 2");
-    unlink("/tmp/schaufel_logtest2");
+    printf("%s %d: here", __FILE__, __LINE__);
+    unlink("./schaufel_logtest2");
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_free();
+    printf("%s %d: here", __FILE__, __LINE__);
 
     // stderr (not a test)
+    printf("%s %d: here", __FILE__, __LINE__);
     logger = _config_init(&root);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_parse("STDERR",logger);
+    printf("%s %d: here", __FILE__, __LINE__);
     pretty_assert(logger_validate(logger) == true);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger = config_lookup(&root,"logger");
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_init(logger);
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_log("testmessage stderr");
+    printf("%s %d: here", __FILE__, __LINE__);
     logger_free();
 
     // stdout (not a test)

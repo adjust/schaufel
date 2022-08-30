@@ -62,7 +62,7 @@ jobs:
         run: make clean && CC=clang LDFLAGS='-fsanitize=address -fno-omit-frame-pointer' CFLAGS='-Og -fsanitize=address -fno-omit-frame-pointer' ./configure
 
       - name: Run testsuite with ASAN
-        run: make test
+        run: VERBOSE=1 make test
 
       - name: Make schaufel with ASAN
         run: make
@@ -96,3 +96,40 @@ jobs:
             make install
             src/schaufel -c 1 -i f -p 1 -o f -f src/main.c -F main.c
             diff -q src/main.c main.c
+  pr-test-macosx:
+    name: Test Schaufel on MacOSX
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # also test 'latest', eventually this will be upgraded to a newer version and might fail early
+        os: [macos-11, macos-12, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Versions
+        run: echo "${{ matrix.os }}"
+
+      - name: Install Deps
+        run: brew install gcc autoconf automake libtool libconfig librdkafka hiredis libpq json-c
+
+      # do the actual compilation
+      - name: Configure
+        run: autoreconf --force -i && ./configure
+
+      - name: Run testsuite
+        run: make test
+
+      - name: Make
+        run: make
+
+      # install schaufel
+      - name: Install Schaufel
+        run: sudo make install
+
+      - name: Run simple schaufel test
+        run: src/schaufel -c 1 -i f -p 1 -o f -f src/main.c -F main.c
+
+      - name: test output
+        run: diff -q src/main.c main.c
