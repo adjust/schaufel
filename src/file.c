@@ -58,8 +58,14 @@ file_producer_produce(Producer p, Message msg)
 {
     char *line = message_get_data(msg);
     size_t len = message_get_len(msg);
+    size_t nmemb = sizeof(*line);
+    size_t ret;
 
-    fwrite(line, len, sizeof(*line),((Meta) p->meta)->fp);
+    ret = fwrite(line, len, nmemb, ((Meta) p->meta)->fp);
+    if (ret < nmemb) {
+        logger_log("%s %d: %s", __FILE__, __LINE__, strerror(errno));
+        abort();
+    }
 }
 
 void
