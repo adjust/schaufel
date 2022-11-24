@@ -133,6 +133,14 @@ file_validate(config_setting_t* config)
         return false;
     }
 
+    const char *fname = NULL;
+    config_setting_lookup_string(config, "file", &fname);
+
+    if (!fname || !*fname) {
+        fprintf(stderr, "file consumer/producer needs a valid filename!\n");
+        return false;
+    }
+
     return true;
 }
 
