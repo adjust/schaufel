@@ -26,6 +26,8 @@ typedef struct Meta {
     Internal        internal;
 } *Meta;
 
+void xPQputCopyData(PGconn *conn, const char *buffer, int nbytes);
+
 void commit(Meta *m);
 
 void *commit_worker(void *meta);

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -7,6 +8,39 @@
 #include "utils/logger.h"
 #include "utils/postgres.h"
 
+static void
+xPQputCopyEnd(PGconn *conn, const char *errmsg)
+{
+    if (PQputCopyEnd(conn, errmsg) == -1) {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(conn));
+        abort();
+    }
+
+    /*
+     * Note: Even when PQresultStatus indicates a fatal error, PQgetResult
+     * should be called until it returns a null pointer, to allow libpq to
+     * process the error information completely.
+     */
+    bool err = false;
+    for (PGresult *res = PQgetResult(conn); res != NULL; res = PQgetResult(conn)) {
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(conn));
+            err = true;
+        }
+        PQclear(res);
+    }
+    if (err)
+        abort();
+}
+
+void
+xPQputCopyData(PGconn *conn, const char *buffer, int nbytes)
+{
+    if (PQputCopyData(conn, buffer, nbytes) == -1) {
+        logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(conn));
+        abort();
+    }
+}
 
 void
 commit(Meta *m)
