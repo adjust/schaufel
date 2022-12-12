@@ -1,0 +1,11 @@
+/var/log/schaufel/*.log {
+	su schaufel schaufel
+	daily
+	rotate 7
+	dateext
+	copytruncate
+	compress
+	delaycompress
+	missingok
+	notifempty
+}

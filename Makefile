@@ -35,6 +35,13 @@ DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
 
 SCHAUFEL_VERSION ?= 0.11
 
+ARCH = $(shell uname -m)
+# OS_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="ID") print $$2}')
+# OS_VERSION_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_ID") print $$2}')
+CC_VERSION = $(shell $(CC) -dumpversion | awk -F. '{print $$1}')
+# PACKAGE_DEB_DIR = schaufel-$(SCHAUFEL_VERSION)-$(OS_ID)$(OS_VERSION_ID)-$(CC)$(CC_VERSION)-$(ARCH)
+PACKAGE_DEB_DIR = schaufel-$(SCHAUFEL_VERSION)-$(CC)$(CC_VERSION)-$(ARCH)
+
 all: release
 
 docs: $(DOCS)
@@ -47,7 +54,7 @@ release: before_release $(OBJ) out_release
 test: clean_release before_release $(OBJ_TEST) $(OBJ_BIN_TEST)
 
 before_release:
-	mkdir -p obj/utils obj/hooks bin
+	mkdir -p obj/utils obj/hooks bin $(PACKAGE_DEB_DIR)
 
 clean: clean_release
 
@@ -56,6 +63,7 @@ clean_release:
 	rm -rf bin
 	rm -rf $(OBJDIR)
 	rm -rf doc/*.pdf
+	rm -rf $(PACKAGE_DEB_DIR)
 
 out_release: $(OBJ)
 	$(LD) $(LIBDIR) $(OBJ) $(LIB) -o $(OUT)
@@ -73,3 +81,17 @@ install: all
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(DOCDIR) doc/*
 	$(INSTALL) -m 0644 man/schaufel.1 $(DESTDIR)$(MAN1DIR)/schaufel.1
 	$(INSTALL) -m 0644 man/schaufel.conf.5 $(DESTDIR)$(MAN5DIR)/schaufel.conf.5
+
+package-deb: all
+	$(INSTALL) bin/schaufel $(PACKAGE_DEB_DIR)$(DESTDIR)$(BINDIR)/schaufel
+	$(INSTALL) -m 0644 -t $(PACKAGE_DEB_DIR)$(DESTDIR)$(DOCDIR) doc/*
+	$(INSTALL) -m 0644 man/schaufel.1 $(PACKAGE_DEB_DIR)$(DESTDIR)$(MAN1DIR)/schaufel.1
+	$(INSTALL) -m 0644 man/schaufel.conf.5 $(PACKAGE_DEB_DIR)$(DESTDIR)$(MAN5DIR)/schaufel.conf.5
+
+	$(INSTALL) -m 0644 -t $(PACKAGE_DEB_DIR)/DEBIAN debian/*
+	$(INSTALL) -m 0775 debian/postinst $(PACKAGE_DEB_DIR)/DEBIAN/postinst
+	$(INSTALL) -m 0775 debian/rules $(PACKAGE_DEB_DIR)/DEBIAN/rules
+	$(INSTALL) -m 0644 ChangeLog $(PACKAGE_DEB_DIR)/DEBIAN/changelog
+	$(INSTALL) -m 0644 LICENSE $(PACKAGE_DEB_DIR)/DEBIAN/copyright
+	ln -s DEBIAN $(PACKAGE_DEB_DIR)/debian
+	cd $(PACKAGE_DEB_DIR) && dpkg-buildpackage --build=binary
