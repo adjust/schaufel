@@ -1,0 +1,79 @@
+---
+name: Build install package
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      # - github-actions-deb-package
+    tags:
+      - 'v[0-9]+(.[0-9]+)+'
+  # release:
+  #   types:
+  #     - published
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-deb-gcc:
+    name: Build (${{ matrix.os }}, ${{ matrix.cc }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-20.04
+          - ubuntu-22.04
+        cc:
+          - gcc
+          - clang
+        include:
+          - cc: gcc
+            LDFLAGS: ''
+            CFLAGS: '-O2'
+          - cc: clang
+            # # Disable ASan, incompatible w/ Valgrind test
+            # # https://github.com/google/sanitizers/issues/856#issuecomment-924966052
+            # LDFLAGS: '-fsanitize=address -fno-omit-frame-pointer'
+            # CFLAGS: '-Og -fsanitize=address -fno-omit-frame-pointer'
+            LDFLAGS: ''
+            CFLAGS: '-O2'
+    env:
+      CC: ${{ matrix.cc }}
+      LDFLAGS: ${{ matrix.LDFLAGS }}
+      CFLAGS: ${{ matrix.CFLAGS }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Install build-essential and tools
+        run: sudo apt-get install --assume-yes build-essential dpkg dh-autoreconf valgrind clang
+
+      - name: Install package dependencies
+        run: sudo apt-get install --assume-yes libconfig-dev libconfig++-dev libhiredis-dev libjson-c-dev libpq-dev librdkafka-dev
+
+      - name: Run testsuite
+        run: make test
+
+      - name: Compile and build bianry
+        run: make
+
+      - name: Build package
+        run: make package-deb
+      
+      - name: Upload package(s)
+        uses: actions/upload-artifact@v3
+        with:
+          name: Packages
+          path: schaufel-*.deb
+        
+      - name: Release package(s)
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: schaufel-*.deb
