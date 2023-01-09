@@ -9,13 +9,11 @@ After=network.target
 WorkingDirectory=/var/lib/schaufel
 User=schaufel
 Group=schaufel
-Environment=SCHAUFEL_CONFIG_FILE=/etc/schaufel/schaufel.conf
-Environment=SCHAUFEL_OPTS="-l /var/log/schaufel/schaufel.log"
 SyslogIdentifier=%p
 
 ## systemd.service
 Type=simple
-ExecStart=/usr/bin/schaufel ${SCHAUFEL_OPTS} -C ${SCHAUFEL_CONFIG_FILE}
+ExecStart=/usr/bin/schaufel -l /var/log/schaufel/%p.log -C /etc/schaufel/%p.conf
 Restart=no
 SuccessExitStatus=0
 TimeoutStopSec=1800
