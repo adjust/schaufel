@@ -1,0 +1,26 @@
+[Unit]
+Description=Schaufel
+Documentation=https://github.com/adjust/schaufel
+Requires=network.target
+After=network.target
+
+[Service]
+## systemd.exec
+WorkingDirectory=/var/lib/schaufel
+User=schaufel
+Group=schaufel
+SyslogIdentifier=%p
+
+## systemd.service
+Type=simple
+ExecStart=/usr/bin/schaufel -l /var/log/schaufel/%p.log -C /etc/schaufel/%p.conf
+Restart=no
+SuccessExitStatus=0
+TimeoutStopSec=1800
+
+## systemd.kill
+KillSignal=SIGTERM
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

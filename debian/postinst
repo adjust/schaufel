@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -e
+
+#DEBHELPER#
+
+PACKAGE_NAME="schaufel"
+PACKAGE_UID=997
+PACKAGE_USER="schaufel"
+PACKAGE_GID=997
+PACKAGE_GROUP="schaufel"
+CONF_DIR="/etc/${PACKAGE_NAME}"
+WORK_DIR="/var/lib/${PACKAGE_NAME}"
+LOG_DIR="/var/log/${PACKAGE_NAME}"
+
+## Create group if not exist
+if ! getent group | grep --quiet "^${PACKAGE_GROUP}:" ; then
+    echo -n "Adding system group ${PACKAGE_GROUP} .."
+    addgroup --quiet --system \
+        --gid ${PACKAGE_GID} \
+        ${PACKAGE_GROUP} 2>/dev/null || true
+    echo ".. done"
+fi
+
+## Create user if not exist
+if ! getent passwd | grep --quiet "^${PACKAGE_USER}:" ; then
+    echo -n "Adding system user ${PACKAGE_USER} .."
+    adduser --quiet --system \
+        --home /dev/null \
+        --shell /usr/sbin/nologin \
+        --no-create-home \
+        --uid ${PACKAGE_UID} \
+        --gecos "Shovel data around" \
+        --ingroup ${PACKAGE_GROUP} \
+        --disabled-password \
+        ${PACKAGE_USER} 2>/dev/null || true
+    echo ".. done"
+fi
+
+## Create other directories and files and adjsut permissions
+mkdir --parents --mode 0750 ${CONF_DIR} ${WORK_DIR} ${LOG_DIR}
+chown --recursive ${PACKAGE_USER}:${PACKAGE_GROUP} ${CONF_DIR} ${WORK_DIR} ${LOG_DIR}
