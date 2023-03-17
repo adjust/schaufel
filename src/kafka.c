@@ -491,31 +491,60 @@ void
 kafka_producer_produce(Producer p, Message msg)
 {
     char *buf = (char *) message_get_data(msg);
+    rd_kafka_headers_t *hdrs = (rd_kafka_headers_t *) message_get_headers(msg);
     size_t len = message_get_len(msg);
     rd_kafka_t *rk = ((Meta) p->meta)->rk;
     rd_kafka_topic_t *rkt = ((Meta)p->meta)->rkt;
 retry:
-    if (rd_kafka_produce(
-                rkt,
-                RD_KAFKA_PARTITION_UA,
-                RD_KAFKA_MSG_F_COPY,
-                buf, len,
-                NULL, 0,
+    if (hdrs) {
+        rd_kafka_headers_t *hdrs_copy = rd_kafka_headers_copy(hdrs);
+        if(rd_kafka_producev(
+                rk,
+                RD_KAFKA_V_RKT(rkt),
+                RD_KAFKA_V_PARTITION(RD_KAFKA_PARTITION_UA),
+                RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
+                RD_KAFKA_V_VALUE(buf, len),
+                RD_KAFKA_V_HEADERS(hdrs_copy),
                 NULL) == -1)
-    {
-        if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL)
         {
-            rd_kafka_poll(rk, 10*1000);
-            goto retry;
+            if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL)
+            {
+                rd_kafka_poll(rk, 10*1000);
+                goto retry;
+            }
+            else
+            {
+                logger_log(
+                    "%s %d Failed to produce to topic %s: %s\n",
+                    __FILE__, __LINE__,
+                    rd_kafka_topic_name(rkt),
+                    rd_kafka_err2str(rd_kafka_last_error())
+                );
+            }
         }
-        else
+    } else {
+        if (rd_kafka_produce(
+                    rkt,
+                    RD_KAFKA_PARTITION_UA,
+                    RD_KAFKA_MSG_F_COPY,
+                    buf, len,
+                    NULL, 0,
+                    NULL) == -1)
         {
-            logger_log(
-                "%s %d Failed to produce to topic %s: %s\n",
-                __FILE__, __LINE__,
-                rd_kafka_topic_name(rkt),
-                rd_kafka_err2str(rd_kafka_last_error())
-            );
+            if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL)
+            {
+                rd_kafka_poll(rk, 10*1000);
+                goto retry;
+            }
+            else
+            {
+                logger_log(
+                    "%s %d Failed to produce to topic %s: %s\n",
+                    __FILE__, __LINE__,
+                    rd_kafka_topic_name(rkt),
+                    rd_kafka_err2str(rd_kafka_last_error())
+                );
+            }
         }
     }
     rd_kafka_poll(rk, 0);
@@ -595,6 +624,7 @@ kafka_simple_consumer_consume(Consumer c, Message msg)
 {
     rd_kafka_queue_t *rkqu = ((Meta) c->meta)->rkqu;
     rd_kafka_message_t *rkmessage;
+    rd_kafka_headers_t *hdrs;
 
     rkmessage = rd_kafka_consume_queue(rkqu, 10000);
 
@@ -621,6 +651,15 @@ kafka_simple_consumer_consume(Consumer c, Message msg)
         return 0;
     }
 
+    // Here we don't detach the headers so the memory gets cleared when
+    // the message is destroyed.
+    if (!rd_kafka_message_headers(rkmessage, &hdrs)) {
+        if (hdrs){
+            rd_kafka_headers_t *hdrs_copy = rd_kafka_headers_copy(hdrs);
+            message_set_headers(msg, hdrs_copy);
+        }
+    }
+
     char *cpy = SCALLOC((int)rkmessage->len + 1, sizeof(*cpy));
     memcpy(cpy, (char *)rkmessage->payload, (size_t)rkmessage->len);
     message_set_data(msg, cpy);
@@ -635,6 +674,7 @@ kafka_transactional_consumer_consume(Consumer c, Message msg)
 {
     rd_kafka_t *rk = ((Meta) c->meta)->rk;
     rd_kafka_message_t *rkmessage;
+    rd_kafka_headers_t *hdrs;
 
     rkmessage = rd_kafka_consumer_poll(rk, 10000);
 
@@ -659,6 +699,15 @@ kafka_transactional_consumer_consume(Consumer c, Message msg)
         }
         rd_kafka_message_destroy(rkmessage);
         return 0;
+    }
+
+    // Here we don't detach the headers so the memory gets cleared when
+    // the message is destroyed.
+    if (!rd_kafka_message_headers(rkmessage, &hdrs)) {
+        if (hdrs){
+            rd_kafka_headers_t *hdrs_copy = rd_kafka_headers_copy(hdrs);
+            message_set_headers(msg, hdrs_copy);
+        }
     }
 
     message_set_data(msg, rkmessage->payload);
@@ -702,6 +751,7 @@ kafka_consumer_consume(Consumer c, Message msg)
 {
     rd_kafka_t *rk = ((Meta) c->meta)->rk;
     rd_kafka_message_t *rkmessage;
+    rd_kafka_headers_t *hdrs;
 
     rkmessage = rd_kafka_consumer_poll(rk, 10000);
 
@@ -726,6 +776,15 @@ kafka_consumer_consume(Consumer c, Message msg)
         }
         rd_kafka_message_destroy(rkmessage);
         return 0;
+    }
+
+    // Here we don't detach the headers so the memory gets cleared when
+    // the message is destroyed.
+    if (!rd_kafka_message_headers(rkmessage, &hdrs)) {
+        if (hdrs){
+            rd_kafka_headers_t *hdrs_copy = rd_kafka_headers_copy(hdrs);
+            message_set_headers(msg, hdrs_copy);
+        }
     }
 
     char *cpy = SCALLOC((int)rkmessage->len + 1, sizeof(*cpy));
