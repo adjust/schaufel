@@ -317,7 +317,7 @@ postgres_producer_produce(Producer p, Message msg)
     }
 
     m->count = m->count + 1;
-    if (m->count == 2000)
+    if (m->count >= m->commit_interval)
     {
         commit(&m);
     }
@@ -383,7 +383,7 @@ postgres_validate(config_setting_t *config)
 
     Array master = NULL,replica = NULL;
 
-    int m, r, threads;
+    int m, r, threads, commit_interval;
     bool ret = true;
 
     // We need the parent list, because the postgres
@@ -394,6 +394,9 @@ postgres_validate(config_setting_t *config)
         ret = false;
     if(!CONF_L_IS_INT(config, "threads", &threads, "require a threads integer"))
         ret = false;
+    if(!CONF_L_IS_INT(config, "commit_interval", &commit_interval,
+                      "require a commit interval integer"))
+        commit_interval = 2000;
     if(!ret) goto error;
 
     master = parse_hostinfo_master((char*) hosts);
@@ -449,6 +452,9 @@ postgres_validate(config_setting_t *config)
 
         setting = config_setting_add(instance, "threads", CONFIG_TYPE_INT);
         config_setting_set_int(setting, threads);
+
+        setting = config_setting_add(instance, "commit_interval", CONFIG_TYPE_INT);
+        config_setting_set_int(setting, commit_interval);
 
         if(r && (array_get(replica,i) != NULL)) {
             setting = config_setting_add(instance, "replica", CONFIG_TYPE_STRING);
