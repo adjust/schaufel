@@ -24,8 +24,8 @@ jobs:
       matrix:
         os:
           - ubuntu-20.04
-          # # Disable jammy
-          # - ubuntu-22.04
+          - ubuntu-22.04
+          - ubuntu-24.04
         cc:
           - gcc
           # # Disable Clang (enable required: matrix.include.cc: clang)
@@ -48,7 +48,7 @@ jobs:
       CFLAGS: ${{ matrix.CFLAGS }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fetch update package information
         run: sudo apt-get update --assume-yes
@@ -69,9 +69,9 @@ jobs:
         run: make package-deb
 
       - name: Upload package(s)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Packages
+          name: Packages-${{ matrix.os }}
           path: |
             schaufel_*.buildinfo
             schaufel_*.changes
