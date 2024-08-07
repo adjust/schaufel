@@ -13,14 +13,12 @@ Build-Depends: debhelper (>= 12),
 Standards-Version: 0.11
 
 Package: schaufel
-Version: 0.11
 Architecture: any
-Multi-Arch: foreign
-Pre-Depends: dh-systemd (>= 12),
+Pre-Depends: dh-systemd (>= 12) | debhelper (>= 12),
   dpkg
 Depends: libconfig9 (>= 1.5~),
-  libhiredis0.14 (>= 0.14~),
-  libjson-c4 (>= 0.13~),
+  libhiredis0.14 (>= 0.14~) | libhiredis1.1.0 (>= 1.2~),
+  libjson-c4 (>= 0.13~) | libjson-c5 (>= 0.15~),
   libpq5 (>= 12.~),
   librdkafka1 (>= 1.2~)
 Description: schaufel aims to be a swiss army knife for moving data.

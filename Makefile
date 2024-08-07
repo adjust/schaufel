@@ -36,8 +36,9 @@ DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
 SCHAUFEL_VERSION ?= 0.11
 
 ARCH = $(shell uname -m)
-# OS_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="ID") print $$2}')
+OS_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="ID") print $$2}')
 # OS_VERSION_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_ID") print $$2}')
+OS_VERSION_ID_NUMERIC = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_ID") print $$2}' | tr -d \"\.)
 CC_VERSION = $(shell $(CC) -dumpversion | awk -F. '{print $$1}')
 # PACKAGE_DEB_DIR = schaufel-$(SCHAUFEL_VERSION)-$(OS_ID)$(OS_VERSION_ID)-$(CC)$(CC_VERSION)-$(ARCH)
 PACKAGE_DEB_DIR = schaufel-$(SCHAUFEL_VERSION)-$(CC)$(CC_VERSION)-$(ARCH)
@@ -95,3 +96,8 @@ package-deb: all
 	$(INSTALL) -m 0644 LICENSE $(PACKAGE_DEB_DIR)/DEBIAN/copyright
 	ln -s DEBIAN $(PACKAGE_DEB_DIR)/debian
 	cd $(PACKAGE_DEB_DIR) && dpkg-buildpackage --build=binary
+	cd ../
+
+	for _extension in buildinfo changes deb; do \
+		mv schaufel_${SCHAUFEL_VERSION}_amd64.$${_extension} schaufel_${SCHAUFEL_VERSION}_${OS_ID}${OS_VERSION_ID_NUMERIC}_amd64.$${_extension}; \
+	done
