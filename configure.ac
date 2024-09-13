@@ -1,6 +1,6 @@
 AC_PREREQ([2.62])
 AC_CONFIG_MACRO_DIR(m4)
-AC_INIT([schaufel], [0.11], [ops@adjust.com], [https://github.com/adjust/schaufel])
+AC_INIT([schaufel], [0.11.1], [ops@adjust.com], [https://github.com/adjust/schaufel])
 AM_INIT_AUTOMAKE([subdir-objects])
 
 ############################################################
