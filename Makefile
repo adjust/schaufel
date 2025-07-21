@@ -33,10 +33,11 @@ OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR)/%.o, $(TEST_SOURCES))
 
 DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
 
-SCHAUFEL_VERSION ?= 0.11.1
+SCHAUFEL_VERSION ?= 0.11.2
 
 ARCH = $(shell uname -m)
 OS_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="ID") print $$2}')
+OS_CODENAME = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_CODENAME") print $$2}')
 # OS_VERSION_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_ID") print $$2}')
 OS_VERSION_ID_NUMERIC = $(shell cat /etc/os-release | awk -F= '{if ($$1=="VERSION_ID") print $$2}' | tr -d \"\.)
 CC_VERSION = $(shell $(CC) -dumpversion | awk -F. '{print $$1}')
@@ -99,5 +100,5 @@ package-deb: all
 	cd ../
 
 	for _extension in buildinfo changes deb; do \
-		mv schaufel_${SCHAUFEL_VERSION}_amd64.$${_extension} schaufel_${SCHAUFEL_VERSION}_${OS_ID}${OS_VERSION_ID_NUMERIC}_amd64.$${_extension}; \
+		mv schaufel_${SCHAUFEL_VERSION}_amd64.$${_extension} schaufel_${SCHAUFEL_VERSION}_${OS_ID}${OS_CODENAME}_amd64.$${_extension}; \
 	done
