@@ -1,3 +1,9 @@
+schaufel (0.11.2) unstable; urgency=low
+
+  * debian/postinst: Removed static UID/GID
+
+ -- DevOps <devops@adjust.com>  22 Jul 2025 09:15:08 +0000
+
 schaufel (0.11.1) unstable; urgency=low
 
   * debian/control: Updated dependencies from Ubuntu Jammy and Noble
@@ -6,7 +12,7 @@ schaufel (0.11.1) unstable; urgency=low
 
 schaufel (0.11) unstable; urgency=low
 
-  * support for callbacks via metadata (transactional producers) (Closes: #97) 
+  * support for callbacks via metadata (transactional producers) (Closes: #97)
   * full autoconf build system
   * full endian.h portability
   * full freebsd compatibility
