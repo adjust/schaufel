@@ -100,5 +100,5 @@ package-deb: all
 	cd ../
 
 	for _extension in buildinfo changes deb; do \
-		mv schaufel_${SCHAUFEL_VERSION}_amd64.$${_extension} schaufel_${SCHAUFEL_VERSION}_${OS_ID}${OS_CODENAME}_amd64.$${_extension}; \
+		mv schaufel_${SCHAUFEL_VERSION}_amd64.$${_extension} schaufel_${SCHAUFEL_VERSION}_${OS_ID}_${OS_CODENAME}_amd64.$${_extension}; \
 	done
