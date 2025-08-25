@@ -29,4 +29,4 @@ override_dh_installman:
 	dh_installman --sourcedir=usr/local/share/man
 
 override_dh_installsystemd:
-	dh_installsystemd --no-enable --no-restart-after-upgrade --no-restart-on-upgrade --no-start schaufel.service
+	dh_installsystemd --no-enable --no-restart-after-upgrade --no-restart-on-upgrade --no-start schaufel@.service
