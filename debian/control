@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 12),
   libjson-c-dev,
   libpq-dev,
   librdkafka-dev
-Standards-Version: 0.11.2
+Standards-Version: 0.12
 
 Package: schaufel
 Architecture: any
