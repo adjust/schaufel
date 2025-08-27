@@ -9,11 +9,11 @@ After=network.target
 WorkingDirectory=/var/lib/schaufel
 User=schaufel
 Group=schaufel
-SyslogIdentifier=%p
+SyslogIdentifier=%p_%i
 
 ## systemd.service
 Type=simple
-ExecStart=/usr/bin/schaufel -l /var/log/schaufel/%p.log -C /etc/schaufel/%p.conf
+ExecStart=/usr/bin/schaufel -l /var/log/schaufel/%i.log -C /etc/schaufel/%i.conf
 Restart=no
 SuccessExitStatus=0
 TimeoutStopSec=1800

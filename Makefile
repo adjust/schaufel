@@ -33,7 +33,7 @@ OBJ_BIN_TEST = $(patsubst t/%.c, $(OBJDIR)/%.o, $(TEST_SOURCES))
 
 DOCS = $(patsubst man/%, doc/%.pdf , $(wildcard man/*))
 
-SCHAUFEL_VERSION ?= 0.12
+SCHAUFEL_VERSION ?= 0.12.1
 
 ARCH = $(shell uname -m)
 OS_ID = $(shell cat /etc/os-release | awk -F= '{if ($$1=="ID") print $$2}')
