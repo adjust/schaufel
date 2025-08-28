@@ -1,3 +1,9 @@
+schaufel (0.12.1) unstable; urgency=low
+
+  * debian/schaufel@.service: fix error in service template
+
+ -- DevOps <devops@adjust.com>  Wed, 27 Aug 2025 14:27:32 +0000
+
 schaufel (0.12) unstable; urgency=low
 
   * debian/rules: change the service file name
