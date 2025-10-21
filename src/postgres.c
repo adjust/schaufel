@@ -270,8 +270,8 @@ postgres_producer_produce(Producer p, Message msg)
         }
         PQclear(m->res);
 
-        if(m->cpyfmt  == POSTGRES_BINARY)
-            PQputCopyData(m->conn_master, binheader, 19);
+        if (m->cpyfmt == POSTGRES_BINARY)
+            xPQputCopyData(m->conn_master, binheader, 19);
 
         if (m->conninfo_replica)
         {
@@ -283,8 +283,8 @@ postgres_producer_produce(Producer p, Message msg)
             }
             PQclear(m->res);
 
-            if(m->cpyfmt  == POSTGRES_BINARY)
-                PQputCopyData(m->conn_replica, binheader, 19);
+            if (m->cpyfmt == POSTGRES_BINARY)
+                xPQputCopyData(m->conn_replica, binheader, 19);
         }
         m->copy = 1;
     }
@@ -292,28 +292,28 @@ postgres_producer_produce(Producer p, Message msg)
     if (m->cpyfmt != POSTGRES_BINARY) {
         if (lit[0] == ' ' && lit[1] == 'E')
         {
-            PQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
+            xPQputCopyData(m->conn_master, lit + 3, strlen(lit) - 4);
             if (m->conninfo_replica)
-                PQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
+                xPQputCopyData(m->conn_replica, lit + 3, strlen(lit) - 4);
         }
         else if (lit[0] == '\'')
         {
-            PQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
+            xPQputCopyData(m->conn_master, lit + 1, strlen(lit) - 2);
             if (m->conninfo_replica)
-                PQputCopyData(m->conn_replica, lit + 1, strlen(lit) - 2);
+                xPQputCopyData(m->conn_replica, lit + 1, strlen(lit) - 2);
         }
         else
             abort();
 
-        PQputCopyData(m->conn_master, newline, 1);
+        xPQputCopyData(m->conn_master, newline, 1);
 
         if (m->conninfo_replica)
-            PQputCopyData(m->conn_replica, newline, 1);
+            xPQputCopyData(m->conn_replica, newline, 1);
     } else {
-       PQputCopyData(m->conn_master, buf, len);
+       xPQputCopyData(m->conn_master, buf, len);
 
        if (m->conninfo_replica)
-           PQputCopyData(m->conn_replica, buf, len);
+           xPQputCopyData(m->conn_replica, buf, len);
     }
 
     m->count = m->count + 1;
