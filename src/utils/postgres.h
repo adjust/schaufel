@@ -20,6 +20,7 @@ typedef struct Meta {
     int             cpyfmt;
     int             count;
     int             copy;
+    int             commit_interval;
     int             commit_iter;
     pthread_mutex_t commit_mutex;
     pthread_t       commit_worker;
