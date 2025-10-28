@@ -14,7 +14,11 @@ SyslogIdentifier=%p_%i
 ## systemd.service
 Type=simple
 ExecStart=/usr/bin/schaufel -l /var/log/schaufel/%i.log -C /etc/schaufel/%i.conf
-Restart=no
+Restart=on-failure
+RestartPreventExitStatus=SIGTERM
+RestartSec=3s
+StartLimitIntervalSec=1min
+StartLimitBurst=5
 SuccessExitStatus=0
 TimeoutStopSec=1800
 
