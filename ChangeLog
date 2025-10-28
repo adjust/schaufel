@@ -1,3 +1,9 @@
+schaufel (0.12.2) unstable; urgency=low
+
+  * debian/schaufel@.service: Added restart options
+
+ -- DevOps <devops@adjust.com>  Tue, 28 Oct 2025 16:50:37 +0000
+
 schaufel (0.12.1) unstable; urgency=low
 
   * debian/schaufel@.service: fix error in service template
