@@ -144,7 +144,7 @@ consume(void *config)
                 continue;
 
             //todo: check result of queue_add()
-            queue_add(q, message_get_data(msg), message_get_len(msg),
+            queue_add(q, message_get_data(msg), message_get_len(msg), message_get_headers(msg),
                 message_get_xmark(msg),message_get_metadata(msg));
             //give up ownership
             message_set_data(msg, NULL);
@@ -201,7 +201,9 @@ produce(void *config)
             metadata_callback_run(m,msg);
             //message was handled: free it
             free(message_get_data(msg));
+            free(message_get_headers(msg));
             message_set_data(msg, NULL);
+            message_set_headers(msg, NULL);
             metadata_free(message_get_metadata(msg));
         }
     }
