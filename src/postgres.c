@@ -257,6 +257,12 @@ postgres_producer_produce(Producer p, Message msg)
         }
 
         lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
+        if (lit == NULL)
+        {
+            logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));
+            logger_log("%s %d: %s: %s", __FILE__, __LINE__, "Error on string:", buf);
+            return;
+        }
     }
 
     pthread_mutex_lock(&m->commit_mutex);
@@ -323,7 +329,7 @@ postgres_producer_produce(Producer p, Message msg)
     }
     pthread_mutex_unlock(&m->commit_mutex);
 
-    free(lit);
+    PQfreemem(lit);
 }
 
 void
