@@ -5,6 +5,7 @@
 #include <string.h>
 #include <regex.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
 #include "utils/config.h"
 #include "utils/logger.h"
@@ -16,6 +17,8 @@
 
 #define PATH_SEPARATOR '/'
 
+// protect against multi thread access to config structure
+static pthread_mutex_t config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int get_thread_count(config_t* config, int type)
 {
@@ -415,6 +418,7 @@ void config_group_apply(const config_setting_t *options, group_func func, void *
     if (!options)
         return;
 
+    pthread_mutex_lock(&config_mutex);
     noptions = config_setting_length(options);
 
     for (int i = 0; i < noptions; ++i)
@@ -429,6 +433,7 @@ void config_group_apply(const config_setting_t *options, group_func func, void *
 
         func(key, value, arg);
     }
+    pthread_mutex_unlock(&config_mutex);
 }
 
 /*
