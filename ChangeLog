@@ -1,3 +1,11 @@
+schaufel (0.12.2) unstable; urgency=medium
+
+  * src/postgres.c: add protection against later-on multibyte sequence
+    detection
+  * src/utils/config.c: protect libconfig access from race conditions
+
+ -- Ops <ops@adjust.com>  Thu, 29 Jan 2026 15:37:00 +0000
+
 schaufel (0.12.1) unstable; urgency=low
 
   * debian/schaufel@.service: fix error in service template
