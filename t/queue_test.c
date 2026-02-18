@@ -21,13 +21,13 @@ main(void)
     Metadata *md = message_get_metadata(msg);
     message_set_xmark(msg,1);
     char *data = "moep";
-    queue_add(q, data, strlen(data), 1, md);
+    queue_add(q, data, strlen(data), NULL, 1, md);
 
     Message msg2 = message_init();
     md = message_get_metadata(msg2);
     message_set_xmark(msg2,65535);
     char *data2 = "huuuurz";
-    queue_add(q, data2, strlen(data2), 65535, md);
+    queue_add(q, data2, strlen(data2), NULL, 65535, md);
 
     queue_get(q, msg2);
     queue_get(q, msg);

@@ -12,6 +12,7 @@ typedef struct Message
 {
     void    *data;
     size_t   datalen;
+    void     *headers;
     int64_t  xmark;
     Metadata metadata;
 } *Message;
@@ -66,6 +67,22 @@ message_get_len(Message msg)
     if (msg == NULL)
         return 0;
     return msg->datalen;
+}
+
+void
+message_set_headers(Message msg, void *headers)
+{
+    if (msg)
+        msg->headers = headers;
+}
+
+void *
+message_get_headers(Message msg)
+{
+    if (msg == NULL){
+        return NULL;
+    }
+    return msg->headers;
 }
 
 int64_t
@@ -237,7 +254,7 @@ _xmark_find(Queue q, uint32_t mark)
 }
 
 int
-queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
+queue_add(Queue q, void *data, size_t datalen, void *headers, int64_t xmark, Metadata *md)
 {
     MessageList newmsg;
     /* We can afford to allocate the message before
@@ -252,6 +269,7 @@ queue_add(Queue q, void *data, size_t datalen, int64_t xmark, Metadata *md)
     }
     newmsg->msg->datalen = datalen;
     newmsg->msg->data = data;
+    newmsg->msg->headers = headers;
     newmsg->msg->xmark = xmark;
     newmsg->msg->metadata = *md;
     newmsg->next = NULL;
@@ -414,6 +432,7 @@ queue_get(Queue q, Message msg)
     msg->data = firstrec->msg->data;
     msg->datalen = firstrec->msg->datalen;
     msg->metadata = firstrec->msg->metadata;
+    msg->headers = firstrec->msg->headers;
 
     /* this line can cause an unfinishable queue
      * consumers do not need xmark anylonger

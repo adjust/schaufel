@@ -16,15 +16,17 @@ void      message_set_metadata(Message msg, Metadata md);
 void     *message_get_data(Message msg);
 void      message_set_data(Message msg, void *data);
 size_t    message_get_len(Message msg);
+void      message_set_len(Message msg, size_t len);
+void     *message_get_headers(Message msg);
+void      message_set_headers(Message msg, void *data);
 int64_t   message_get_xmark(Message msg);
 void      message_set_xmark(Message msg, int64_t xmark);
-void      message_set_len(Message msg, size_t len);
 void      message_free(Message *msg);
 
 typedef struct Queue *Queue;
 
 Queue queue_init(config_setting_t *config);
-int  queue_add(Queue q, void *data, size_t datalen, int64_t msgtype, Metadata *md);
+int  queue_add(Queue q, void *data, size_t datalen, void *headers, int64_t msgtype, Metadata *md);
 int  queue_get(Queue q, Message msg);
 long queue_length(Queue q);
 long queue_added(Queue q);
