@@ -633,7 +633,7 @@ exports_producer_produce(Producer p, Message msg)
             abort();
         }
         PQclear(m->res);
-        PQputCopyData(m->conn_master,
+        xPQputCopyData(m->conn_master,
             "PGCOPY\n\377\r\n\0" //postgres magic
             "\0\0\0\0"  // flags field (only bit 16 relevant)
             "\0\0\0\0"  // Header extension area
@@ -658,16 +658,16 @@ exports_producer_produce(Producer p, Message msg)
         goto fail;
     }
 
-    PQputCopyData(m->conn_master, (char *) &rows, 2);
+    xPQputCopyData(m->conn_master, (char *) &rows, 2);
 
     for (int i = 0; i < internal->ncount; i++) {
         if(!needles[i]->store)
             continue;
         uint32_t length =  htobe32(needles[i]->length);
-        PQputCopyData(m->conn_master, (void *) &length, 4);
+        xPQputCopyData(m->conn_master, (void *) &length, 4);
 
         if(needles[i]->result) {
-            PQputCopyData(m->conn_master, needles[i]->result, needles[i]->length);
+            xPQputCopyData(m->conn_master, needles[i]->result, needles[i]->length);
             needles[i]->free(&needles[i]->result);
         }
     }
