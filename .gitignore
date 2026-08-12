@@ -71,3 +71,6 @@ stamp-h1
 src/schaufel
 /t/*
 !/t/*.c
+
+# local configs (doc/*.conf and sample/ are tracked)
+/*.conf

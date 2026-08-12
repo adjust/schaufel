@@ -1,0 +1,26 @@
+.git
+.github
+.gitignore
+
+# build artifacts -- host builds must not leak into the image
+obj/
+bin/
+doc/*.pdf
+schaufel-*-*-*/
+*.o
+*.deb
+*.buildinfo
+*.changes
+
+# autotools output
+autom4te.cache/
+Makefile.in
+aclocal.m4
+config.h.in
+config.log
+config.status
+configure
+build-aux/
+
+# local test configs (root level only; doc/*.conf is kept)
+*.conf
