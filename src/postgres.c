@@ -34,22 +34,29 @@ _connectinfo(const char *host, const char *dbname, const char *user)
     if (host == NULL)
         return NULL;
     char *hostname;
+    char *socket_dir = NULL;
     int   port = 0;
     char *conninfo;
     int   ret;
 
-    if (parse_connstring(host, &hostname, &port) == -1)
+    if (parse_connstring(host, &hostname, &port, &socket_dir) == -1)
         abort();
 
+    /* a third field ("host:port:/socket/dir") connects via unix socket
+     * instead of TCP; hostname/port are unaffected and still used below
+     * (and separately in _cpycmd) to name the destination table */
+    const char *connect_host = socket_dir != NULL ? socket_dir : hostname;
+
     char *fmt = "dbname=%s user=%s host=%s port=%d";
-    int len = strlen(fmt) + strlen(host) + strlen(dbname) + strlen(user) + 20;
+    int len = strlen(fmt) + strlen(connect_host) + strlen(dbname) + strlen(user) + 20;
 
     conninfo = SCALLOC(len, 1);
-    ret = snprintf(conninfo, len, fmt, dbname, user, hostname, port);
+    ret = snprintf(conninfo, len, fmt, dbname, user, connect_host, port);
     if (ret < 0)
         abort();
 
     free(hostname);
+    free(socket_dir);
     return conninfo;
 }
 
@@ -76,7 +83,7 @@ _cpycmd(const char *host, const char *generation, postgres_format fmt)
     char *hostname;
     int port = 0;
 
-    if (parse_connstring((char *)host, &hostname, &port) == -1)
+    if (parse_connstring((char *)host, &hostname, &port, NULL) == -1)
         abort();
 
     char *ptr = hostname;
@@ -249,14 +256,17 @@ postgres_producer_produce(Producer p, Message msg)
 
     if (m->cpyfmt != POSTGRES_BINARY)
     {
-        char *s = strstr(buf, "\\u0000");
-        if (s != NULL)
+        repair_null_escape(buf);
+
+        int sanitized = sanitize_utf8(buf, len);
+        if (sanitized == -1)
         {
-            logger_log("found invalid unicode byte sequence: %s", buf);
+            logger_log("%s %d: payload contains an embedded NUL byte, discarding",
+                       __FILE__, __LINE__);
             return;
         }
 
-        lit = PQescapeLiteral(m->conn_master, buf, strlen(buf));
+        lit = PQescapeLiteral(m->conn_master, buf, len);
         if (lit == NULL)
         {
             logger_log("%s %d: %s", __FILE__, __LINE__, PQerrorMessage(m->conn_master));

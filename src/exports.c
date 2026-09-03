@@ -124,7 +124,7 @@ _connectinfo(const char *host)
     char *hostname;
     int port = 0;
 
-    if (parse_connstring(host, &hostname, &port) == -1)
+    if (parse_connstring(host, &hostname, &port, NULL) == -1)
         abort();
 
     int len = strlen(hostname)
@@ -472,7 +472,7 @@ _cpycmd(const char *host, const char *table)
     char *hostname;
     int port = 0;
 
-    if (parse_connstring(host, &hostname, &port) == -1)
+    if (parse_connstring(host, &hostname, &port, NULL) == -1)
         abort();
 
     const char *fmtstring = "COPY %s FROM STDIN ( FORMAT binary )";
