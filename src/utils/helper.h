@@ -11,7 +11,11 @@ int options_validate(Options o);
 
 size_t number_length(long number);
 
-int parse_connstring(const char *conninfo, char **hostname, int *port);
+int parse_connstring(const char *conninfo, char **hostname, int *port, char **socket_dir);
+
+int repair_null_escape(char *buf);
+
+int sanitize_utf8(char *buf, size_t len);
 
 bool get_state(const volatile atomic_bool *state);
 bool set_state(volatile atomic_bool *state, bool value);
