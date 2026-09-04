@@ -82,6 +82,10 @@ Redis consumer/producer pipelining. Batch n commands before inspecting
 the result. Upstream recommends no more than 10000 commands be batched.
 This feature is purely optional.
 .TP
+.B \-u|\-U \fIusername\fR
+Postgres consumer/producer database user. Defaults to "postgres" when
+omitted.
+.TP
 .B \-l \fIlogstring\fR
 Configure logger. Possible values are
 \fBFILE:mode:filename\fR | \fBFILE:filename\fR | \fBfilename\fR |

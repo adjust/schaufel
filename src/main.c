@@ -76,6 +76,8 @@ print_usage()
            "        :       Requires exactly one integer argument (default: 0)\n"
            "        :       0 disables pipelining\n"
            "        :       Redis: 10k is upstream recommended max\n"
+           "-u | -U : consumer / producer database user (only postgres)\n"
+           "        :       Defaults to \"postgres\" when omitted\n"
            "-l      : path to the log file\n"
            "-V      : print version\n"
            "\n");
@@ -276,7 +278,7 @@ main(int argc, char **argv)
     config_t config;
     config_init(&config);
 
-    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:B:C:H:G:T:F:S:V")) != -1)
+    while ((opt = getopt(argc, argv, "l:i:o:c:p:b:h:g:t:f:s:u:B:C:H:G:T:F:S:U:V")) != -1)
     {
         switch (opt)
         {
@@ -316,6 +318,9 @@ main(int argc, char **argv)
             case 's':
                 o.in_pipeline = atoi(optarg);
                 break;
+            case 'u':
+                o.in_user = optarg;
+                break;
             case 'B':
                 o.out_broker = optarg;
                 break;
@@ -338,6 +343,9 @@ main(int argc, char **argv)
                 break;
             case 'S':
                 o.out_pipeline = atoi(optarg);
+                break;
+            case 'U':
+                o.out_user = optarg;
                 break;
             case 'V':
                 print_version();
