@@ -15,6 +15,7 @@ typedef struct Options {
     char *in_file;
     char *in_groupid;
     char *in_topic;
+    char *in_user;
     char  output;
     char *out_host;
     char *out_host_replica;
@@ -23,6 +24,7 @@ typedef struct Options {
     char *out_file;
     char *out_groupid;
     char *out_topic;
+    char *out_user;
     char *logger;
     Array in_hosts;
     Array out_hosts;

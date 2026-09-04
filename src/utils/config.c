@@ -308,6 +308,10 @@ config_merge(config_t* config, Options o)
             setting = _add_member(parent, "pipeline", CONFIG_TYPE_INT);
             config_setting_set_int(setting, o.in_pipeline);
         }
+        if (o.in_user) {
+            setting = _add_member(parent, "user", CONFIG_TYPE_STRING);
+            config_setting_set_string(setting, o.in_user);
+        }
     }
 
     //producers
@@ -343,6 +347,10 @@ config_merge(config_t* config, Options o)
         if (o.out_pipeline) {
             setting = _add_member(parent, "pipeline", CONFIG_TYPE_INT);
             config_setting_set_int(setting, o.out_pipeline);
+        }
+        if (o.out_user) {
+            setting = _add_member(parent, "user", CONFIG_TYPE_STRING);
+            config_setting_set_string(setting, o.out_user);
         }
     }
 }
