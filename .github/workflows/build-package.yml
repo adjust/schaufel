@@ -112,3 +112,75 @@ jobs:
             schaufel_*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-image:
+    needs: build-deb-gcc
+    name: Container image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      # only the upstream repository publishes, and only for a release:
+      # workflow_dispatch and forks build without pushing
+      PUBLISH: ${{ github.event_name == 'release' && github.repository == 'adjust/schaufel' }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: |
+          version="$(sed -n 's/^SCHAUFEL_VERSION[[:space:]]*?=[[:space:]]*//p' Makefile)"
+          if [[ -z "${version}" ]]; then
+              echo "could not read SCHAUFEL_VERSION from Makefile" >&2
+              exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "image version: ${version}"
+
+      # the image must carry the same version as the deb packages, which take
+      # it from SCHAUFEL_VERSION in the Makefile
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ "${RELEASE_TAG#v}" != "${PACKAGE_VERSION}" ]]; then
+              echo "release tag '${RELEASE_TAG}' does not match SCHAUFEL_VERSION" \
+                  "'${PACKAGE_VERSION}' in the Makefile" >&2
+              exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ${{ env.REGISTRY }}
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          # a single platform without attestations is pushed as a plain image
+          # manifest, which every runtime can pull
+          provenance: false
+          sbom: false
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
